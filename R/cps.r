@@ -1,7 +1,7 @@
 #' @import nseval
 
-log <- function(...) NULL
-log <- print
+trace <- function(...) NULL
+# trace <- function(...) cat(..., "\n")
 
 # The first group of arguments corresponds to expressions in the
 # language. They are continuation functions that provide their
@@ -29,13 +29,13 @@ generator_builtins <- c(
   "next", "break", "yield", "block", "repeat", "while", "for")
 
 `(_cps` <- function(expr) {
-  log(where <- "(_cps outer")
+  trace(where <- "(_cps outer")
   function(cont, ..., ret) {
-    log(where <- "(_cps inner")
+    trace(where <- "(_cps inner")
     expr(function(val) {
-      log(where <- "(_cps callback")
+      trace(where <- "(_cps callback")
       force(val)
-      log(where <- "(_cps forced")
+      trace(where <- "(_cps forced")
       ret(cont, val)
     }, ..., ret=ret)
 }}
@@ -43,62 +43,31 @@ generator_builtins <- c(
 # arg_cps interfaces between normal R evluation and the CPS system.
 # I clone its unevaluated arg and feed that to the continuation.
 arg_cps <- function(x) {
-  log(where <- "arg_cps outer")
+  trace(where <- "arg_cps outer")
   x <- arg(x) #capture the lazy arg
   function(cont,
            ret = function(cont, ...) cont(...),
            stop = base::stop, ...) {
-    log(where <- "arg_cps inner")
+    trace(where <- "arg_cps inner")
     do(cont, x)
+  }
+  ## Hold up does it make sense at all to use tryCatch in
+  ## continuation functions?  Maybe only from pump? Then how would
+  ## tryCatch catch natural errors?  Maybe we should explicitly
+  ## force
 
-    ## Hold up does it make sense at all to use tryCatch in continuation functions?
-    ## No, only from pump? Then how would tryCatch catch natural errors?
-    ## Maybe we should explicitly force?
-      ## out <- tryCatch({
-      ##   where <- log("arg_cps: trycatch starting")
-      ##   do(cont, x)
-      ## }, #okay this is kind of wild, in that x might be
-      ##   #forced after "cont" thunks a return, in which
-      ##   #case this will not catch. So the pump has to
-      ##   #establish an error handler too? Or, well, R has the same issue
-      ##   #with exceptions vs lazy eval.
-      ## error = function(...) {
-      ##   log(where <- "arg_cps: trycatch error")
-      ##   log(deparse(list(...)), "\n")
-      ##   ret(stop, ...)
-      ## })
-      ## log(where <- "arg_cps: trycatch finished")
-      ## out
-      }
+  ## Actually, what we need to do to supprt tryCatch -- because we
+  ## need to catch errors coming from user code in arg_expr, because
+  ## the list of watched-for conditions changes during pumping,
+  ## and because the -- is to pass down a _list_ of registered CPS
+  ## handlers, and then have arg_expr wind them up on every
+  ## invocation. Or perhaps some effort could be saved by thunking them
+  ## upwards from the tryCatch and having
+  ## pump() wind them up (this would also catch errors from generator
+  ## internals, though)
 }
 
-## arg_cps <- function(...) {
-##   where <- log("arg_cps outer")
-##   cont <- NULL
-##   continue <- function() {
-##     ehere <- log("arg_cps inner 2")
-##     cont(...)
-##   }
-##   function(cont, ...) {
-##     cont <<- cont
-##     where <- log("arg_cps inner")
-##     continue() # get away from execution context...
-##   }
-## }
-
-
-# Here's an idea for sigils and restarts: you traditionally pass "..."
-# down through the stack alongside "cont". When construct want a
-# signal "next" or such, it adds "next" to the continuation
-# arguments. Traditionally "ret" is one of these.
-
-# Note on handling of ...; the rule is that you should
-# always pass ... "down" the stack into val-continuations
-# but reject "..." from val-continuations
-# "below" you on the syntax tree. Discard ... when returning
-# via ret().
-
-store <- function(sym) function(x, value) function(cont, ret, ...) {
+make_store <- function(sym) function(x, value) function(cont, ret, ...) {
   dest <- NULL
   got_x <- function(val) {
     dest <<- arg(val)
@@ -114,8 +83,8 @@ store <- function(sym) function(x, value) function(cont, ret, ...) {
   x(got_x, ret=ret, ...)
 }
 
-`<-_cps` <- store(quote(`<-`))
-`<<-_cps` <- store(quote(`<<-`))
+`<-_cps` <- make_store(quote(`<-`))
+`<<-_cps` <- make_store(quote(`<<-`))
 
 `&&_cps` <- function(left, right) function(cont, ret, ...) {
   #get the lval, then
@@ -126,8 +95,8 @@ store <- function(sym) function(x, value) function(cont, ret, ...) {
     } else {
       ret(cont, FALSE)
     }
-    # *when we return using "val" it should be to a function that had
-    # *us in the left arglist.
+    # check: when we return using "val" it should be to a function that had
+    # us in the left arglist.
   }
   got_right <- function(val) {
     if(val) {
@@ -271,6 +240,19 @@ switch_cps <- function(EXPR, ...) {
 # CHECK: Ensure that all arguments other than the first are passed by name.
 # CHECK: Ensure that ... are discarded when receiving a "val"
 
+
+# Here's how sigils and restarts are handled: continuation functions
+# accept and pass down a list of alternate continuations (...) through
+# the right hand side. Of these we have "cont" and "ret" always.  When
+# a CPS function wants a signal "next" or such, it adds "nxt" to the
+# continuation arguments.
+
+# Note on handling of ...; the rule is that you should
+# always pass ... "down" the stack into val-continuations
+# but reject "..." from val-continuations
+# "below" you on the syntax tree. Discard ... when returning
+# via ret().
+
 next_cps <- function() function(cont, ..., ret, nxt) {
   if (missing(nxt)) stop("next called, but we do not seem to be in a loop")
   ret(nxt)
@@ -282,13 +264,19 @@ break_cps <- function() function(cont, ..., ret, brk) {
 }
 
 yield_cps <- function(expr) function(cont, ..., ret, yield) {
-  log("Yield called")
+  trace("Yield called")
   if (missing(yield)) stop("yield called, but we do not seem to be in a generator")
   got_val <- function(val) {
-    log("Got a yield value")
+    trace("Got a yield value")
     ret(yield, cont, val)
   }
   expr(got_val, ..., ret=ret, yield=yield)
+}
+
+#' @export
+#'
+yield <- function(expr) {
+  stop("Yield must be called inside of a gen() expression")
 }
 
 block_cps <- function(expr) function(cont, ..., ret, block) {
@@ -301,6 +289,12 @@ block_cps <- function(expr) function(cont, ..., ret, block) {
   } else {
     expr(got_val, ..., ret=ret, block=block)
   }
+}
+
+#' @export
+#'
+block <- function(expr) {
+  stop("Block must be called inside of a delay() expression")
 }
 
 repeat_cps <- function(expr) function(cont, ..., ret) {
@@ -321,6 +315,12 @@ resolve_cps <- function(expr) function(cont, ..., ret, resolve) {
   if (missing(resolve)) stop("resolve called but we do not seem to be in a delay")
   got_val <- function(...) ret(resolve, cont, ...)
   expr(got_val, ..., ret=ret, resolve=resolve)
+}
+
+#' @export
+#'
+resolve <- function(expr) {
+  stop("resolve must be called inside of a delay() expression")
 }
 
 while_cps <- function(cond, expr) function(cont, ..., ret) {
@@ -362,24 +362,31 @@ for_cps <- function(var, seq, expr) function(cont, ..., ret) {
     seq(got_seq, ..., ret=ret, brk = brk)
   }
   got_seq <- function(val) {
-    log(paste("for got seq", deparse(val), "length", length(val)))
-    seq <<- val
+    trace(paste("for got seq", deparse(val), "length", length(val)))
+    seq <<- iter(val)
     n <<- length(seq)
     iterate()
   }
   iterate <- function() {
-    log("for iterate")
-    i <<- i + 1
-    if (i <= n) {
-      value <<- NULL
-      assign(as.character(nseval::expr(var)), seq[[i]], envir=env(var))
-      expr(got_expr, ..., ret=ret, brk=brk, nxt=nxt)
-    } else {
+    trace("for iterate")
+    stopping <- FALSE
+    val <- tryCatch(nextElem(seq),
+                    error = function(e) {
+                      trace("for caught error", conditionMessage(e))
+                      stopping <<- TRUE
+                      identical(conditionMessage(e), 'StopIteration') || stop(e)
+                    })
+    if (stopping) {
+      trace("for stopIteration")
       ret(cont, invisible(value))
+    } else {
+      value <<- NULL
+      assign(as.character(nseval::expr(var)), val, envir=env(var))
+      expr(got_expr, ..., ret=ret, brk=brk, nxt=nxt)
     }
   }
   got_expr <- function(val) {
-    log("for got value")
+    trace("for got value")
     value <<- val
     ret(iterate)
   }

@@ -9,67 +9,71 @@ pump <- function(expr) make_pump(expr)()
 
 make_pump <- function(expr, ...,
                       ret=base::stop("unused"),
-                      stop=base::stop("unused")) {
+                      stop=base::stop("unused"),
+                      eliminate.tailcalls = TRUE) {
   nonce <- function() NULL
   cont <- expr
   value <- nonce
 
   on_finish <- function(...) {
-    log("pump finishing with value")
+    trace("pump finishing with value")
     value
   }
 
-  ret <- function(cont, ...) {
-    log(where <- "pump ret")
-    list(cont, ...) #force
-    #log(deparse(list(...)))
-    log(where <- "pump ret forced")
-    cont <<- function() {
-      log(where <- "Thunk called")
-      #log(deparse(list(cont, ...)))
+  if (eliminate.tailcalls) {
+    ret <- function(cont, ...) {
+      trace(where <- "pump ret")
+      list(cont, ...) #force
+      #trace(deparse(list(...)))
+      trace(where <- "pump ret forced")
+      cont <<- function() {
+        trace(where <- "Thunk called")
+        #trace(deparse(list(cont, ...)))
+        cont(...)
+      }
+    }
+  } else {
+    ret <- function(cont, ...) {
+      trace(where <- "pump fake ret")
+      list(cont, ...) #force
       cont(...)
     }
   }
 
-  ## ret <- function(cont, ...) {
-  ##   log(where <- "pump fake ret")
-  ##   list(cont, ...) #force
-  ##   cont(...)
-  ## }
-
   stop <- function(...) {
-    log(where <- "pump stop")
-    log(deparse(list(...)))
+    trace(where <- "pump stop")
+    trace(deparse(list(...)))
     on_finish <<- function() {
-      log("pump finishing with error")
-      #log(deparse(list(...)))
+      trace("pump finishing with error")
+      #trace(deparse(list(...)))
       base::stop(...)
     }
   }
 
   got_value <- function(val) {
-    log(where <- "pump got value")
+    trace(where <- "pump got value")
     value <<- val
   }
 
-  function(new_cont) {
+  pump <- function(new_cont) {
     if (missing(new_cont)) {
-      result <- cont(got_value, ..., ret=ret, stop=stop)
+      result <- reset(cont, cont <<- nonce)(got_value, ..., ret=ret, stop=stop)
     } else {
       # the continuation given to us here should be one
       # that the yield/block handler exfiltrated,
       # so context should already be established
       result <- new_cont()
     }
-    log(where <- "pump first return")
+    trace(where <- "pump first return")
     while(!identical(cont, nonce)) {
-      log(where <- "pump thunk")
+      trace(where <- "pump thunk")
       (reset(cont, cont <<- nonce))()
     }
-    log(where <- "pump finish")
+    trace(where <- "pump finish")
     cont <<- on_finish
     on_finish()
   }
+  pump #reset(pump, debug(pump))
 }
 
 
@@ -80,7 +84,7 @@ make_generator <- function(expr, ...) {
   yielded <- nonce
 
   yield <- function(cont, val) {
-    log("Yield handler called")
+    trace("Yield handler called")
     cont <<- function() cont(val) # yield() returns its input
     yielded <<- val
     val
@@ -89,27 +93,27 @@ make_generator <- function(expr, ...) {
   pump <- make_pump(expr, ..., yield=yield)
 
   nextElem <- function(...) {
-    log("nextElem")
+    trace("nextElem")
     result <- tryCatch(
       if (identical(cont, nonce)) pump() else pump(reset(cont, cont <<- nonce)),
       error = function(e) {
-        log("nextElem pump threw error")
+        trace("nextElem pump threw error")
         if (identical(conditionMessage(e), 'StopIteration'))
           e else stop(e)
       })
     if (identical(cont, nonce)) {
-      log("nextElem reached end")
+      trace("nextElem reached end")
       cont <<- function() stop("StopIteration")
       if (identical(yielded, nonce)) {
         stop("StopIteration")
       } else {
-        log("nextElem returning value yielded from end")
+        trace("nextElem returning value yielded from end")
         reset(yielded, yielded <<- nonce)
       }
     } else if (identical(yielded, nonce)) {
       warning("nextElem: neither yielded nor finished")
     } else {
-      log("nextElem returning yielded value")
+      trace("nextElem returning yielded value")
       reset(yielded, yielded <<- nonce)
     }
   }
@@ -117,6 +121,20 @@ make_generator <- function(expr, ...) {
   add_class(itertools::new_iterator(nextElem), "generator")
 }
 
+#' @export
+print.generator <- function(gen) {
+  code <- substitute(expr, environment(gen$nextElem))
+  scope <- do.call(parent.frame, list(), envir = environment(gen$nextElem))
+  # pending nseval 0.4.1
+  # scope <- nseval::caller(environment(gen$nextElem), ifnotfound=baseenv())
+  cat("Generator object with code:\n", deparse(code), "\n")
+  print(scope)
+
+  # the really spiffo thing would be if you could propagate srcrefs through
+  # the syntactic transform, point back to which code corresponds to the
+  # current "state" of the run. You could poke ahead at the "continuation"
+  # argument...
+}
 
 make_delay <- function(expr, ...) {
   nonce <- function() NULL
@@ -126,7 +144,10 @@ make_delay <- function(expr, ...) {
     cont <<- cont
   }
 
-  pump <- make_pump(expr, ..., block=block)
+  resolve <- function(cont) {
+  }
+
+  pump <- make_pump(expr, ..., block=block, resolve=resolve)
 
   check <- function(resolve, reject) {
     result <- tryCatch({
@@ -145,4 +166,15 @@ make_delay <- function(expr, ...) {
   }
 
   add_class(promises::promise(check), "delay")
+}
+
+#' @export
+print.delay <- function(delay) {
+  code <- substitute(expr, environment(delay$nextElem))
+  scope <- arg_env_("expr", environment(delay$nextElem))
+  #  scope <- do.call(parent.frame, list(), envir = environment(delay$nextElem))
+  # pending nseval 0.4.1
+  # scope <- nseval::caller(environment(delay$nextElem), ifnotfound="original scope not available")
+  cat("Delay object with code:\n", deparse(code), "\n")
+  print(scope)
 }

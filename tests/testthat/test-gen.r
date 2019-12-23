@@ -32,11 +32,12 @@ test_that("generator loop", {
   expect_error(nextElem(i), "StopIteration")
 })
 
-test_that("promise", {
+test_that("future", {
   ii <- function(n) make_delay(for_cps(arg_cps(i),
                                        arg_cps(1:n),
-                                       block(),
-                                       n
+                                       `{_cps`(block_cps(),
+                                               arg_cps(n))
                                        ))
-  x <- ii(n)
+  x <- ii(2)
 })
+

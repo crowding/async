@@ -158,26 +158,6 @@ test_that("for", {
   out %is% c(5, 3, 1)  
 })
 
-FALSE && {
-  test <- function(n, skip, max) {
-    i <- 0;
-    repeat {
-      i <- i + 1;
-      if (i %% skip == 0) next()
-      if (i > max) break
-      yield(i)
-    }
-  }
-
-  test_cps <- function(n, skip, max)
-    `{_cps`(arg_cps(i <- 0),
-            `{_cps`(arg_cps(i <- i + 1),
-                    if_cps(i %% skip == 0,
-                           next_cps(), ),
-                    if_cps(`_cps`(i %% skip == 0),
-                           next_cps(), ),
-                    if_cps(`_cps`(i > max),
-                           break_cps(), ),
-                    yield_cps(i),
-                    ))
-}
+test_that("for over iterator", {
+  x <- gen(for (i in iterators::irep(c(1, 2, 3))) yield(i))
+})
