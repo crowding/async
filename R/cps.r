@@ -1,7 +1,11 @@
 #' @import nseval
 
 trace <- function(...) NULL
-# trace <- function(...) cat(..., "\n")
+#trace <- function(...) cat(..., "\n")
+
+generator_builtins <- c(
+  ")", "<-", "<<-", "&&", "||", "if", "switch", "{",
+  "next", "break", "yield", "block", "repeat", "while", "for")
 
 # The first group of arguments corresponds to expressions in the
 # language. They are continuation functions that provide their
@@ -22,12 +26,8 @@ trace <- function(...) NULL
 # CHECK: ... are passed on to all value-continuation functions.
 # CHECK: All args are passed by name past the first argument.
 
-# `(_cps` is the simplest continuation-passing function: it continues to its value 
-
-generator_builtins <- c(
-  ")", "<-", "<<-", "&&", "||", "if", "switch", "{",
-  "next", "break", "yield", "block", "repeat", "while", "for")
-
+# `(_cps` is the simplest continuation-passing function: it continues to
+# its argument.
 `(_cps` <- function(expr) {
   trace(where <- "(_cps outer")
   function(cont, ..., ret) {
@@ -350,43 +350,50 @@ while_cps <- function(cond, expr) function(cont, ..., ret) {
   get_cond()
 }
 
-for_cps <- function(var, seq, expr) function(cont, ..., ret) {
+for_cps <- function(var, seq, expr) { function(cont, ..., ret) {
+  trace("for loop started")
   i <- 0
-  n <- 0
+  var_ <- NULL
+  env_ <- NULL
+  seq_ <- NULL
   value <- NULL
   brk <- function(...) {
     ret(cont, invisible(NULL))
   }
   got_var <- function(val) {
-    var <<- arg(val) # lazy, also determines scope of assignment
+    var_ <<- as.character(arg_expr(val))
+    env_ <<- arg_env(val)
     seq(got_seq, ..., ret=ret, brk = brk)
   }
   got_seq <- function(val) {
-    trace(paste("for got seq", deparse(val), "length", length(val)))
-    seq <<- iter(val)
-    n <<- length(seq)
+    trace(paste("for ", var_, "got seq"))
+    seq_ <<- iter(val)
+    trace("for ", var_, "made iterator", deparse(as.list(seq_$state)))
     iterate()
   }
   iterate <- function() {
-    trace("for iterate")
+    trace("for ", var_, "iterate")
     stopping <- FALSE
-    val <- tryCatch(nextElem(seq),
+    trace("for ", var_, "iterator", deparse(as.list(seq_$state)))
+    val <- tryCatch(nextElem(seq_),
                     error = function(e) {
-                      trace("for caught error", conditionMessage(e))
+                      trace("for ", var_, " caught error", conditionMessage(e))
                       stopping <<- TRUE
-                      identical(conditionMessage(e), 'StopIteration') || stop(e)
+                      if (identical(conditionMessage(e), 'StopIteration'))
+                        NULL else stop(e)
                     })
     if (stopping) {
-      trace("for stopIteration")
+      trace("for ", var_, "stopping")
       ret(cont, invisible(value))
     } else {
       value <<- NULL
-      assign(as.character(nseval::expr(var)), val, envir=env(var))
+      assign(var_, val, envir=env_)
+      trace("for ", var_, "= ", deparse(val))
       expr(got_expr, ..., ret=ret, brk=brk, nxt=nxt)
     }
   }
   got_expr <- function(val) {
-    trace("for got value")
+    trace("for ", var_, "got value")
     value <<- val
     ret(iterate)
   }
@@ -394,4 +401,4 @@ for_cps <- function(var, seq, expr) function(cont, ..., ret) {
     ret(iterate)
   }
   var(got_var, ..., ret=ret) #just quoting so no context passed
-}
+}}
