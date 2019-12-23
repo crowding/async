@@ -1,16 +1,15 @@
 Package: generators
-Title: Create Iterators and Promises From Sequential Code
+Title: Create Iterators From Sequential Code
 Version: 0.0.0.9000
 Authors@R: 
     person(given = "Peter",
            family = "Meilstrup",
            role = c("aut", "cre"),
            email = "peter.meilstrup@gmail.com")
-Description: A generator is written using sequential constructs like `for` and `while`
-             loops. This code is turned into an iterator that can be paused and
-             resumed where it left off. The iterator yields a value and pauses for
-             each time its inner code executes a `yield()` call. The package also allows
-             defining promise objects using sequential code that executes in-thread.
+Description: A generator is written using familiar sequential constructs like
+             `for` and `while` loops. This code is turned into an iterator that
+             is run incrementally. The iterator produces a value and pauses for
+             each time its generator code reaches a `yield()` call.
 License: BSD
 Encoding: UTF-8
 LazyData: true
@@ -18,6 +17,7 @@ Imports:
         nseval (>= 0.4),
         iterators,
         itertools,
+        future,
         promises
 Suggests:
     testthat (>= 2.1.0),

@@ -44,12 +44,14 @@ generator_builtins <- c(
 # I clone its unevaluated arg and feed that to the continuation.
 arg_cps <- function(x) {
   trace(where <- "arg_cps outer")
-  x <- arg(x) #capture the lazy arg
+  x_ <- arg(x) #capture the lazy arg
+  x <- NULL
   function(cont,
            ret = function(cont, ...) cont(...),
            stop = base::stop, ...) {
     trace(where <- "arg_cps inner")
-    do(cont, x)
+    # do.call(cont, list(expr(x_)), envir=env(x_))
+    do(cont, x_)
   }
   ## Hold up does it make sense at all to use tryCatch in
   ## continuation functions?  Maybe only from pump? Then how would
@@ -375,7 +377,7 @@ for_cps <- function(var, seq, expr) { function(cont, ..., ret) {
     trace("for ", var_, "iterate")
     stopping <- FALSE
     trace("for ", var_, "iterator", deparse(as.list(seq_$state)))
-    val <- tryCatch(nextElem(seq_),
+    val <- tryCatch(iterators::nextElem(seq_),
                     error = function(e) {
                       trace("for ", var_, " caught error", conditionMessage(e))
                       stopping <<- TRUE

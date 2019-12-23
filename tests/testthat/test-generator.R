@@ -19,3 +19,12 @@ test_that("nested for loops", {
   as.numeric(as.list(itertools::ilimit(x, 24))) %is%
     c(1,1,1,0,1,1,0,1,0,1,1,0,1,1,1,0,1,1,0,1,0,1,1,0)
 })
+
+test_that("magrittr's nonsense and foolishness (colliding with nseval???)", {
+  one <- function(g) arg_cps({ iterators::nextElem(g) })
+  a <- iter(c(1, 2, 3)) %>% one()
+  b <- one(iter(c(1, 2, 3)))
+  b(identity)%is% 1 #okay
+  a(identity) #throws
+})
+

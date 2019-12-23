@@ -82,6 +82,7 @@ make_generator <- function(expr, ...) {
   nonce <- function() NULL
   cont <- nonce
   yielded <- nonce
+  force(expr)
 
   yield <- function(cont, val) {
     trace("Yield handler called")

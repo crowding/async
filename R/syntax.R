@@ -336,10 +336,9 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks) {
   }
 
   out <- trans(expr)
-  if (out$cps) {
-    quo_(out$expr, target_env)
-  } else {
-   stop("no keywords (", paste0(endpoints, ", "), ") used?")
+  if (! out$cps) {
+    warning("no keywords (", paste(endpoints, collapse=", "), ") used?")
+    out <- promote_arg(out)
   }
-
+  quo_(out$expr, target_env)
 }

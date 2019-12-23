@@ -1,18 +1,15 @@
 #' @import nseval
 
 test_that("basic translations", {
-  cps_translate(quo(x)) %is% quo(arg_cps(x))
+  expect_warning(cps_translate(quo(x)) %is% quo(arg_cps(x)), "keywords")
   cps_translate(quo(break)) %is% quo(break_cps())
-  cps_translate(quo(`break`)) %is% quo(arg_cps(`break`))
+  expect_warning(cps_translate(quo(`break`)) %is% quo(arg_cps(`break`)), "keywords")
   bonk_cps <- function()function() NULL
-  cps_translate(quo(bonk()), endpoints=c("bonk")) %is% quo(bonk_cps())
-  cps_translate(quo(`next`)) %is% quo(arg_cps(`next`))
+  cps_translate(quo(bonk()), endpoints=c("bonk")) %is%quo(bonk_cps())
   cps_translate(quo(next)) %is% quo(next_cps())
   expect_error(cps_translate(quo(break())), "break")
-  cps_translate(quo(2+2)) %is% quo(arg_cps(2+2))
+  expect_warning(cps_translate(quo(2+2)) %is% quo(arg_cps(2+2)), "keywords")
   expect_error(cps_translate(quo(list(`break`(4)))), "CPS")
-  cps_translate(quo(if(TRUE) yield(2+2) else yield(4))) %is%
-    quo(arg_cps(if (TRUE) yield(2 + 2) else yield(4)))
   cps_translate(endpoints="yield", quo(if(TRUE) yield(2+2) else yield(4))) %is%
     quo(if_cps(arg_cps(TRUE), yield_cps(arg_cps(2 + 2)), yield_cps(arg_cps(4))))
 
@@ -32,9 +29,6 @@ test_that("Namespace qualification", {
   cps_translate(quo({nseval::yield(1); base::yield(1); generators::yield(1)}), yield_endpoints) %is%
     quo(`{_cps`(arg_cps(nseval::yield(1)), generators:::yield_cps(arg_cps(1)), 
                 generators:::yield_cps(arg_cps(1))))
-
-  for_cps(arg_cps(i), arg_cps(1:10), `{_cps`(yield_cps(arg_cps(i)), 
-                                             generators:::break_cps()))
 
   expect_equal(
     expr(cps_translate(quo(for (i in 1:10) {yield(i); base::`break`()}),
