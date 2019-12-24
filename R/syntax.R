@@ -1,6 +1,3 @@
-#' these are function names which block further translation of
-#' their arguments
-base_blocks <- c("gen", "function", "delay", "quote")
 
 # Base keywords which flip the CPS switch
 # (or do we want to do something more focused in the parsing stage where
@@ -8,7 +5,30 @@ base_blocks <- c("gen", "function", "delay", "quote")
 # watchlist?
 base_endpoints <- c("break", "next")
 yield_endpoints <- c(base_endpoints, "yield")
-delay_endpoints <- c(base_endpoints, "block", "resolve")
+delay_endpoints <- c(base_endpoints, "block", "resolve", "return")
+
+# these are function names which block further translation of
+# their arguments
+base_blocks <- c("gen", "function", "delay", "quote")
+
+# @export
+# @rdname delay
+block <- function(expr) {
+  stop("Block must be called inside of a delay() expression")
+}
+
+#' @export
+#' @rdname gen
+yield <- function(expr) {
+  stop("Yield must be called inside of a gen() expression")
+}
+
+#' @export
+#'
+resolve.promise <- function(expr) {
+  stop("promise resolve must be called inside of a delay() expression")
+  # resolve on futures is fine though.
+}
 
 #' Create an iterator using sequential code.
 #'
@@ -37,9 +57,9 @@ delay_endpoints <- c(base_endpoints, "block", "resolve")
 #' several base R control flow builtins; the list is in the non-exported
 #' variable `generators:::cps_builtins`).
 #' @export
-gen <- function(expr, ...) {
+gen <- function(expr, ...) { expr <- arg(expr)
   do(make_generator,
-     cps_translate(arg(expr),
+     cps_translate(expr,
                    endpoints=yield_endpoints),
      dots(...))
 }
@@ -102,15 +122,12 @@ gen <- function(expr, ...) {
 #
 # @param expr An expression, to be evaluated asynchronously on demand.
 # @return A [promises::promise] object.
-delay <- function(expr, ...) {
+delay <- function(expr, ...) { expr <- arg(expr)
   do(make_delay,
-     translate_cps(arg(expr), delay_endpoints),
+     translate_cps(expr, delay_endpoints),
      dots(...))
-  expr <- arg(expr)
   expr$resolve()
 }
-
-base_endpoints <- c("break", "next")
 
 # Translating an argument into CPS
 cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks) {
@@ -194,7 +211,7 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks) {
   }
 
   blocked <- function(expr) {
-    ## This should be made to do something sensible with namespaces
+    ## This should be made to do something sensible with namespaces?
     switch(mode(expr),
            character = ,
            name = as.character(expr) %in% blocks,

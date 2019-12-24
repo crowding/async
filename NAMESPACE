@@ -2,8 +2,7 @@
 
 S3method(print,delay)
 S3method(print,generator)
-export(block)
 export(gen)
-export(resolve)
+export(resolve.promise)
 export(yield)
 import(nseval)

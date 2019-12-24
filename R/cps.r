@@ -11,6 +11,8 @@ generator_builtins <- c(
 # language. They are continuation functions that provide their
 # callback with a value.
 
+# On the first line of the outer function I've written explicit forcings.
+
 # The second group of arguments correspond to control flow constructs,
 # or places the code can branch to.  For example, if a continuation
 # function is in the middle of a loop, the second arglist should be
@@ -28,7 +30,7 @@ generator_builtins <- c(
 
 # `(_cps` is the simplest continuation-passing function: it continues to
 # its argument.
-`(_cps` <- function(expr) {
+`(_cps` <- function(expr) { force(expr)
   trace(where <- "(_cps outer")
   function(cont, ..., ret) {
     trace(where <- "(_cps inner")
@@ -40,18 +42,18 @@ generator_builtins <- c(
     }, ..., ret=ret)
 }}
 
+maybe <- function(x, if_missing=NULL)
+  if (!missing_(arg(x))) x else if_missing
+
 # arg_cps interfaces between normal R evluation and the CPS system.
 # I clone its unevaluated arg and feed that to the continuation.
-arg_cps <- function(x) {
-  trace(where <- "arg_cps outer")
-  x_ <- arg(x) #capture the lazy arg
-  x <- NULL
+arg_cps <- function(x) { x <- arg(x)
   function(cont,
            ret = function(cont, ...) cont(...),
            stop = base::stop, ...) {
     trace(where <- "arg_cps inner")
     # do.call(cont, list(expr(x_)), envir=env(x_))
-    do(cont, x_)
+    do(cont, x)
   }
   ## Hold up does it make sense at all to use tryCatch in
   ## continuation functions?  Maybe only from pump? Then how would
@@ -69,91 +71,95 @@ arg_cps <- function(x) {
   ## internals, though)
 }
 
-make_store <- function(sym) function(x, value) function(cont, ret, ...) {
-  dest <- NULL
-  got_x <- function(val) {
-    dest <<- arg(val)
-    value(got_value, ret=ret, ...)
-  }
-  got_value <- function(val) {
-    val <- arg(val) # lazy
-    v <- do_(quo_(sym, env(dest)),
-             dest,
-             val)
-    ret(cont, v)
-  }
-  x(got_x, ret=ret, ...)
-}
+make_store <- function(sym) function(x, value) { list(x, value)
+  function(cont, ret, ...) {
+    dest <- NULL
+    got_x <- function(val) {
+      dest <<- arg(val)
+      value(got_value, ret=ret, ...)
+    }
+    got_value <- function(val) {
+      val <- arg(val) # lazy
+      v <- do_(quo_(sym, env(dest)),
+               dest,
+               val)
+      ret(cont, v)
+    }
+    x(got_x, ret=ret, ...)
+  }}
 
 `<-_cps` <- make_store(quote(`<-`))
 `<<-_cps` <- make_store(quote(`<<-`))
 
-`&&_cps` <- function(left, right) function(cont, ret, ...) {
-  #get the lval, then
-  got_left <- function(val) {
-    if(val) {
-      # continue
-      right(got_right, ret=ret, ...)
-    } else {
-      ret(cont, FALSE)
-    }
-    # check: when we return using "val" it should be to a function that had
-    # us in the left arglist.
-  }
-  got_right <- function(val) {
-    if(val) {
-      ret(cont, TRUE)
-    } else {
-      ret(cont, FALSE)
-    }
-  }
-  left(got_left, ret=ret, ...)
-}
-
-`||_cps` <- function(left, right) function(cont, ret, ...) {
-  #get the lval, then
-  got_left <- function(val) {
-    if(val) {
-      ret(cont, TRUE)
-    } else {
-      right(got_right, ret=ret, ...)
-    }
-  }
-  got_right <- function(val) {
-    if(val) {
-      ret(cont, TRUE)
-    } else {
-      ret(cont, FALSE)
-    }
-  }
-  left(got_left, ret=ret, ...)
-}
-
-if_cps <- function(cond, cons.expr, alt.expr) function(cont, ret, ...) {
-  force(ret)
-  got_cond <- function(val) {
-    if (val) {
-      cons.expr(got_branch, ret=ret, ...)
-    } else {
-      if (nseval:::is_missing(alt.expr)) {
-        ret(cont, invisible(NULL))
+`&&_cps` <- function(left, right) { list(left, right)
+  function(cont, ret, ...) {
+    #get the lval, then
+    got_left <- function(val) {
+      if(val) {
+        # continue
+        right(got_right, ret=ret, ...)
       } else {
-        alt.expr(got_branch, ret=ret, ...)
+        ret(cont, FALSE)
+      }
+      # check: when we return using "val" it should be to a function that had
+      # us in the left arglist.
+    }
+    got_right <- function(val) {
+      if(val) {
+        ret(cont, TRUE)
+      } else {
+        ret(cont, FALSE)
       }
     }
-  }
-  got_branch <- function(val) {
-    if (missing(val)) {
-      ret(cont, invisible(NULL))
+    left(got_left, ret=ret, ...)
+  }}
+
+`||_cps` <- function(left, right) { list(left, right)
+  function(cont, ret, ...) {
+  #get the lval, then
+  got_left <- function(val) {
+    if(val) {
+      ret(cont, TRUE)
     } else {
-      ret(cont, val)
+      right(got_right, ret=ret, ...)
     }
   }
-  cond(got_cond, ret=ret, ...)
-}
+  got_right <- function(val) {
+    if(val) {
+      ret(cont, TRUE)
+    } else {
+      ret(cont, FALSE)
+    }
+  }
+  left(got_left, ret=ret, ...)
+}}
 
-switch_cps <- function(EXPR, ...) {
-  alts <- list(...) #collect continuation functions
+if_cps <- function(cond, cons.expr, alt.expr) { list(cond, cons.expr, maybe(alt.expr))
+  if (!missing(alt.expr)) force(alt.expr)
+  function(cont, ret, ...) {
+    force(ret)
+    got_cond <- function(val) {
+      if (val) {
+        cons.expr(got_branch, ret=ret, ...)
+      } else {
+        if (nseval:::is_missing(alt.expr)) {
+          ret(cont, invisible(NULL))
+        } else {
+          alt.expr(got_branch, ret=ret, ...)
+        }
+      }
+    }
+    got_branch <- function(val) {
+      if (missing(val)) {
+        ret(cont, invisible(NULL))
+      } else {
+        ret(cont, val)
+      }
+    }
+    cond(got_cond, ret=ret, ...)
+  }}
+
+switch_cps <- function(EXPR, ...) { force(EXPR); alts <- list(...)
   function(cont, ..., ret, stop) {
     got_expr <- function(val) {
       if (is.numeric(val)) {
@@ -189,13 +195,12 @@ switch_cps <- function(EXPR, ...) {
   }
 }
 
-#*  All the entries in both lists are continuation functions.
+# All the entries in both lists are continuation functions.  If you
 # call something you got from the LEFT arglist, you give it a
-# continuation-function that expects "val".
+# continuation-function that expects "val." If you call something you
+# got from the right arglist, you give it a "cont".
 
-`{_cps` <- function(...) {
-  args <- list(...) # catch continuation-level functions for all args;
-                    # this does not force the code-level arguments.
+`{_cps` <- function(...) { args <- list(...)
   function(cont, ret, ...) {
   i <- 0;
   n <- length(args);
@@ -209,6 +214,7 @@ switch_cps <- function(EXPR, ...) {
   }
   got_val <- function(val) {
     if (missing(val)) {
+      stop("missing argument to {}")
       val <- NULL
     }
     ret(iterate, val)
@@ -255,152 +261,148 @@ switch_cps <- function(EXPR, ...) {
 # "below" you on the syntax tree. Discard ... when returning
 # via ret().
 
-next_cps <- function() function(cont, ..., ret, nxt) {
-  if (missing(nxt)) stop("next called, but we do not seem to be in a loop")
-  ret(nxt)
-}
-
-break_cps <- function() function(cont, ..., ret, brk) {
-  if (missing(brk)) stop("break called, but we do not seem to be in a loop")
-  ret(brk)
-}
-
-yield_cps <- function(expr) function(cont, ..., ret, yield) {
-  trace("Yield called")
-  if (missing(yield)) stop("yield called, but we do not seem to be in a generator")
-  got_val <- function(val) {
-    trace("Got a yield value")
-    ret(yield, cont, val)
+next_cps <- function()
+  function(cont, ..., ret, nxt) {
+    if (missing(nxt)) stop("next called, but we do not seem to be in a loop")
+    ret(nxt)
   }
-  expr(got_val, ..., ret=ret, yield=yield)
-}
 
-#' @export
-#'
-yield <- function(expr) {
-  stop("Yield must be called inside of a gen() expression")
-}
+break_cps <- function()
+  function(cont, ..., ret, brk) {
+    if (missing(brk)) stop("break called, but we do not seem to be in a loop")
+    ret(brk)
+  }
 
-block_cps <- function(expr) function(cont, ..., ret, block) {
-  if (missing(block)) stop("block called, but we do not seem to be in a delay")
-
-  got_val <- function(...) ret(block, cont, ...)
-
-  if (nseval:::is_missing(expr)) {
-    ret(block, cont)
-  } else {
-    expr(got_val, ..., ret=ret, block=block)
+yield_cps <- function(expr) { force(expr)
+  function(cont, ..., ret, yield) {
+    trace("Yield called")
+    if (missing(yield)) stop("yield called, but we do not seem to be in a generator")
+    got_val <- function(val) {
+      trace("Got a yield value")
+      ret(yield, cont, val)
+    }
+    expr(got_val, ..., ret=ret, yield=yield)
   }
 }
 
-#' @export
-#'
-block <- function(expr) {
-  stop("Block must be called inside of a delay() expression")
-}
+block_cps <- function(expr) { maybe(expr)
+  function(cont, ..., ret, block) {
+    if (missing(block)) stop("block called, but we do not seem to be in a delay")
 
-repeat_cps <- function(expr) function(cont, ..., ret) {
-  brk <- function(...) {
-    # because the signal comes "from below" we discard ... and continue
-    ret(cont, invisible(NULL))
-  }
-  nxt <- function(val) {
-    expr(then, ret=ret, nxt=nxt, brk=brk, ...)
-  }
-  then <- function(val) {
-    ret(nxt, NULL)
-  }
-  nxt(NULL)
-}
+    got_val <- function(...) ret(block, cont, ...)
 
-resolve_cps <- function(expr) function(cont, ..., ret, resolve) {
-  if (missing(resolve)) stop("resolve called but we do not seem to be in a delay")
-  got_val <- function(...) ret(resolve, cont, ...)
-  expr(got_val, ..., ret=ret, resolve=resolve)
-}
-
-#' @export
-#'
-resolve <- function(expr) {
-  stop("resolve must be called inside of a delay() expression")
-}
-
-while_cps <- function(cond, expr) function(cont, ..., ret) {
-  # we establish "nxt" and "brk" continuations
-  # eval the condition, establishing cont and break continuations.
-  value <- NULL
-  get_cond <- function() {
-    cond(check_run, ret=ret, nxt=nxt, brk=brk, ...)
-  }
-  check_run <- function(val) {
-    if (val) {
-      expr(got_expr, ret=ret, nxt=nxt, brk=brk, ...)
+    if (nseval:::is_missing(expr)) {
+      ret(block, cont)
     } else {
-      ret(cont, value)
+      expr(got_val, ..., ret=ret, block=block)
     }
   }
-  got_expr <- function(val) {
-    value <<- val
-    ret(get_cond)
-  }
-  brk <- function(...) {
-    ret(cont, NULL)
-  }
-  nxt <- function(...) {
-    ret(get_cond)
-  }
-  get_cond()
 }
 
-for_cps <- function(var, seq, expr) { function(cont, ..., ret) {
-  trace("for loop started")
-  i <- 0
-  var_ <- NULL
-  env_ <- NULL
-  seq_ <- NULL
-  value <- NULL
-  brk <- function(...) {
-    ret(cont, invisible(NULL))
-  }
-  got_var <- function(val) {
-    var_ <<- as.character(arg_expr(val))
-    env_ <<- arg_env(val)
-    seq(got_seq, ..., ret=ret, brk = brk)
-  }
-  got_seq <- function(val) {
-    trace(paste("for ", var_, "got seq"))
-    seq_ <<- iter(val)
-    trace("for ", var_, "made iterator", deparse(as.list(seq_$state)))
-    iterate()
-  }
-  iterate <- function() {
-    trace("for ", var_, "iterate")
-    stopping <- FALSE
-    trace("for ", var_, "iterator", deparse(as.list(seq_$state)))
-    val <- tryCatch(iterators::nextElem(seq_),
-                    error = function(e) {
-                      trace("for ", var_, " caught error", conditionMessage(e))
-                      stopping <<- TRUE
-                      if (identical(conditionMessage(e), 'StopIteration'))
-                        NULL else stop(e)
-                    })
-    if (stopping) {
-      trace("for ", var_, "stopping")
-      ret(cont, invisible(value))
-    } else {
-      value <<- NULL
-      assign(var_, val, envir=env_)
-      trace("for ", var_, "= ", deparse(val))
-      expr(got_expr, ..., ret=ret, brk=brk, nxt=nxt)
+repeat_cps <- function(expr) { force(expr)
+  function(cont, ..., ret) {
+    brk <- function(...) {
+      # because the signal comes "from below" we discard ... and continue
+      ret(cont, invisible(NULL))
     }
+    nxt <- function(val) {
+      expr(then, ret=ret, nxt=nxt, brk=brk, ...)
+    }
+    then <- function(val) {
+      ret(nxt, NULL)
+    }
+    nxt(NULL)
   }
-  got_expr <- function(val) {
-    trace("for ", var_, "got value")
-    value <<- val
-    ret(iterate)
+}
+
+resolve_cps <- function(expr) { force(expr)
+  function(cont, ..., ret, resolve) {
+    if (missing(resolve)) stop("resolve called but we do not seem to be in a delay")
+    got_val <- function(...) ret(resolve, cont, ...)
+    expr(got_val, ..., ret=ret, resolve=resolve)
   }
-  nxt <- function(...) {
-    ret(iterate)
+}
+
+while_cps <- function(cond, expr) { list(cond, expr)
+
+  function(cont, ..., ret) {
+    # we establish "nxt" and "brk" continuations
+    value <- NULL
+    get_cond <- function() {
+      cond(check_run, ret=ret, nxt=nxt, brk=brk, ...)
+    }
+    check_run <- function(val) {
+      if (val) {
+        expr(got_expr, ret=ret, nxt=nxt, brk=brk, ...)
+      } else {
+        ret(cont, value)
+      }
+    }
+    got_expr <- function(val) {
+      value <<- val
+      ret(get_cond)
+    }
+    brk <- function(...) {
+      ret(cont, NULL)
+    }
+    nxt <- function(...) {
+      ret(get_cond)
+    }
+    get_cond()
   }
-  var(got_var, ..., ret=ret) #just quoting so no context passed
-}}
+}
+
+for_cps <- function(var, seq, expr) { list(var, seq, expr)
+  function(cont, ..., ret) {
+    trace("for loop started")
+    i <- 0
+    var_ <- NULL
+    env_ <- NULL
+    seq_ <- NULL
+    value <- NULL
+    brk <- function(...) {
+      ret(cont, invisible(NULL))
+    }
+    got_var <- function(val) {
+      var_ <<- as.character(arg_expr(val))
+      env_ <<- arg_env(val)
+      seq(got_seq, ..., ret=ret, brk = brk)
+    }
+    got_seq <- function(val) {
+      trace(paste("for ", var_, "got seq"))
+      seq_ <<- iter(val)
+      trace("for ", var_, "made iterator", deparse(as.list(seq_$state)))
+      iterate()
+    }
+    iterate <- function() {
+      trace("for ", var_, "iterate")
+      stopping <- FALSE
+      trace("for ", var_, "iterator", deparse(as.list(seq_$state)))
+      val <- tryCatch(iterators::nextElem(seq_),
+                      error = function(e) {
+                        trace("for ", var_, " caught error", conditionMessage(e))
+                        stopping <<- TRUE
+                        if (identical(conditionMessage(e), 'StopIteration'))
+                          NULL else stop(e)
+                      })
+      if (stopping) {
+        trace("for ", var_, "stopping")
+        ret(cont, invisible(value))
+      } else {
+        value <<- NULL
+        assign(var_, val, envir=env_)
+        trace("for ", var_, "= ", deparse(val))
+        expr(got_expr, ..., ret=ret, brk=brk, nxt=nxt)
+      }
+    }
+    got_expr <- function(val) {
+      trace("for ", var_, "got value")
+      value <<- val
+      ret(iterate)
+    }
+    nxt <- function(...) {
+      ret(iterate)
+    }
+    var(got_var, ..., ret=ret) #just quoting so no context passed
+  }
+}

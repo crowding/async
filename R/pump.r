@@ -10,7 +10,7 @@ pump <- function(expr) make_pump(expr)()
 make_pump <- function(expr, ...,
                       ret=base::stop("unused"),
                       stop=base::stop("unused"),
-                      eliminate.tailcalls = TRUE) {
+                      eliminate.tailcalls = TRUE) { list(expr, ...)
   nonce <- function() NULL
   cont <- expr
   value <- nonce
@@ -78,11 +78,10 @@ make_pump <- function(expr, ...,
 
 
 
-make_generator <- function(expr, ...) {
+make_generator <- function(expr, ...) { list(expr, ...)
   nonce <- function() NULL
   cont <- nonce
   yielded <- nonce
-  force(expr)
 
   yield <- function(cont, val) {
     trace("Yield handler called")
@@ -125,19 +124,17 @@ make_generator <- function(expr, ...) {
 #' @export
 print.generator <- function(gen) {
   code <- substitute(expr, environment(gen$nextElem))
-  scope <- do.call(parent.frame, list(), envir = environment(gen$nextElem))
-  # pending nseval 0.4.1
-  # scope <- nseval::caller(environment(gen$nextElem), ifnotfound=baseenv())
   cat("Generator object with code:\n", deparse(code), "\n")
-  print(scope)
-
-  # the really spiffo thing would be if you could propagate srcrefs through
-  # the syntactic transform, point back to which code corresponds to the
-  # current "state" of the run. You could poke ahead at the "continuation"
-  # argument...
+  # the really spiffo thing would be if you could propagate srcrefs
+  # through the syntactic transform, then introspect back to which code
+  # corresponds to the current "state" of the run. (i.e. which "yield"
+  # we are paused at.) You could poke around at the "cont"
+  # argument. and figure out which "yield" it corresponds to? It would
+  # also be spiffo to support inline substitutions in the original
+  # source comments.
 }
 
-make_delay <- function(expr, ...) {
+make_delay <- function(expr, ...) { list(expr, ...)
   nonce <- function() NULL
   cont <- nonce
 
@@ -172,10 +169,7 @@ make_delay <- function(expr, ...) {
 #' @export
 print.delay <- function(delay) {
   code <- substitute(expr, environment(delay$nextElem))
-  scope <- arg_env_("expr", environment(delay$nextElem))
-  #  scope <- do.call(parent.frame, list(), envir = environment(delay$nextElem))
   # pending nseval 0.4.1
   # scope <- nseval::caller(environment(delay$nextElem), ifnotfound="original scope not available")
   cat("Delay object with code:\n", deparse(code), "\n")
-  print(scope)
 }
