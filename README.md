@@ -2,12 +2,12 @@
 
 This is a rather experimental R package as yet.
 
-You may have seen generators in languages like Python, Lua and Elixir,
-and this package implements them for R.
+You may have seen generators in languages like Python, C# and Javascript,
+now this package implements them for R.
 
 Generators are bits of code whose execution can be paused and
-restarted; they "look like" for loops on the inside but they act like
-iterators on the outside.
+restarted; they "look like" code with for loops on the inside but they
+act like iterators on the outside.
 
 ```
 devtools::install_github("crowding/generators")
@@ -15,7 +15,7 @@ devtools::install_github("crowding/generators")
 collatz <- function(x) { force(x)
   generators::gen({
     while (x > 1) {
-      x <- if (x %% 2 == 0) x / 2 else 3 * x + 1
+      x <- if (x %% 2 == 0) x / 2L else 3L * x + 1
       yield(x)
     }
   })
