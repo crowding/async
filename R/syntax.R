@@ -51,11 +51,12 @@ resolve.promise <- function(expr) {
 #' next call to `nextItem.`
 #'
 #' There are some syntactic restrictions on what you can write in a
-#' generator expression. Wherever `yield` appears in a generator
+#' generator expression. `yield` must appear only directly within
+#' control flow operators. Wherever `yield` appears in a generator
 #' expression, the calls it is nested within must have CPS
 #' implementations. (This package provides CPS implementations for
-#' several base R control flow builtins; the list is in the non-exported
-#' variable `generators:::cps_builtins`).
+#' several base R control flow builtins; the list is in the
+#' non-exported variable `generators:::cps_builtins`).
 #' @export
 gen <- function(expr, ...) { expr <- arg(expr)
   do(make_generator,
@@ -244,10 +245,9 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks) {
                if (new_name$cps) {
                  new_name
                } else {
-                 browser()
                  stop("Could not find a CPS implementation of",
-                      " `", deparse(l$expr),
-                      "` but it is listed as a control operator")
+                      " `", deparse(expr),
+                      "` but it is listed as a control operator.")
                }
              } else {
                list(expr=expr, cps=FALSE)
@@ -287,7 +287,6 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks) {
                n <- promote_function_name(l$expr)
                if (n$cps)
                  n else {
-                   browser()
                    stop("Could not find a CPS implementation of",
                         " `", deparse(l$expr), "`.")
                  }
@@ -315,36 +314,55 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks) {
   promote_function_name <- function(name) {
     original_name <- as.symbol(name)
     potential_name <- as.symbol(paste0(as.character(name), "_cps"))
-    found <- locate_(potential_name, target_env, mode="function", ifnotfound=NULL)
-    if (!is.null(found)) {
+    where_found <- locate_(potential_name, target_env, mode="function", ifnotfound=NULL)
+    if (!is.null(where_found)) {
       # A CPS function is defined in full view, excellent.
       list(expr=potential_name, cps=TRUE)
     } else {
       where_found <- locate_(original_name, target_env, ifnotfound=NULL)
       if (is.null(where_found)) {
-        # try us
+        # try us, for "yield" etc.
         where_found <- locate_(original_name,
                                getNamespace("generators"),
                                ifnotfound=NULL)
         if (is.null(where_found)) {
-          stop("Function `", deparse(cps), "` was not found.")
+          stop("Function `", as.character(original_name), "` was not found.")
         }
       }
       obj <- get(as.character(original_name), envir=where_found, mode="function")
       if (   is.primitive(obj)
           || identical(where_found, baseenv())
           || identical(environment(obj), getNamespace("base"))) {
-        # look in generators' private namespace.
+        # look in generators' exported namespace.
         if (exists(as.character(potential_name),
                    getNamespace("generators"), inherit=FALSE)) {
-          list(expr=call(":::", quote(generators), name),
-               cps=TRUE)
+          list(expr = call(":::", quote(generators), name),
+               cps = TRUE)
         } else {
           list(expr=original_name, cps=FALSE)
         }
       } else {
-        #look alongside object?
-        list(expr=original_name, cps=FALSE)
+        if (is.function(obj)) {
+          # look alongside found function
+          lookin <- environment(obj)
+          if (exists(as.character(potential_name),
+                     lookin, inherit=FALSE)) {
+            if(isNamespace(lookin)) {
+              list(expr = call(":::", 
+                               as.symbol(getNamespaceName(lookin)),
+                               as.symbol(potential_name)),
+                   cps = TRUE)
+            } else {
+              # ugh just include the literal function
+              list(expr = get(as.character(potential_name), environment(obj)),
+                   cps = TRUE)
+            }
+          } else {
+            stop("No candidate found for `", as.character(potential_name), "`.")
+          }
+        } else {
+          stop("Variable `", deparse(expr), "` does not contain a function.")
+        }
       }
     }
   }
