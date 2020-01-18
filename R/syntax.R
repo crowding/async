@@ -137,9 +137,12 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks) {
 
   expr <- expr(q)
   target_env <- env(q)
-
   qualify <- function(name) {
-    name
+    if (exists(as.character(name), envir=target_env)) {
+      as.symbol(name)
+    } else {
+      call(":::", quote(generators), as.symbol(name))
+    }
   }
 
   arg_wrapper <- qualify("arg_cps")
@@ -241,6 +244,7 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks) {
                if (new_name$cps) {
                  new_name
                } else {
+                 browser()
                  stop("Could not find a CPS implementation of",
                       " `", deparse(l$expr),
                       "` but it is listed as a control operator")
@@ -268,7 +272,7 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks) {
   # promote_ functions take in a list(expr=quote(), cps=logical(1))
   promote_arg <- function(l) {
     if(! l$cps) {
-      list(expr = call(arg_wrapper, l$expr), cps=TRUE)
+      list(expr = as.call(list(arg_wrapper, l$expr)), cps=TRUE)
     } else {
       l
     }
@@ -282,8 +286,11 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks) {
              name = {
                n <- promote_function_name(l$expr)
                if (n$cps)
-                 n else stop("Could not find a CPS implementation of",
-                             " `", deparse(l$expr), "`.")
+                 n else {
+                   browser()
+                   stop("Could not find a CPS implementation of",
+                        " `", deparse(l$expr), "`.")
+                 }
              },
              call = {
                if (is_qualified_name(l$expr)) {
@@ -314,17 +321,23 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks) {
       list(expr=potential_name, cps=TRUE)
     } else {
       where_found <- locate_(original_name, target_env, ifnotfound=NULL)
-      obj <- get(as.character(original_name), envir=target_env, mode="function")
       if (is.null(where_found)) {
-        stop("Function `", deparse(cps), "` was not found.")
+        # try us
+        where_found <- locate_(original_name,
+                               getNamespace("generators"),
+                               ifnotfound=NULL)
+        if (is.null(where_found)) {
+          stop("Function `", deparse(cps), "` was not found.")
+        }
       }
+      obj <- get(as.character(original_name), envir=where_found, mode="function")
       if (   is.primitive(obj)
           || identical(where_found, baseenv())
           || identical(environment(obj), getNamespace("base"))) {
         # look in generators' private namespace.
         if (exists(as.character(potential_name),
                    getNamespace("generators"), inherit=FALSE)) {
-          list(expr=call(":::", name, quote(generators)),
+          list(expr=call(":::", quote(generators), name),
                cps=TRUE)
         } else {
           list(expr=original_name, cps=FALSE)

@@ -11,8 +11,6 @@ generator_builtins <- c(
 # language. They are continuation functions that provide their
 # callback with a value.
 
-# On the first line of the outer function I've written explicit forcings.
-
 # The second group of arguments correspond to control flow constructs,
 # or places the code can branch to.  For example, if a continuation
 # function is in the middle of a loop, the second arglist should be
@@ -69,6 +67,7 @@ arg_cps <- function(x) { x <- arg(x)
   ## upwards from the tryCatch and having
   ## pump() wind them up (this would also catch errors from generator
   ## internals, though)
+  ## Or the tryCatch winds in and runs its own pump.
 }
 
 make_store <- function(sym) function(x, value) { list(x, value)
