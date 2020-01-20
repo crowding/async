@@ -30,9 +30,10 @@ state is preserved and will continue form where ti left off on the
 next call to `nextItem.`
 
 There are some syntactic restrictions on what you can write in a
-generator expression. Wherever `yield` appears in a generator
+generator expression. `yield` must appear only directly within
+control flow operators. Wherever `yield` appears in a generator
 expression, the calls it is nested within must have CPS
 implementations. (This package provides CPS implementations for
-several base R control flow builtins; the list is in the non-exported
-variable `generators:::cps_builtins`).
+several base R control flow builtins; the list is in the
+non-exported variable `generators:::cps_builtins`).
 }

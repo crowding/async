@@ -8,29 +8,29 @@ constructs.
 
 When I first encountered the idea of continuations I was a little
 confused by thinking they were some kind of language or runtime
-feature, like lifetimes or threading. While some runtime features like
-tail call elimination help, you can use continuations.
+feature, like closures or lifetimes or threading.
 
-Actually, "continuation" is just a name for a function call, when it
-is made under certain conditions, or in other words _style_ of
-function call. A continuation is what we call a function that is
-called in tail position:
+Actually, "continuation" is just a name for a functi on call, when it
+is made under certain conditions. A continuation is what we call a
+function that is called in tail position:
 
 ```{r}
-
+ajkl flkj lkj af
 ```
 
 By a call being in "tail position" we mean that when evaluating the
 function 'f', on reaching the call to 'g', 'f' will obligatorily
-return whatever 'g' returns. By contrast, the function 'h' does not
+do whatever 'g' does. By contrast, the function 'h' does not
 appear in tail position here, as control returns to 'f' when 'h'
 returns.
 
 It is possible for several calls in a function's body to be in tail
 positions, for example:
 
+Calls made in tail position are called "continuations" because 
+
 The notion of a _continuation_ starts with the observation that as
-soon as you collect the inputs to a function called in tail position,
+soon as you collect the inputs to a function calle d in tail position,
 you might as well forget about the function that called it; the
 calling function has no more role to play. While we normally think of
 'g' returning its value back to 'f', and 'f' returning its value back

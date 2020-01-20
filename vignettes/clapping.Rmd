@@ -1,0 +1,348 @@
+# A Musical Introduction to Generators
+
+What a generator allows you to do is to take code that is writen in
+a sequential, looping style, and then treat that code's output as
+a collection to be iterated over.
+
+To illustrate what this all means, and the the generators package in
+general I will use R to perform a suitable piece of music,
+specifically Steve Reich's "Clapping Music."
+
+The piece is based on a rhythmic motif of handclaps counting out
+groups of 3, 2, 1, 2, 3, 2, 1, 2, 3... with each group seperated by
+one rest. In musical notion, this makes a 12-count loop:
+
+![Musical score showing loop](clapping_music.svg)
+
+In code, we could implement that idea like the following, printing a
+`1` for each clap and a `0` for each rest:
+
+```{R}
+print_pattern <- function(counts = c(3, 2, 1, 2)) {
+    for (c in counts) {
+        for (j in 1:c)
+          cat(1)
+        cat(0)
+    }
+}
+```
+
+Testing this, we should see groups of 1, 2, or 3 `1`s separated by a single  `0`:
+```{R}
+for (i in 1:4) print_pattern(); cat("\n")
+```
+
+"Clapping Music" is based on manipulating this 12-count loop. But as
+written, it's hard to manipulate the output of this program. The calls
+to `cat` produce output on the terminal, but they don't produce data
+that we can easily manipulate with more programming -- we need to make
+this pattern into data, rather than terminal output.
+
+If we were rewriting `print_pattern` to return a vector, we might
+begin by allocating the vector A typical way to proceed would be to
+rewrite `pattern` so that it allocates an output vector, whose size
+would be calculated in advance, then place each note into the
+appropriate place in the output. There would need to be another index
+variable to track the output index, since the output index corresponds
+to neither `c` nor `j`. (If you want to see that, skip forward to the
+[appendix]().
+
+But we can avoid dealing with that indexing by using a generator. To do this,
+enclose the body of the function in a call to `gen()`, and change
+each `cat()` to `yield()` to return the values.
+
+```{R}
+gen_pattern <- function(counts = c(3, 2, 1, 2)) { force(counts)
+  generators::gen({
+    for (n in itertools::recycle(counts)) {
+      for (j in 1:n)
+        yield(1)
+      yield(0)
+    }
+  })
+}
+```
+
+The code inside `gen(...)` does not run, yet. The call to `gen`
+constructs an iterator, as defined by the `iterators` package, which
+supports the method `nextElem`. When `nextElem()` is called on a
+generator, the generator runs its code only up to the point where
+`yield` is called. The generator returns this value, and saves its
+state until the next time it is called.
+
+```{R}
+p <- gen_pattern()
+cat(nextElem(p), "\n")
+cat(nextElem(p), "\n")
+cat(nextElem(p), "\n")
+cat(nextElem(p), "\n")
+for (i in 1:23) { cat(nextElem(p)) }; cat("\n")
+```
+
+Note also the appearance of an `itertools` call in the for-loop. In a
+generator you can go ahead and put an iterator (or anything which has
+an `iter` method) into the for-loop argument, which outside of a
+generator would require use of the `foreach` package. So a for-loop is
+running over an indefinitely long sequence.
+
+
+Having made an iterator by exchanging `cat` for `yield`, we can now
+use iterator functions to collect and display the output:
+
+```{R}
+show_head <- function(x, n=24) {
+  x %>% itertools::ilimit(n) %>% as.list %>% deparse() %>% cat(sep="\n")
+}
+show_head(gen_pattern(), 24)
+```
+
+## Making sounds
+
+We're a good way into what I advertised as a musical endeavour and
+haven't made any sounds yet, so let's address that with a
+generator. `with_sound()` will take an iterator as input, and
+constructs a new iterator which plays a sound for each nonzero number
+it passes through.
+
+```{R}
+with_sound <- function(g, paths) { list(g, paths)
+  samples <- lapply(paths, audio::load.wave)
+  #samples <- lapply(samples, function(x) x[1:20000])
+  print(names(paths))
+  generators::gen({
+    for (x in g) {
+      if(is.numeric(x) && x >= 1 && x <= length(samples)) {
+        cat(x)
+        audio::play(samples[[x]])
+        cat(names(paths)[x])
+      } else {
+        cat(".")
+      }
+      yield(x)
+    }
+    cat("\n")
+  })
+}
+```
+
+We'll also need a couple of handclap samples, one for single claps and
+one for double claps. Let's download some I found on Github:
+
+```{R}
+tmp <- tempdir()
+baseurl <- "https://github.com/octoblu/drum-kit/raw/master/public/assets/samples"
+samplepaths <- paste0(tmp, c("x" = "/clap4.wav","X" = "/clap5.wav"))
+curl::curl_download(paste0(baseurl, "/clap%20(4).WAV"), samplepaths[1])
+curl::curl_download(paste0(baseurl, "/clap%20(5).WAV"), samplepaths[2])
+```
+
+So you should hear two different sounds here:
+
+```{R}
+g <- generators::gen({yield(1); yield(2)}) %>% with_sound(samplepaths)
+invisible(nextElem(g))
+invisible(nextElem(g))
+```
+
+---
+
+Here's a couple of utility functions we'll need for the next bit. One
+is an equivalent of `lapply` for iterators, which I'll call
+`iter_map`. The other one is `sink` which just consumes all elements from
+an iterator.
+
+```r
+iter_map <- function(it, f, ...) {  list(it, f, ...)
+  generators::gen(for (x in it) yield(f(x, ...)))
+}
+sink <- function(x) {
+  tryCatch(repeat last <- nextElem(x),
+           error=function(e)
+             if (!identical(conditionMessage(e), 'StopIteration')) stop(e))
+  invisible(last)
+}
+```
+
+Back to making sounds.  If we let the generators run at fast as they
+could, the sound played wouldn't be intelligible. We need to set a
+tempo. So here is a generator function which passes its input to its
+output at a specified rate.
+
+```r
+with_tempo <- function(g, bpm) {  list(g, bpm) #force
+  interval <- 60 / bpm
+  generators::gen({
+    target <- Sys.time()
+    for (i in g) {
+      yield(i)
+      target <- target + interval
+      now <- Sys.time()
+      if (target - now > 0.15) Sys.sleep(target - now - 0.15)
+      profvis::pause(target - Sys.time()) #for better precision
+    }
+  })
+}
+```
+
+So this should print numbers at a regular interval:
+
+```r
+iter(1:20) %>% with_tempo(180) %>% iter_map(cat) %>% sink
+```
+
+Now we are ready to hear the rhythm, by pipelining our
+pattern through our noisemaker and metronome.
+
+```r
+gen_pattern() %>% with_sound(samplepaths) %>% with_tempo(320) %>%
+  itertools::ilimit(48) %>% sink
+```
+
+> **Side note / caution:** By now you might have noticed I've been placing
+> "force" and "list" in the first line of functions that return
+> generators.  This is actually something you should do any time you
+> construct and return an inner function, iterator, promise, or other
+> construct that captures your arguments for future reference. The issue
+> is the basic R issue, where lazy evaluation + mutable bindings allows
+> a function's inputs to change after it has been called -- for example,
+> `%>%` will call a pipeline function with the argument `.`, but after
+> it returns, `%>%` will change the binding for `.` A `for` loop
+> will similarly clobber the binding of its iterator variable.
+
+---
+
+## Phasing and combining
+
+"Clapping Music" is a piece for two performers, who both play the same
+pattern, but after every 12 loops, one of the performers skips forward
+by one step, so that over the course of the piece, the two parts move
+out and in phase with each other. A generator function models the
+occasional skip nicely, by consuming a value without yielding it:
+
+```r
+drop_one_after <- function(g, n, sep) {  list(g, n)
+  generators::gen(
+    repeat {
+      for (i in 1:n) yield(iterators::nextElem(g))
+      iterators::nextElem(g) #drop
+      if(!missing(sep)) cat(sep)
+    }
+  )
+}
+```
+Here, illustrated with a count that skips one after emitting three -- that is,
+dropping every fourth item (and printing a newline.)
+
+```r
+iterators::icount() %>% itertools::ilimit(12) %>% drop_one_after(3, "\n") %>%
+  iter_map(cat, "") %>% sink
+```
+
+Now, we can make two generators, have one of them skip some beats, and
+add them together:
+
+```r
+clapping_music <- function(n=12, sep="") {
+  a <- gen_pattern(c(3,2,1,2))
+  b <- gen_pattern(c(3,2,1,2)) %>% drop_one_after(n*12, sep)
+  both <- itertools::izip(a, b) %>% iter_map(function(x) x[[1]] + x[[2]])
+  itertools::ilimit(both, 13*12*n)
+}
+```
+
+To narrate this: we are constructing two independent instances
+of our basic 12-beat `XXX.XX.X.XX.` pattern. One of these patterns is
+made to skip one beat every N bars. These two loops are then combined
+in parallel with `izip` then `iter_map` to add the values together
+giving a count of 0, 1, or 2 for each beat.
+
+```r
+clapping_music(4, "\n") %>% iter_map(cat) %>% sink
+```
+
+## A performance
+
+Now all that's needed is to pipe this through a noisemaker.
+
+```r
+clapping_music(12) %>%
+  with_tempo(320) %>%
+  with_sound(samplepaths) %>%
+  sink
+```
+
+R is definitely not a multimedia environment, plus the `audio` package
+is using the OS alert sound facility, which is not designed for
+precise timing, so I can hear some glitches and pauses on
+occasion. However this does illustrate some of the things you can do
+with generators; how he generators package allows control to be
+_interleaved_ among different sequential processes -- here, 
+
+Generators allow you to escape from obligatory collection-thinking, to
+express with sequential code that which is best represented that way,
+and work at the level of collections and iterators when that is most
+convenient.
+
+---
+
+# Appendix: alternate implemntations of `pattern`
+
+[appendix]: I mentioned above that implementing `pattern` to output a vector
+involves extra calculations and maintenance of index variables. Here's the
+example, with `gen_pattern` repeated for comparison.
+
+```{R}
+gen_pattern <- function(counts = c(3, 2, 1, 2)) { force(counts)
+  generators::gen({
+    for (n in itertools::recycle(counts)) {
+      for (j in 1:n)
+        yield(1)
+      yield(0)
+    }
+  })
+}
+
+vec_pattern <- function(counts = c(3,2,1,2)) {
+  out <- vector(mode="numeric", length=sum(counts) + length(counts))
+  ix = 1
+  for (c in counts) {
+    out[ix:(ix+c-1)] <- 1
+    ix <- ix + c + 1
+  }
+  out
+}
+```
+
+On the other hand, here's what `gen_pattern` would look like if you
+directly implemented it as an iterator.  It requires some state
+variables that `nextElem` closes over, as well as some work to check
+and update those variables using `<<-`.
+
+```{R}
+iter_pattern <- function(counts=c(3,2,1,2)) {
+  counts <- itertools::recycle(iter(counts))
+  c <- 0
+  gi <- 1
+  itertools::new_iterator(function() {
+    c <- nextElem(counts)
+    if (gi <= c) {
+      gi <<- gi + 1
+      return(1)
+    } else {
+      ci <<- ci + 1
+      gi <- 1
+      return(0)
+    }
+  })
+}
+```
+
+This is because we can't use `for`, `if`, and such to directly track
+state; because an iterator always has to return from nextElem. it has
+to maintain its state by hand. This is unfortunate because, as the
+designers of ALGOL originally found in their research, constructs like
+`if`, `repeat`, `while`, `for`, `switch`, are very useful for
+describing common patterns in state machines! Another way to think
+about what the `generators` packageis doing is implementing a
+domain-specific language for iterators -- where the DSL is supposed to
+look like the host language.
