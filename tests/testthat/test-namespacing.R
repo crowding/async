@@ -1,11 +1,19 @@
 test_that("namespacing", {
   x <- generators::gen(yield(0))
   nextElem(x) %is% 0
+  x <- evalq(generators::gen(yield(0)), baseenv())
+  nextElem(x) %is% 0
+  x <- evalq(generators::gen({yield(0); yield(1)}), baseenv())
+  nextElem(x) %is% 0
+  nextElem(x) %is% 1
 })
+
 
 test_that("Isolated env", {
   g <- eval(quote(generators::gen(yield(0))), baseenv())
   nextElem(g) %is% 0
+
+  g <- evalq(generators::gen({yield(1); yield(2)}), baseenv())
 })
 
 test_that("custom CPS function in isolated env", {

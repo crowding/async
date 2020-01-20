@@ -321,7 +321,8 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks) {
     } else {
       where_found <- locate_(original_name, target_env, ifnotfound=NULL)
       if (is.null(where_found)) {
-        # try us, for "yield" etc.
+        # generators::gen(... yield() ...) should find "yield" even if
+        # generators is not attached
         where_found <- locate_(original_name,
                                getNamespace("generators"),
                                ifnotfound=NULL)
@@ -336,7 +337,7 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks) {
         # look in generators' exported namespace.
         if (exists(as.character(potential_name),
                    getNamespace("generators"), inherit=FALSE)) {
-          list(expr = call(":::", quote(generators), name),
+          list(expr = call(":::", quote(generators), potential_name),
                cps = TRUE)
         } else {
           list(expr=original_name, cps=FALSE)
@@ -348,7 +349,7 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks) {
           if (exists(as.character(potential_name),
                      lookin, inherit=FALSE)) {
             if(isNamespace(lookin)) {
-              list(expr = call(":::", 
+              list(expr = call(":::",
                                as.symbol(getNamespaceName(lookin)),
                                as.symbol(potential_name)),
                    cps = TRUE)

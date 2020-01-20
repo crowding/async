@@ -34,9 +34,6 @@ test_that("arg_cps propagates errors", {
   # inspectability from the process.
 })
 
-x <- make_pump(`(_cps`(arg_cps(12+12)))
-debug(x)
-
 test_that("()", {
   pump(`(_cps`(arg_cps(12+12))) %is% 24
   expect_error(pump(`(_cps`(arg_cps(stop("yes")))), "yes")
@@ -135,11 +132,13 @@ test_that("for", {
   pump(for_cps(arg_cps(i),
                arg_cps(1:10),
                `{_cps`(
-                 arg_cps(print(i)),
+                 arg_cps(force(i)),
                  if_cps(arg_cps(i %% 3 == 0), next_cps()),
                  if_cps(arg_cps(i %% 8 == 0), break_cps()),
                  arg_cps({x <- x + i}))))
-  
+  x %is% 19 # 1 + 2 + 4 + 5 + 7
+  i %is% 8
+
   out <- c()
   x <- 6
   cps <- while_cps(
@@ -149,7 +148,7 @@ test_that("for", {
                    next_cps(),
                    arg_cps(out <- c(out, x)))))
   pump(cps)
-  out %is% c(5, 3, 1)  
+  out %is% c(5, 3, 1)
 })
 
 test_that("pump forces value or error", {
