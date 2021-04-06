@@ -1,74 +1,82 @@
 #' @import nseval
 
+# CPS definitions for core R control flow constructs
+
 trace <- function(...) NULL
 #trace <- function(...) cat(..., "\n")
 
-generator_builtins <- c(
-  ")", "<-", "<<-", "&&", "||", "if", "switch", "{",
-  "next", "break", "yield", "block", "repeat", "while", "for")
 
-# The first group of arguments corresponds to expressions in the
-# language. They are continuation functions that provide their
-# callback with a value.
-
-# The second group of arguments correspond to control flow constructs,
-# or places the code can branch to.  For example, if a continuation
-# function is in the middle of a loop, the second arglist should be
-# provided with "nxt" and "brk" arguments.
-
-# CHECK: All in the left arglist are val-continuation functions.
+# The functions with names ending in "_cps" all construct and return
+# new functions. The constructors and their arguments correspond to
+# the nodes in the syntax tree; that is, a generator like this:
+#
+## gen( for( i in 1:10 ) yield(i) )
+#
+# results in a constructor call tree like this:
+## make_gen(for_cps(arg_cps(i), arg_cps(1:10), yield_cps(i)))
+#
+# Each _cps constructor constructs and returns a continuation
+# function.  "cps" stands for "continuation passing style" which
+# describes how execution of a generator works; one continuation
+# passes control to the next.
+#
+# The _outer_ arguments correspond to things in the R language that
+# should result in values.
+#
+# The cps functions (that is, the inner
+# functions constructed and returned) take a list of arguments that
+# represent other destinations you may have.  Every function has a
+# first argument "cont" representing what to The second argument is
+# usually "ret" which is used to eliminate tailcalls.
+#
+# So, when a continuation function is executing, it has two argument
+# lists. The outer, corresponding to the arguments, are all
+# continuation functions that should result in a value.
+#
+# The inner arguments represent execution state, traps, etc. They are
+# taken from continuations "above", and are passed to
+# continuations "below" (i.e. those representing your arguments)
+#
+# In true continuation passing style, each continustion function calls
+# the next, so that execution state passes from one continuation
+# function to the next. Because R does not have tailcall elimination,
+# this would endlessly build the stack. So there is a trampoline; one
+# of the continuation arguments that is passed around is called
+# "ret". Pass "cont" and other continuations to "ret" and return
+# normally; this will unwind the stack. This is used to implement
+# `while`, `repeat`, `for`, etc. without endlessly growing the
+# stack. On the other hand, leaving things on the stack may make
+# stacktraces more readable.
+#
+# CHECK: All in the outer arglist are val-continuation functions.
 #    If a function is a val-continuation function, its callbacks
 #    must use the first argument name "val".
-# CHECK: all in the right arglist are sequence continuation functions.
+# CHECK: all in the inner arglist are sequence continuation functions.
 #    A sequence continuation function uses the first argument name "cont"
 # CHECK: The first argument provided to "ret" should be a
-#    sequence-continuation function.?
+#    sequence-continuation function.???
 # CHECK: ... are passed on to all value-continuation functions.
 # CHECK: All args are passed by name past the first argument.
 
-# `(_cps` is the simplest continuation-passing function: it continues to
-# its argument.
+# NOTE: lots of stuff uses "ret" unnecessarily?
+
+# `(_cps` is the simplest continuation-passing function: it continues to the "expr" continuation
 `(_cps` <- function(expr) { force(expr)
   trace(where <- "(_cps outer")
-  function(cont, ..., ret) {
+  function(cont, ret, ...) {
+
     trace(where <- "(_cps inner")
     expr(function(val) {
       trace(where <- "(_cps callback")
       force(val)
       trace(where <- "(_cps forced")
       ret(cont, val)
-    }, ..., ret=ret)
+    }, ret=ret, ...)
 }}
 
 maybe <- function(x, if_missing=NULL)
   if (!missing_(arg(x))) x else if_missing
 
-# arg_cps interfaces between normal R evluation and the CPS system.
-# I clone its unevaluated arg and feed that to the continuation.
-arg_cps <- function(x) { x <- arg(x)
-  function(cont,
-           ret = function(cont, ...) cont(...),
-           stop = base::stop, ...) {
-    trace(where <- "arg_cps inner")
-    # do.call(cont, list(expr(x_)), envir=env(x_))
-    do(cont, x)
-  }
-  ## Hold up does it make sense at all to use tryCatch in
-  ## continuation functions?  Maybe only from pump? Then how would
-  ## tryCatch catch natural errors?  Maybe we should explicitly
-  ## force
-
-  ## Actually, what we need to do to supprt tryCatch -- because we
-  ## need to catch errors coming from user code in arg_expr, because
-  ## the list of watched-for conditions changes during pumping,
-  ## and because the -- is to pass down a _list_ of registered CPS
-  ## handlers, and then have arg_expr wind them up on every
-  ## invocation. Or perhaps some effort could be saved by thunking them
-  ## upwards from the tryCatch and having
-  ## pump() wind them up (this would also catch errors from generator
-  ## internals, though)
-  ## Or the tryCatch winds in and runs its own pump.
-}
 
 make_store <- function(sym) function(x, value) { list(x, value)
   function(cont, ret, ...) {
@@ -134,7 +142,6 @@ make_store <- function(sym) function(x, value) { list(x, value)
 }}
 
 if_cps <- function(cond, cons.expr, alt.expr) { list(cond, cons.expr, maybe(alt.expr))
-  if (!missing(alt.expr)) force(alt.expr)
   function(cont, ret, ...) {
     force(ret)
     got_cond <- function(val) {
@@ -256,9 +263,12 @@ switch_cps <- function(EXPR, ...) { force(EXPR); alts <- list(...)
 
 # Note on handling of ...; the rule is that you should
 # always pass ... "down" the stack into val-continuations
-# but reject "..." from val-continuations
+# but discard "..." from val-continuations
 # "below" you on the syntax tree. Discard ... when returning
 # via ret().
+#
+# FIXME: Or should it be that you should never pass "..." UP the tree???
+# What breaks then?
 
 next_cps <- function()
   function(cont, ..., ret, nxt) {
@@ -284,22 +294,8 @@ yield_cps <- function(expr) { force(expr)
   }
 }
 
-block_cps <- function(expr) { maybe(expr)
-  function(cont, ..., ret, block) {
-    if (missing(block)) stop("block called, but we do not seem to be in a delay")
-
-    got_val <- function(...) ret(block, cont, ...)
-
-    if (nseval:::is_missing(expr)) {
-      ret(block, cont)
-    } else {
-      expr(got_val, ..., ret=ret, block=block)
-    }
-  }
-}
-
 repeat_cps <- function(expr) { force(expr)
-  function(cont, ..., ret) {
+  function(cont, ret, ...) {
     brk <- function(...) {
       # because the signal comes "from below" we discard ... and continue
       ret(cont, invisible(NULL))
@@ -311,14 +307,6 @@ repeat_cps <- function(expr) { force(expr)
       ret(nxt, NULL)
     }
     nxt(NULL)
-  }
-}
-
-resolve_cps <- function(expr) { force(expr)
-  function(cont, ..., ret, resolve) {
-    if (missing(resolve)) stop("resolve called but we do not seem to be in a delay")
-    got_val <- function(...) ret(resolve, cont, ...)
-    expr(got_val, ..., ret=ret, resolve=resolve)
   }
 }
 
@@ -351,6 +339,7 @@ while_cps <- function(cond, expr) { list(cond, expr)
   }
 }
 
+#' @import iterators
 for_cps <- function(var, seq, expr) { list(var, seq, expr)
   function(cont, ..., ret) {
     trace("for loop started")

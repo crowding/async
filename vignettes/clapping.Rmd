@@ -1,16 +1,25 @@
+---
+title: "A Musical Introduction to Generators"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteIndexEntry{A Musical Introduction to Generators
+  %\VignetteEncoding{UTF-8}
+---
+
 # A Musical Introduction to Generators
 
 What a generator allows you to do is to take code that is writen in
 a sequential, looping style, and then treat that code's output as
 a collection to be iterated over.
 
-To illustrate what this all means, and the the generators package in
-general I will use R to perform a suitable piece of music,
+To illustrate what this means, and the the generators package in
+general, I will use R to perform a suitable piece of music,
 specifically Steve Reich's "Clapping Music."
 
-The piece is based on a rhythmic motif of handclaps counting out
-groups of 3, 2, 1, 2, 3, 2, 1, 2, 3... with each group seperated by
-one rest. In musical notion, this makes a 12-count loop:
+The piece is starts with a loop counting out groups of 3, 2, 1, 2, 3,
+2, 1, 2, 3... with each group seperated by one rest. In musical
+notion, this makes a 12-count loop:
 
 ![Musical score showing loop](clapping_music.svg)
 
@@ -38,18 +47,15 @@ to `cat` produce output on the terminal, but they don't produce data
 that we can easily manipulate with more programming -- we need to make
 this pattern into data, rather than terminal output.
 
-If we were rewriting `print_pattern` to return a vector, we might
-begin by allocating the vector A typical way to proceed would be to
-rewrite `pattern` so that it allocates an output vector, whose size
-would be calculated in advance, then place each note into the
-appropriate place in the output. There would need to be another index
-variable to track the output index, since the output index corresponds
-to neither `c` nor `j`. (If you want to see that, skip forward to the
-[appendix]().
+A typical way to proceed would be to rewrite `pattern` so that it
+allocates an output vector, whose size would be calculated in advance,
+then place each note into the appropriate place in the output. There
+would need to be another index variable to track the output index,
+since the output index corresponds to neither `c` nor `j`.
 
-But we can avoid dealing with that indexing by using a generator. To do this,
-enclose the body of the function in a call to `gen()`, and change
-each `cat()` to `yield()` to return the values.
+But we can avoid dealing with that indexing by using a generator. To
+do this, enclose the body of the function in a call to `gen()`, and
+change each `cat()` to `yield()` to return the values.
 
 ```{R}
 gen_pattern <- function(counts = c(3, 2, 1, 2)) { force(counts)
@@ -79,11 +85,12 @@ cat(nextElem(p), "\n")
 for (i in 1:23) { cat(nextElem(p)) }; cat("\n")
 ```
 
-Note also the appearance of an `itertools` call in the for-loop. In a
-generator you can go ahead and put an iterator (or anything which has
-an `iter` method) into the for-loop argument, which outside of a
-generator would require use of the `foreach` package. So a for-loop is
-running over an indefinitely long sequence.
+Note that `gen_pattern` has a call to `itertools` call in its
+for-loop. In a generator you can go ahead and put an iterator (or
+anything which has an `iter` method) into the for-loop argument.
+Outside of a generator, this would require using something other than
+a `for` loop, such as the `foreach` package. So a for-loop is running
+over an indefinitely long sequence.
 
 
 Having made an iterator by exchanging `cat` for `yield`, we can now
@@ -99,10 +106,10 @@ show_head(gen_pattern(), 24)
 ## Making sounds
 
 We're a good way into what I advertised as a musical endeavour and
-haven't made any sounds yet, so let's address that with a
-generator. `with_sound()` will take an iterator as input, and
-constructs a new iterator which plays a sound for each nonzero number
-it passes through.
+haven't made any sounds yet, so let's address that, with a generator,
+of course. `with_sound()` will take an iterator as input, and it will
+return a new iterator which plays a sound for each nonzero number it
+passes through.
 
 ```{R}
 with_sound <- function(g, paths) { list(g, paths)
@@ -148,8 +155,8 @@ invisible(nextElem(g))
 
 Here's a couple of utility functions we'll need for the next bit. One
 is an equivalent of `lapply` for iterators, which I'll call
-`iter_map`. The other one is `sink` which just consumes all elements from
-an iterator.
+`iter_map`. The other one is `sink` which just consumes all elements
+from an iterator.
 
 ```r
 iter_map <- function(it, f, ...) {  list(it, f, ...)
@@ -344,5 +351,5 @@ designers of ALGOL originally found in their research, constructs like
 `if`, `repeat`, `while`, `for`, `switch`, are very useful for
 describing common patterns in state machines! Another way to think
 about what the `generators` packageis doing is implementing a
-domain-specific language for iterators -- where the DSL is supposed to
-look like the host language.
+domain-specific language for iterators -- where the DSL is built to
+act a lot like the host language.

@@ -8,13 +8,13 @@ Authors@R:
            email = "peter.meilstrup@gmail.com")
 Description: A generator is written using familiar sequential constructs like
              `for` and `while` loops. This code is turned into an iterator that
-             is run incrementally. The iterator produces a value and pauses for
-             each time its generator code reaches a `yield()` call.
+             is run incrementally. The iterator saves state and returns each time its
+             generator code reaches a `yield()` call.
 License: BSD
 Encoding: UTF-8
 LazyData: true
 Imports:
-        nseval (>= 0.4),
+        nseval (>= 0.4.2),
         iterators,
         itertools,
         future,
@@ -25,5 +25,5 @@ Suggests:
     rmarkdown,
     audio,
     profvis
-RoxygenNote: 7.0.2
+RoxygenNote: 7.1.1
 VignetteBuilder: knitr

@@ -1,3 +1,5 @@
+`%is%` <- expect_equal
+
 test_that("namespacing", {
   x <- generators::gen(yield(0))
   nextElem(x) %is% 0

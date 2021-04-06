@@ -11,7 +11,7 @@ make_pump <- function(expr, ...,
                       ret=base::stop("unused"),
                       stop=base::stop("unused"),
                       eliminate.tailcalls = TRUE) { list(expr, ...)
-  nonce <- function() NULL
+  nonce <- function() NULL # a sigil value
   cont <- expr
   value <- nonce
 
@@ -60,7 +60,7 @@ make_pump <- function(expr, ...,
       result <- reset(cont, cont <<- nonce)(got_value, ..., ret=ret, stop=stop)
     } else {
       # the continuation given to us here should be one
-      # that the yield/block handler exfiltrated,
+      # that the yield/await handler exfiltrated,
       # so context should already be established
       result <- new_cont()
     }
@@ -132,44 +132,4 @@ print.generator <- function(gen) {
   # argument. and figure out which "yield" it corresponds to? It would
   # also be spiffo to support inline substitutions in the original
   # source comments.
-}
-
-make_delay <- function(expr, ...) { list(expr, ...)
-  nonce <- function() NULL
-  cont <- nonce
-
-  block <- function(cont) {
-    cont <<- cont
-  }
-
-  resolve <- function(cont) {
-  }
-
-  pump <- make_pump(expr, ..., block=block, resolve=resolve)
-
-  check <- function(resolve, reject) {
-    result <- tryCatch({
-      if (identical(cont, nonce)) {
-        #first time
-        pump()
-      } else {
-        #subsequent times
-        pump(reset(cont, cont <<- nonce))
-      }
-      if (identical(cont, nonce)) {
-        #last time
-        resolve(result)
-      }},
-      error = function(e) reject(e))
-  }
-
-  add_class(promises::promise(check), "delay")
-}
-
-#' @export
-print.delay <- function(delay) {
-  code <- substitute(expr, environment(delay$nextElem))
-  # pending nseval 0.4.1
-  # scope <- nseval::caller(environment(delay$nextElem), ifnotfound="original scope not available")
-  cat("Delay object with code:\n", deparse(code), "\n")
 }

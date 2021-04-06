@@ -1,4 +1,6 @@
 #' @import nseval
+`%is%` <- expect_equal
+all.equal.quotation <- all.equal.function
 
 test_that("basic translations", {
   expect_warning(cps_translate(quo(x)) %is% quo(arg_cps(x)), "keywords")
@@ -80,32 +82,44 @@ test_that("Translating expressions", {
                xout)
 })
 
-test_that("Fully qualified name references from a namespace not importing?", {
-  # how to make package namespace not attached when using ESS tools?
+test_that("Makes fully qualified names when generators package not attached", {
+  if ("package:generators" %in% search()) {
+    on.exit({
+      attachNamespace("generators")
+    }, add=TRUE)
+    detach("package:generators")
+  }
+
   xin <- quo({
     i <- 0;
     repeat {
       i <- i + 1;
-      if (i %% skip == 0) next()
+      if (i %% skip == 0) next
       if (i > max) break
       yield(i)
     }
-  }, getNamespace("nseval"))
+  }, globalenv())
 
-  xout <- quote(
+  target <- quote(
     generators:::`{_cps`(
       generators:::arg_cps(i <- 0),
-      generators:::`{_cps`(
+      generators:::repeat_cps(
+        generators:::`{_cps`(
         generators:::arg_cps(i <- i + 1),
-        generators::if_cps(
-          i %% skip == 0,
-          generators:::next_cps(), ),
         generators:::if_cps(
           generators:::arg_cps(i %% skip == 0),
           generators:::next_cps()),
         generators:::if_cps(
           generators:::arg_cps(i > max),
           generators:::break_cps()),
-        generators:::yield_cps(i),
-        )))
+        generators:::yield_cps(generators:::arg_cps(i))))))
+
+  xout <- generators::cps_translate(xin, endpoints=c("yield", "next", "break"))
+  expect_equal(nseval::expr(xout), target)
+
+  # can run generator without having the package attached
+  g <- do(generators::gen, xin)
+  max <- 10
+  skip <- 4
+  as.numeric(as.list((g))) %is% c(1, 2, 3, 5, 6, 7, 9, 10)
 })

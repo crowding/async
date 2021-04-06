@@ -110,7 +110,7 @@ test_that("while", {
   cps <- while_cps(arg_cps(x < 5), arg_cps(x <- x + 1))
   pump(cps)
   x %is% 5
-  
+
   out <- c()
   x <- 6
   cps <- while_cps(
@@ -120,14 +120,14 @@ test_that("while", {
                    next_cps(),
                    arg_cps(out <- c(out, x)))))
   pump(cps)
-  out %is% c(5, 3, 1)  
+  out %is% c(5, 3, 1)
 })
 
 test_that("for", {
   x <- 0
   pump(for_cps(arg_cps(i), arg_cps(1:10), arg_cps({x <- x + i})))
   x %is% 55
-
+  #
   x <- 0
   pump(for_cps(arg_cps(i),
                arg_cps(1:10),
@@ -138,7 +138,7 @@ test_that("for", {
                  arg_cps({x <- x + i}))))
   x %is% 19 # 1 + 2 + 4 + 5 + 7
   i %is% 8
-
+  #
   out <- c()
   x <- 6
   cps <- while_cps(
@@ -154,5 +154,5 @@ test_that("for", {
 test_that("pump forces value or error", {
   pump(arg_cps(12+12)) %is% 24
   expect_error(pump(arg_cps(stop("yes"))), "yes")
-  ##### FIXME (this is nseval's fault):  expect_error(pump(arg_cps()), "missing")
+  expect_error(pump(arg_cps()), "missing")
 })

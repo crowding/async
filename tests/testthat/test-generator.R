@@ -1,3 +1,5 @@
+`%is%` <- expect_equal
+
 test_that("a generator", {
   x <- gen(for (i in 1:10) yield(i))
   as.numeric(as.list(x)) %is% 1:10
