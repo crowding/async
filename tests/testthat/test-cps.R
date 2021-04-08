@@ -40,6 +40,22 @@ test_that("()", {
   expect_error(pump(`(_cps`(arg_cps({stop("yes")}))), "yes")
 })
 
+test_that("further nextElems will error with stopIteration", {
+  g <- gen({
+    yield(1)
+  })
+  nextElem(g) %is% 1
+  expect_error(nextElem(g), "StopIteration")
+  expect_error(nextElem(g), "StopIteration")
+  g <- gen({
+    yield(1)
+    stop("foo")
+  })
+  nextElem(g) %is% 1
+  expect_error(nextElem(g), "foo")
+  expect_error(nextElem(g), "StopIteration")
+})
+
 test_that("||", {
   pump(`||_cps`(arg_cps(FALSE), arg_cps(0))) %is% FALSE
   pump(`||_cps`(arg_cps(TRUE), arg_cps(stop("no")))) %is% TRUE

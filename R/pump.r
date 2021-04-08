@@ -48,6 +48,9 @@ make_pump <- function(expr, ...,
       #trace(deparse(list(...)))
       base::stop(...)
     }
+    cont <<- function() {
+      base::stop("StopIteration")
+    }
   }
 
   got_value <- function(val) {
@@ -57,11 +60,13 @@ make_pump <- function(expr, ...,
 
   pump <- function(new_cont) {
     if (missing(new_cont)) {
+      trace("pump: No starting continuation given, using stored")
       result <- reset(cont, cont <<- nonce)(got_value, ..., ret=ret, stop=stop)
     } else {
       # the continuation given to us here should be one
       # that the yield/await handler exfiltrated,
       # so context should already be established
+      trace("pump: given starting continuation")
       result <- new_cont()
     }
     trace(where <- "pump first return")
@@ -94,16 +99,23 @@ make_generator <- function(expr, ...) { list(expr, ...)
 
   nextElem <- function(...) {
     trace("nextElem")
-    result <- tryCatch(
-      if (identical(cont, nonce)) pump() else pump(reset(cont, cont <<- nonce)),
-      error = function(e) {
-        trace("nextElem pump threw error")
-        if (identical(conditionMessage(e), 'StopIteration'))
-          e else stop(e)
-      })
+    result <- tryCatch(if (identical(cont, nonce)) {
+      trace("nextElem: starting from scratch")
+      pump()
+    } else {
+      trace("nextElem has continuation")
+      pump(reset(cont, cont <<- nonce))
+    },
+    error = function(e) {
+      trace("nextElem pump threw error: ", deparse(e))
+      cont <<- function(...) stop("StopIteration")
+      #if (identical(conditionMessage(e), 'StopIteration'))
+      #  e else stop(e)
+      stop(e)
+    })
     if (identical(cont, nonce)) {
       trace("nextElem reached end")
-      cont <<- function() stop("StopIteration")
+      cont <<- function(...) stop("StopIteration")
       if (identical(yielded, nonce)) {
         stop("StopIteration")
       } else {

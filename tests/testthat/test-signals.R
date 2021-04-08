@@ -2,19 +2,65 @@
 
 if(exists("experimental", envir = globalenv()) && globalenv()$experimental) {
 
-  test_that("try", {
+  test_that("simple try", {
+    g <- gen({
+      x <- 5
+      try({x <- 6; NULL(); x <- 7}, silent=TRUE)
+      yield(x)
+      x <- 8
+      NULL()
+      yield(x)
+    })
+    nextElem(g) %is% 6
+    expect_error(nextElem(g), "non-function")
+  })
+
+  test_that("yield inside of try", {
+
     g <- gen({
       try({
         yield(5)
         stop("foo")
         yield(6)
-      })
+      }, silent=TRUE)
       yield(7)
+      stop("bar")
+      yield(8)
     })
-    nextElem(g) %is% 5
-    nextElem(g) %is% 7
+
+    expect_equal(nextElem(g), 5)
+    expect_equal(nextElem(g), 7)
+    expect_error(nextElem(g), "bar")
     expect_error(nextElem(g), "StopIteration")
   })
+
+  test_that("nested tries", {
+
+    g <- gen({
+      try({
+        yield(5)
+        try({
+          yield(55)
+          stop("baz")
+          yield(56)
+        }, silent=TRUE)
+        stop("foo")
+        yield(6)
+      }, silent=TRUE)
+      yield(7)
+      stop("bar")
+      yield(8)
+    })
+
+    expect_equal(nextElem(g), 5)
+    expect_equal(nextElem(g), 7)
+    expect_error(nextElem(g), "bar")
+    expect_error(nextElem(g), "StopIteration")
+  })
+
+}
+
+if(FALSE) {
 
   test_that("on.exit", {
     exited <- FALSE

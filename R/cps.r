@@ -141,7 +141,8 @@ make_store <- function(sym) function(x, value) { list(x, value)
   left(got_left, ret=ret, ...)
 }}
 
-if_cps <- function(cond, cons.expr, alt.expr) { list(cond, cons.expr, maybe(alt.expr))
+if_cps <- function(cond, cons.expr, alt.expr) {
+  list(cond, cons.expr, maybe(alt.expr))
   function(cont, ret, ...) {
     force(ret)
     got_cond <- function(val) {
@@ -163,7 +164,8 @@ if_cps <- function(cond, cons.expr, alt.expr) { list(cond, cons.expr, maybe(alt.
       }
     }
     cond(got_cond, ret=ret, ...)
-  }}
+  }
+}
 
 switch_cps <- function(EXPR, ...) { force(EXPR); alts <- list(...)
   function(cont, ..., ret, stop) {
@@ -213,12 +215,15 @@ switch_cps <- function(EXPR, ...) { force(EXPR); alts <- list(...)
   iterate <- function(val) {
     i <<- i + 1
     if (i <= n) {
+      trace(where <- str_c("{ arg ", i))
       args[[i]](got_val, ret=ret, ...)
     } else {
+      trace(where <- "{ returning")
       ret(cont, invisible(val))
     }
   }
   got_val <- function(val) {
+    trace(where <- "{ got val")
     if (missing(val)) {
       stop("missing argument to {}")
       val <- NULL
@@ -278,14 +283,14 @@ next_cps <- function()
 
 break_cps <- function()
   function(cont, ..., ret, brk) {
-    if (missing(brk)) stop("break called, but we do not seem to be in a loop")
+    if (is_missing(brk)) stop("break called, but we do not seem to be in a loop")
     ret(brk)
   }
 
 yield_cps <- function(expr) { force(expr)
   function(cont, ..., ret, yield) {
     trace("Yield called")
-    if (missing(yield)) stop("yield called, but we do not seem to be in a generator")
+    if (is_missing(yield)) stop("yield called, but we do not seem to be in a generator")
     got_val <- function(val) {
       trace("Got a yield value")
       ret(yield, cont, val)

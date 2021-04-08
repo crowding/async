@@ -5,28 +5,28 @@
 # watchlist?
 base_endpoints <- c("break", "next")
 yield_endpoints <- c(base_endpoints, "yield")
-delay_endpoints <- c(base_endpoints, "block", "resolve", "return")
+delay_endpoints <- c(base_endpoints, "await", "resolve", "return")
 
 # these are function names which block further translation of
 # their arguments
-base_blocks <- c("gen", "function", "delay", "quote")
+base_blocks <- c("gen", "function", "async", "quote")
 
 # @export
 # @rdname delay
-block <- function(expr) {
-  stop("Block must be called inside of a delay() expression")
+await <- function(expr) {
+  stop("await must be called inside of a async() block")
 }
 
 #' @export
 #' @rdname gen
 yield <- function(expr) {
-  stop("Yield must be called inside of a gen() expression")
+  stop("Yield must be called inside of a gen() block")
 }
 
 #' @export
 #'
 resolve.promise <- function(expr) {
-  stop("promise resolve must be called inside of a delay() expression")
+  stop("promise resolve must be called inside of a async() expression")
   # resolve on futures is fine though.
 }
 
@@ -67,25 +67,22 @@ gen <- function(expr, ...) { expr <- arg(expr)
 
 # Create an asynchronous task from sequential code.
 #
-# `delay({...})`, with an expression written in its argument, allows
+# `async({...})`, with an expression written in its argument, allows
 # that expression to be evaluated in an asynchronous, or non-blocking
-# manner. `delay` returns an object with class c("delay", "future",
-# "promise") which implements both the [promise] and "future"
-# interfaces.
+# manner. `async` returns an object with class c("delay", "promise") which
+# implements the [promise] interface.
 #
 # When a `delay` object is activated, it will evaluate its expression
-# until it reaches the keyword `block`. The delay object will return
+# until it reaches the keyword `await`. The delay object will return
 # to its caller and preserve the partial state of its evaluation.
-# When the delay is next activated, evaluation continues from where
-# it last left off. Usually you would use `block` to wait until an
-# external condition is is satisfied, like
-# `while(!messageAvailable(conn)) block`.
+# When the awaited value is resolved, evaluation continues from where
+# it last left off.
 #
-# When a delay completes evaluation of its expression, the promise
+# When a n async block completes evaluation of its expression, the promise
 # resolves with the resulting value. If an error is raised from the
 # delay expression, the promise rejects and stores that error.
 #
-# Note that resolution of a delay, while asynchronous, happens in the
+# Note that resolution of an async, while asynchronous, happens in the
 # same thread which requests the value -- there is no forking or
 # parallel processing involved.  It is a bit more like cooperative
 # multitasking, where `delay` pauses the current task and
