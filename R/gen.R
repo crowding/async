@@ -59,7 +59,7 @@ make_generator <- function(expr, ...) { list(expr, ...)
 
   yield <- function(cont, val) {
     trace("Yield handler called")
-    cont <<- function() cont(val) # yield() returns its input
+    cont <<- function(...) cont(val) # yield() returns its input
     yielded <<- val
     val
   }

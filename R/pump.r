@@ -56,7 +56,24 @@ make_pump <- function(expr, ...,
     value <<- val
   }
 
-  pump <- function(new_cont) {
+  # just realized I am mashing together _context arguments_ and _stack
+  # arguments_ in the same item. I think almost everything except the
+  # values can be made into a "constext constructor" which executes on
+  # construction.  I.e. first you construct the syntax tree, but it is
+  # made of "context constructors"; the context constructors then walk
+  # down the tree.  syntax tree invokes "context constructors which
+  # gives "context constructors", then call the "continuation
+  # constructor" on the root. The root will call continuation
+  # constructors on the ..., handing down ret/stop/yield/await
+  # continuations as necessary. Most of the _context_ arguments are
+  # passed down and settled ahead of time, which should make
+  # generators faster. You hand context (i.e. your stop, return, etc)
+  # down the stack.
+
+  pump <- function(new_cont, ...) {
+    # For now, since for async I need to pass values into ..., with the
+    # existing context...
+    set_dots(environment(), get_dots(parent.env(environment())), append=TRUE)
     if (missing(new_cont)) {
       trace("pump: No starting continuation given, using stored")
       result <- reset(cont, cont <<- nonce)(got_value, ..., ret=ret, stop=stop)
@@ -65,7 +82,7 @@ make_pump <- function(expr, ...,
       # that the yield/await handler exfiltrated,
       # so context should already be established
       trace("pump: given starting continuation")
-      result <- new_cont()
+      result <- new_cont(...)
     }
     trace(where <- "pump first return")
     while(!identical(cont, nonce)) {

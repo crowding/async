@@ -5,7 +5,6 @@
 trace <- function(...) NULL
 #trace <- function(...) cat(..., "\n")
 
-
 # The functions with names ending in "_cps" all construct and return
 # new functions. The constructors and their arguments correspond to
 # the nodes in the syntax tree; that is, a generator like this:

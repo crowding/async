@@ -43,7 +43,7 @@ if(exists("experimental", envir = globalenv()) && globalenv()$experimental) {
     expect_true(rejected)
   })
 
-  test_that("async with no await", {
+  test_that("async with no await resolves immediately", {
     p <- make_async(arg_cps(5))
     then(p, function(x) {cat("triggered!"); 5})
   })

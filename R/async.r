@@ -41,12 +41,24 @@ await <- function(expr) {
 }
 
 await_cps <- function(expr) { force(expr)
-  function(cont, ..., ret, await) {
-    trace("Await called")
+  stop_ <- NULL
+  await_ <- NULL
+  cont_ <- NULL
+
+  got_prom <- function(val) {
+    tryCatch(p <- as.promise(val), on.error=stop)
+    trace("await got promise")
+    await_(prom, cont, stop) # and don't return or stop
+    trace("registered with promise")
+  }
+
+  function(cont, ..., await, stop) {
+    trace("await called")
     if (is_missing(await)) stop("await called, but we don't seem to be in an async()")
-    got_val <- function(val) {
-      await(cont, promise)
-    }
+    stop_ <<- stop
+    await_ <<- await
+    cont_ <<- cont
+    expr(got_prom, ..., await=await, stop=stop)
   }
 }
 
@@ -62,7 +74,7 @@ make_async <- function(expr, ..., await=await_, return=return_, stop=stop_) {
   reject <- nonce
   pump <- nonce
 
-  await_ <- function(cont, promise, stop) {
+  await_ <- function(promise, cont, stop) {
     awaiting <<- promise
     cont <<- cont
     then(promise, success, failure)
@@ -76,31 +88,26 @@ make_async <- function(expr, ..., await=await_, return=return_, stop=stop_) {
   }
 
   failure <- function(val) {
-    
-  }
-
-  return_ <- function(cont, ...) {
-    # guess we are done (roll on on.exit...)
-    cat("return hit!\n")
-  }
-
-  stop_ <- function(err, ...) {
-    awaiting <<- nonce
-    err <<- err
-    cat("Stop hit!\n")
-  }
-
-  continue_ <- function() {
     pump()
+  }
+
+  return_ <- function(val) {
+    # guess we are done (roll on on.exit...)
+    cat("return hit! resolving our promise\n")
+    resolve(val)
+  }
+
+  stop_ <- function(err) {
+    cat("Stop hit!\n")
+    reject(err)
   }
 
   # Pump will go until we hit the first await
   promise(function(resolve, reject) {
     resolve <<- resolve
     reject <<- reject
-    pump <<- make_pump(expr, ...,
-                       await=await, return=return_, stop=stop_)
-    continue_()
+    pump <<- make_pump(..., await=await, return=return_, stop=stop_)
+    pump(expr, return)
   })
 }
 
