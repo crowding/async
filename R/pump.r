@@ -24,11 +24,9 @@ make_pump <- function(expr, ...,
     ret <- function(cont, ...) {
       trace(where <- "pump ret")
       list(cont, ...) #force
-      #trace(deparse(list(...)))
       trace(where <- "pump ret forced")
       cont <<- function() {
         trace(where <- "Thunk called")
-        #trace(deparse(list(cont, ...)))
         cont(...)
       }
     }
@@ -83,65 +81,4 @@ make_pump <- function(expr, ...,
 
 
 
-make_generator <- function(expr, ...) { list(expr, ...)
-  nonce <- function() NULL
-  cont <- nonce
-  yielded <- nonce
 
-  yield <- function(cont, val) {
-    trace("Yield handler called")
-    cont <<- function() cont(val) # yield() returns its input
-    yielded <<- val
-    val
-  }
-
-  pump <- make_pump(expr, ..., yield=yield)
-
-  nextElem <- function(...) {
-    trace("nextElem")
-    result <- tryCatch(if (identical(cont, nonce)) {
-      trace("nextElem: starting from scratch")
-      pump()
-    } else {
-      trace("nextElem has continuation")
-      pump(reset(cont, cont <<- nonce))
-    },
-    error = function(e) {
-      trace("nextElem pump threw error: ", deparse(e))
-      cont <<- function(...) stop("StopIteration")
-      #if (identical(conditionMessage(e), 'StopIteration'))
-      #  e else stop(e)
-      stop(e)
-    })
-    if (identical(cont, nonce)) {
-      trace("nextElem reached end")
-      cont <<- function(...) stop("StopIteration")
-      if (identical(yielded, nonce)) {
-        stop("StopIteration")
-      } else {
-        trace("nextElem returning value yielded from end")
-        reset(yielded, yielded <<- nonce)
-      }
-    } else if (identical(yielded, nonce)) {
-      warning("nextElem: neither yielded nor finished")
-    } else {
-      trace("nextElem returning yielded value")
-      reset(yielded, yielded <<- nonce)
-    }
-  }
-
-  add_class(itertools::new_iterator(nextElem), "generator")
-}
-
-#' @export
-print.generator <- function(gen) {
-  code <- substitute(expr, environment(gen$nextElem))
-  cat("Generator object with code:\n", deparse(code), "\n")
-  # the really spiffo thing would be if you could propagate srcrefs
-  # through the syntactic transform, then introspect back to which code
-  # corresponds to the current "state" of the run. (i.e. which "yield"
-  # we are paused at.) You could poke around at the "cont"
-  # argument. and figure out which "yield" it corresponds to? It would
-  # also be spiffo to support inline substitutions in the original
-  # source comments.
-}

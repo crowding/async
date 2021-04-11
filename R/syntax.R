@@ -1,131 +1,15 @@
+# Keywords which must always be CPS
 
-# Base keywords which flip the CPS switch
 # (or do we want to do something more focused in the parsing stage where
 # we start with "yield" but on reaching a "while" we add "next" to the
 # watchlist?
 base_endpoints <- c("break", "next")
-yield_endpoints <- c(base_endpoints, "yield")
-delay_endpoints <- c(base_endpoints, "await", "resolve", "return")
+async_endpoints <- c(base_endpoints, "await")
+gen_endpoints <- c(base_endpoints, "yield")
 
-# these are function names which block further translation of
+# function names which block further translation of
 # their arguments
-base_blocks <- c("gen", "function", "async", "quote")
-
-# @export
-# @rdname delay
-await <- function(expr) {
-  stop("await must be called inside of a async() block")
-}
-
-#' @export
-#' @rdname gen
-yield <- function(expr) {
-  stop("Yield must be called inside of a gen() block")
-}
-
-#' @export
-#'
-resolve.promise <- function(expr) {
-  stop("promise resolve must be called inside of a async() expression")
-  # resolve on futures is fine though.
-}
-
-#' Create an iterator using sequential code.
-#'
-#' `gen({...})` with an expression written in its argument, creates a
-#' generator, which can be thought of as a block of code whose
-#' execution can pause and resume. From the inside, a generator looks
-#' like you are writing sequential code with loops, branches and such,
-#' writing values to the outside world by calling `yield()`. From the
-#' outside, a generator behaves like an iterator over
-#' an indefinite collection.
-#'
-#' Generators are not based on forking or parallel OS processes; they
-#' run in the same thread as their caller. The control flow in a
-#' generator is interleaved with that of the R code which queries it.
-#'
-#' When `nextItem` is called on a generator, the generator evaluates
-#' its given expression until it reaches a call to `yield(...).` The
-#' value passed to `yield` is returned. The generator's execution
-#' state is preserved and will continue form where ti left off on the
-#' next call to `nextItem.`
-#'
-#' There are some syntactic restrictions on what you can write in a
-#' generator expression. `yield` must appear only directly within
-#' control flow operators. Wherever `yield` appears in a generator
-#' expression, the calls it is nested within must have CPS
-#' implementations. (This package provides CPS implementations for
-#' several base R control flow builtins; the list is in the
-#' non-exported variable `generators:::cps_builtins`).
-#' @export
-gen <- function(expr, ...) { expr <- arg(expr)
-  do(make_generator,
-     cps_translate(expr,
-                   endpoints=yield_endpoints),
-     dots(...))
-}
-
-# Create an asynchronous task from sequential code.
-#
-# `async({...})`, with an expression written in its argument, allows
-# that expression to be evaluated in an asynchronous, or non-blocking
-# manner. `async` returns an object with class c("delay", "promise") which
-# implements the [promise] interface.
-#
-# When a `delay` object is activated, it will evaluate its expression
-# until it reaches the keyword `await`. The delay object will return
-# to its caller and preserve the partial state of its evaluation.
-# When the awaited value is resolved, evaluation continues from where
-# it last left off.
-#
-# When a n async block completes evaluation of its expression, the promise
-# resolves with the resulting value. If an error is raised from the
-# delay expression, the promise rejects and stores that error.
-#
-# Note that resolution of an async, while asynchronous, happens in the
-# same thread which requests the value -- there is no forking or
-# parallel processing involved.  It is a bit more like cooperative
-# multitasking, where `delay` pauses the current task and
-# switches to another one.
-#
-# This means that delay objects do not execute their code when they
-# are not being "observed." If you feed a delay object to
-# futures:::resolve, `resolve` will poll it until it resolves, like
-# with other kinds of futures. It is this polling which prods the delay
-# to run until its next "block()"
-#
-# Normally a [promises::promise] object can not be directly
-# unwrapped, and the value is only received by callback. But within a
-# delay expression, you can call "resolve" directly on a promise (or
-# a future.) From the standpoint inside the delay, this will block
-# until it returns the value the promise resolves to. From the standpoint
-# outside the delay object, it means the delay object returns
-# immediately, and does not finish evaluating until the promise it
-# has queried finishes.
-#
-# The syntactic rules for a delay are analogous to that for [gen()];
-# wherever a 'block' appears, its surrounding syntax must have a CPS
-# implementation available. Thus the following delay:
-#
-# `delay({
-#   readMessage(conn, nonblocking=TRUE)
-#   while(!receivedMessage(conn))
-#    if (alive(conn) block else stop(lastError(conn)))
-# })`
-#
-# requires CPS implementations for `while`, `{` and `if`. CPS
-# implementations for these and most base R control flow constructs
-# are provided in this package, for instance the non-exported object
-# `generators:::if_cps`.
-#
-# @param expr An expression, to be evaluated asynchronously on demand.
-# @return A [promises::promise] object.
-delay <- function(expr, ...) { expr <- arg(expr)
-  do(make_delay,
-     translate_cps(expr, delay_endpoints),
-     dots(...))
-  expr$resolve()
-}
+base_blocks <- c("gen", "function", "async", "quote", "quo")
 
 # Translating an argument into CPS
 cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks) {
@@ -153,7 +37,7 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks) {
     }
   }
 
-  # Subsequent functions deal in this datatype: list(expr=quote(...),
+  # The following functions deal in this datatype: list(expr=quote(...),
   #  cps=logical) with field cps being TRUE if CPS translation has been done
   #  on the subexpression.
   #

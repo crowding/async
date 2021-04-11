@@ -1,61 +1,113 @@
-make_delay <- function(expr, ...) { list(expr, ...)
-  nonce <- function() NULL
-  cont <- nonce
-
-  block <- function(cont) {
-    cont <<- cont
-  }
-
-  resolve <- function(cont) {
-  }
-
-  pump <- make_pump(expr, ..., block=block, resolve=resolve)
-
-  check <- function(resolve, reject) {
-    result <- tryCatch({
-      if (identical(cont, nonce)) {
-        #first time
-        pump()
-      } else {
-        #subsequent times
-        pump(reset(cont, cont <<- nonce))
-      }
-      if (identical(cont, nonce)) {
-        #last time
-        resolve(result)
-      }},
-      error = function(e) reject(e))
-  }
-
-  add_class(promises::promise(check), "delay")
+# Create an asynchronous task from sequential code.
+#
+# `async({...})`, with an expression written in its argument, allows
+# that expression to be evaluated in an asynchronous, or non-blocking
+# manner. `async` returns an object with class c("async", "promise") which
+# implements the [promise] interface.
+#
+# When an `async` object is activated, it will evaluate its expression
+# until it reaches the keyword `await`. The delay object will return
+# to its caller and preserve the partial state of its evaluation.
+# When the awaited value is resolved, evaluation continues from where
+# it last left off.
+#
+# When an async block completes evaluation and returns a value, the
+# promise resolves with the resulting value. If the async expression
+# stops with an error, the promise is rejected with that error.
+#
+# Note that resolution of an async, while asynchronous, happens in the
+# same thread which requests the value -- there is no forking or
+# parallel processing involved. It is a bit more like cooperative
+# multitasking, where `await` pauses the current task and
+# switches to another one.
+#
+# The syntax rules for a delay are analogous to that for [gen()];
+# wherever an 'await' appears, its surrounding syntax must have a CPS
+# implementation available.
+#
+# @param expr An expression, to be evaluated asynchronously on demand.
+# @return A [promises::promise] object.
+async <- function(expr, ...) { expr <- arg(expr)
+  do(make_async,
+     cps_translate(expr, async_endpoints),
+     dots(...))
+  expr$resolve()
 }
 
 #' @export
-print.delay <- function(delay) {
-  code <- substitute(expr, environment(delay$nextElem))
-  # pending nseval 0.4.1
-  # scope <- nseval::caller(environment(delay$nextElem), ifnotfound="original scope not available")
-  cat("Delay object with code:\n", deparse(code), "\n")
+#' @rdname gen
+await <- function(expr) {
+  stop("Await must be called inside of an async() block")
 }
 
-await_cps <- function(expr) { maybe(expr)
+await_cps <- function(expr) { force(expr)
   function(cont, ..., ret, await) {
-    if (missing(await)) stop("await called, but we do not seem to be in an async")
-
-    got_val <- function(...) ret(await, cont, ...)
-
-    if (nseval:::is_missing(expr)) {
-      ret(block, cont)
-    } else {
-      expr(got_val, ..., ret=ret, block=block)
+    trace("Await called")
+    if (is_missing(await)) stop("await called, but we don't seem to be in an async()")
+    got_val <- function(val) {
+      await(cont, promise)
     }
   }
 }
 
-resolve_cps <- function(expr) { force(expr)
-  function(cont, ..., ret, resolve) {
-    if (missing(resolve)) stop("resolve called but we do not seem to be in a delay")
-    got_val <- function(...) ret(resolve, cont, ...)
-    expr(got_val, ..., ret=ret, resolve=resolve)
+make_async <- function(expr, ..., await=await_, return=return_, stop=stop_) {
+  list(expr, ...)
+
+  nonce <- (function() function() NULL)()
+  cont <- nonce
+  value <- nonce
+  err <- nonce
+  awaiting <- nonce
+  resolve <- nonce
+  reject <- nonce
+  pump <- nonce
+
+  await_ <- function(cont, promise, stop) {
+    awaiting <<- promise
+    cont <<- cont
+    then(promise, success, failure)
   }
+
+  success <- function(val) {
+    awaiting <<- nonce
+
+    # we have to put a value INTO pump...
+    pump(cont, val)
+  }
+
+  failure <- function(val) {
+    
+  }
+
+  return_ <- function(cont, ...) {
+    # guess we are done (roll on on.exit...)
+    cat("return hit!\n")
+  }
+
+  stop_ <- function(err, ...) {
+    awaiting <<- nonce
+    err <<- err
+    cat("Stop hit!\n")
+  }
+
+  continue_ <- function() {
+    pump()
+  }
+
+  # Pump will go until we hit the first await
+  promise(function(resolve, reject) {
+    resolve <<- resolve
+    reject <<- reject
+    pump <<- make_pump(expr, ...,
+                       await=await, return=return_, stop=stop_)
+    continue_()
+  })
+}
+
+#' @export
+print.async <- function(x, ...) {
+  code <- substitute(expr, environment(x$nextElem))
+  # pending nseval 0.4.1
+  # scope <- nseval::caller(environment(delay$nextElem), ifnotfound="original scope not available")
+  cat("Async object with code:\n", deparse(code), "\n")
 }

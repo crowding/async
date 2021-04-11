@@ -287,18 +287,6 @@ break_cps <- function()
     ret(brk)
   }
 
-yield_cps <- function(expr) { force(expr)
-  function(cont, ..., ret, yield) {
-    trace("Yield called")
-    if (is_missing(yield)) stop("yield called, but we do not seem to be in a generator")
-    got_val <- function(val) {
-      trace("Got a yield value")
-      ret(yield, cont, val)
-    }
-    expr(got_val, ..., ret=ret, yield=yield)
-  }
-}
-
 repeat_cps <- function(expr) { force(expr)
   function(cont, ret, ...) {
     brk <- function(...) {

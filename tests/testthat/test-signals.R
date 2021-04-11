@@ -62,6 +62,15 @@ if(exists("experimental", envir = globalenv()) && globalenv()$experimental) {
 
 if(FALSE) {
 
+  # R doesn't even warn!
+  # > (function() tryCatch(return(5), finally=return(6)))()
+  # [1] 6
+  # > (function() {on.exit(return(5)); return(6)})()
+  # [1] 5
+  # > tryCatch((function() {on.exit(return(5)); stop("!")})(), error=function(e) {caught <<- TRUE; cat("caught\n"); 6}) 
+  # [1] 5
+
+  
   test_that("on.exit", {
     exited <- FALSE
     g <- gen({

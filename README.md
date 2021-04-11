@@ -1,16 +1,23 @@
-# Generators for R
+# Async R
 
-This is a rather experimental R package as yet.
+This is an R package inplementing *generators* and *async* blocks
 
-You may have seen generators in languages like Python, C# and Javascript,
-now this package implements them for R.
+This package is rather experimental.
 
-Generators are bits of code whose execution can be paused and
-restarted; they "look like" code with for loops on the inside but they
-act like iterators on the outside.
+## Generators
+
+`g <- gen({...})` allow you to write a block of sequential code that
+"pauses". A generator runs until it hits a `yield()` call, then
+returns the value. The next time you call the generator it picks up
+where it left off and runs until the next `yield`.
+
+From the "outside" a generator implements the `iterator`
+interface. You extract each yielded value with `nextElem(g)`
 
 ```
 devtools::install_github("crowding/generators")
+
+# This generator produces a sequence whose length is unknown ahead of time
 # https://en.wikipedia.org/wiki/Collatz_conjecture
 collatz <- function(x) { force(x)
   generators::gen({
@@ -33,3 +40,28 @@ collatz(63728127L) %>% as.list %>% as.numeric
 ```
 
 For more examples, see the "Clapping Music" tutorial in "clapping.r".
+
+## Async/await
+
+Like generators `a <- async({...})` blocks also take a block of
+sequential code, which runs until it reaches a call to `await(p)`. The
+argument `p` should be a promise, as defined by the `promises`
+package; which represents an unfinished external computation. From the
+"outside," an `async()` constructs and returns a promise.
+
+An `async` block runs until it reaches a call to `await(p)`; when the
+promise `p` resolves with a value. the `async` block continues running.
+When the `async` block finishes, it finishes with a value.
+
+## How does this work?
+
+The `gen` and `async` constructors takes the code block you give it,
+and then swap out R's base control flow operators like `if`, `while`,
+`try`, with its own versions that can execute partially. This is done
+using [continuation passing style](http://),` (also affectionately known
+as "callback hell".)
+
+So it is essentially an R interpreter written in R, so not yet very
+performant. However it is being written with an eye to _compiling_
+generators/asyncs into a state machine representation, which should
+improve performance substantially.
