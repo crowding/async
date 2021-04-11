@@ -53,6 +53,7 @@ yield_cps <- function(expr) { force(expr)
 }
 
 make_generator <- function(expr, ...) { list(expr, ...)
+
   nonce <- function() NULL
   cont <- nonce
   yielded <- nonce
@@ -64,6 +65,9 @@ make_generator <- function(expr, ...) { list(expr, ...)
     val
   }
 
+  # "expr" represents the syntax tree, and is a constructor
+  # that returns the entry continuation.
+  # "make_pump" 
   pump <- make_pump(expr, ..., yield=yield)
 
   nextElem <- function(...) {

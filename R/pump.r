@@ -10,9 +10,10 @@ pump <- function(expr) make_pump(expr)()
 make_pump <- function(expr, ...,
                       ret=base::stop("unused"),
                       stop=base::stop("unused"),
+                      return=got_value,
                       eliminate.tailcalls = TRUE) { list(expr, ...)
   nonce <- function() NULL # a sigil value
-  cont <- expr
+  cont <- nonce
   value <- nonce
 
   on_finish <- function(...) {
@@ -70,13 +71,19 @@ make_pump <- function(expr, ...,
   # generators faster. You hand context (i.e. your stop, return, etc)
   # down the stack.
 
+  # "expr" represents the syntax tree, It is a constructor that takes
+  # some context ("our "ret" and "stop" etc) and returns an entry
+  # continuation.
+  entry <- expr(got_value, ret=ret, stop=stop, return=got_value, ...)
+  cont <- entry
+
   pump <- function(new_cont, ...) {
     # For now, since for async I need to pass values into ..., with the
     # existing context...
     set_dots(environment(), get_dots(parent.env(environment())), append=TRUE)
     if (missing(new_cont)) {
       trace("pump: No starting continuation given, using stored")
-      result <- reset(cont, cont <<- nonce)(got_value, ..., ret=ret, stop=stop)
+      result <- reset(cont, cont <<- nonce)(...)
     } else {
       # the continuation given to us here should be one
       # that the yield/await handler exfiltrated,

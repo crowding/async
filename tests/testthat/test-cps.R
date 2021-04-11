@@ -4,8 +4,8 @@
 
 test_that("arg_cps captures lazy arg", {
   f <- function(x) {arg_expr(x)}
-  cp <- arg_cps(x+y)
-  cp(f) %is% quote(x+y)
+  cp <- arg_cps(x+y)(f)
+  cp() %is% quote(x+y)
 })
 
 test_that("arg_cps causes scoped effects,", {
@@ -14,16 +14,16 @@ test_that("arg_cps causes scoped effects,", {
     arg_cps(x <- x + 1)
   }
   arg <- f(5)
-  arg(function(val) val %is% 6) %is% 6
-  arg(function(val) val %is% 7) %is% 7
+  arg(function(val) val %is% 6)() %is% 6
+  arg(function(val) val %is% 7)() %is% 7
   x %is% 10
 })
 
 test_that("arg_cps propagates errors", {
-  arg_cps(10)(function(val) force(val)) %is% 10
-  expect_error(arg_cps(stop("yes"))(function(val) force(val)), "yes")
-  arg_cps(10+20)(function(val) val) %is% 30
-  expect_error(arg_cps(stop("yes"))(function(val) val), "yes")
+  arg_cps(10)(function(val) force(val))() %is% 10
+  expect_error(arg_cps(stop("yes"))(function(val) force(val))(), "yes")
+  arg_cps(10+20)(function(val) val)() %is% 30
+  expect_error(arg_cps(stop("yes"))(function(val) val)(), "yes")
   # there is a quirk here where "stop()" is given as the argument to
   # an arg_cps(), and options(error=recover) is also set.
   # The promise caontining "stop()" is evaluated again, during the stack
@@ -40,33 +40,21 @@ test_that("()", {
   expect_error(pump(`(_cps`(arg_cps({stop("yes")}))), "yes")
 })
 
-test_that("further nextElems will error with stopIteration", {
-  g <- gen({
-    yield(1)
-  })
-  nextElem(g) %is% 1
-  expect_error(nextElem(g), "StopIteration")
-  expect_error(nextElem(g), "StopIteration")
-  g <- gen({
-    yield(1)
-    stop("foo")
-  })
-  nextElem(g) %is% 1
-  expect_error(nextElem(g), "foo")
-  expect_error(nextElem(g), "StopIteration")
-})
-
 test_that("||", {
   pump(`||_cps`(arg_cps(FALSE), arg_cps(0))) %is% FALSE
+  pump(`||_cps`(arg_cps(NA), arg_cps(0))) %is% NA
   pump(`||_cps`(arg_cps(TRUE), arg_cps(stop("no")))) %is% TRUE
   pump(`||_cps`(arg_cps(0), arg_cps(1))) %is% TRUE
+  pump(`||_cps`(arg_cps(FALSE), arg_cps(NA))) %is% NA
   expect_error(pump(`||_cps`(arg_cps(FALSE), arg_cps(stop("yes")))), "yes")
 })
 
 test_that("&&", {
   pump(`&&_cps`(arg_cps(FALSE), arg_cps(stop("no")))) %is% FALSE
   pump(`&&_cps`(arg_cps(TRUE), arg_cps(FALSE))) %is% FALSE
+  pump(`&&_cps`(arg_cps(NA), arg_cps(TRUE))) %is% NA
   pump(`&&_cps`(arg_cps(1), arg_cps(1))) %is% TRUE
+  pump(`&&_cps`(arg_cps(FALSE), arg_cps(stop("yes")))) %is% FALSE
   expect_error(pump(`&&_cps`(arg_cps(TRUE), arg_cps(stop("yes")))), "yes")
   expect_error(pump(`&&_cps`(arg_cps(stop("yes")), arg_cps(FALSE))), "yes")
 })
@@ -75,14 +63,16 @@ test_that("if", {
   pump(if_cps(arg_cps(3 > 2), arg_cps("left"), arg_cps("right"))) %is% "left"  
   pump(if_cps(arg_cps(2 > 3), arg_cps("left"), arg_cps("right"))) %is% "right"
   pump(if_cps(arg_cps(2 > 3), arg_cps("left"))) %is% NULL
-  pump(if_cps(arg_cps(2 > 3), arg_cps("left"), arg_cps())) %is% NULL
+#  pump(if_cps(arg_cps(2 > 3), arg_cps("left"), arg_cps())) %is% NULL
   expect_error(pump(if_cps(arg_cps(2 < 3), arg_cps(stop("no")))), "no")
   expect_error(pump(if_cps(arg_cps(stop("no")), arg_cps(2 < 3))), "no")
 })
 
 test_that("<-", {
   pump(`<-_cps`(arg_cps(x), arg_cps(5))) %is% 5
+  x %is% 5
   pump(`<-_cps`(arg_cps(x), arg_cps(x + 1))) %is% 6
+  x %is% 6
   (function(x) {
     pump(`<<-_cps`(arg_cps(x), arg_cps(x+1)))
   })(12) %is% 13

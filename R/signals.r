@@ -3,15 +3,29 @@
 # It saves its arg, unevaluated, and feeds it to the continuation function.
 arg_cps <- function(x) {
   x <- arg(x)
+
   function(cont, ..., wind) {
-    trace(where <- "arg_cps inner")
-    ## If we have been handed a "wind" function, use that
     if (is_missing(wind)) {
-      do(cont, x)
+      function() {
+        do(cont, x)
+      }
     } else {
-      trace(where <- "arg_cps winding...")
-      wind(function() do(cont, x))
+      function() {
+        wind(function() do(cont, x))
+      }
     }
+  }
+}
+
+#arg_cps <-
+function(cont, ..., wind) {
+  trace(where <- "arg_cps inner")
+  ## If we have been handed a "wind" function, use that
+  if (is_missing(wind)) {
+    do(cont, x)
+  } else {
+    trace(where <- "arg_cps winding...")
+    wind(function() do(cont, x))
   }
 }
 

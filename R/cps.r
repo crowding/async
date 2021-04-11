@@ -60,111 +60,115 @@ trace <- function(...) NULL
 # NOTE: lots of stuff uses "ret" unnecessarily?
 
 # `(_cps` is the simplest continuation-passing function: it continues to the "expr" continuation
-`(_cps` <- function(expr) { force(expr)
-  trace(where <- "(_cps outer")
-  function(cont, ret, ...) {
 
-    trace(where <- "(_cps inner")
-    expr(function(val) {
-      trace(where <- "(_cps callback")
-      force(val)
-      trace(where <- "(_cps forced")
-      ret(cont, val)
-    }, ret=ret, ...)
-}}
+
+## `(_cps` <- function(expr) {
+##   # in case () needs to force?
+##   force(expr)
+##   function(cont, ...) {
+##     gotVal <- function(val) {
+##       force(val)
+##       cont(val)
+##     }
+##     getVal <- expr(gotVal, ...)
+##     getVal
+##   }
+## }
+
+
+`(_cps` <- function(expr) {
+  # () just disappears and returns its argument's continuation.
+  force(expr)
+  function(...) {
+    expr(...)
+  }
+}
 
 maybe <- function(x, if_missing=NULL)
   if (!missing_(arg(x))) x else if_missing
 
-
 make_store <- function(sym) function(x, value) { list(x, value)
-  function(cont, ret, ...) {
+  function(cont, ..., ret) {
     dest <- NULL
-    got_x <- function(val) {
-      dest <<- arg(val)
-      value(got_value, ret=ret, ...)
-    }
-    got_value <- function(val) {
+    gotVal <- function(val) {
       val <- arg(val) # lazy
       v <- do_(quo_(sym, env(dest)),
                dest,
                val)
       ret(cont, v)
     }
-    x(got_x, ret=ret, ...)
-  }}
+    getVal <- value(gotVal, ..., ret=ret)
+    gotX <- function(val) {
+      dest <<- arg(val)
+      getVal() <<- arg(val)
+    }
+    getX <- x(gotX, ..., ret=ret)
+    getX
+  }
+}
 
 `<-_cps` <- make_store(quote(`<-`))
 `<<-_cps` <- make_store(quote(`<<-`))
 
 `&&_cps` <- function(left, right) { list(left, right)
-  function(cont, ret, ...) {
-    #get the lval, then
-    got_left <- function(val) {
-      if(val) {
-        # continue
-        right(got_right, ret=ret, ...)
-      } else {
-        ret(cont, FALSE)
-      }
-      # check: when we return using "val" it should be to a function that had
-      # us in the left arglist.
+  function(cont, ..., ret) {
+    leftVal <- NULL
+    gotRight <- function(val) {
+      trace("&& got right")
+      cont(reset(leftVal, leftVal <<- NULL) && val)
     }
-    got_right <- function(val) {
-      if(val) {
-        ret(cont, TRUE)
-      } else {
-        ret(cont, FALSE)
+    getRight <- right(gotRight, ..., ret=ret)
+    gotLeft <- function(val) {
+      trace("&& got left")
+      if (isFALSE(val)) cont(FALSE) else {
+        leftVal <<- val
+        getRight()
       }
     }
-    left(got_left, ret=ret, ...)
-  }}
+    getLeft <- left(gotLeft, ..., ret=ret)
+    getLeft
+  }
+}
 
 `||_cps` <- function(left, right) { list(left, right)
-  function(cont, ret, ...) {
-  #get the lval, then
-  got_left <- function(val) {
-    if(val) {
-      ret(cont, TRUE)
-    } else {
-      right(got_right, ret=ret, ...)
+  function(cont, ..., ret) {
+    leftVal <- NULL
+    gotRight <- function(val) {
+      trace("|| got right")
+      cont(reset(leftVal, leftVal <<- NULL) || val)
     }
-  }
-  got_right <- function(val) {
-    if(val) {
-      ret(cont, TRUE)
-    } else {
-      ret(cont, FALSE)
+    getRight <- right(gotRight, ..., ret=ret)
+    gotLeft <- function(val) {
+      trace("|| got left")
+      if (isTRUE(val)) cont(TRUE) else {
+        leftVal <<- val
+        getRight()
+      }
     }
+    getLeft <- left(gotLeft, ..., ret=ret)
+    getLeft
   }
-  left(got_left, ret=ret, ...)
-}}
+}
 
 if_cps <- function(cond, cons.expr, alt.expr) {
   list(cond, cons.expr, maybe(alt.expr))
-  function(cont, ret, ...) {
-    force(ret)
-    got_cond <- function(val) {
-      if (val) {
-        cons.expr(got_branch, ret=ret, ...)
-      } else {
-        if (nseval:::is_missing(alt.expr)) {
-          ret(cont, invisible(NULL))
-        } else {
-          alt.expr(got_branch, ret=ret, ...)
-        }
-      }
+  function(cont, ..., stop, ret) {
+    list(cont, ret)
+    if (is_missing(alt.expr)) {
+      ifFalse <- function() cont(invisible(NULL))
+    } else {
+      ifFalse <- alt.expr(cont, ..., stop=stop, ret=ret)
     }
-    got_branch <- function(val) {
-      if (missing(val)) {
-        ret(cont, invisible(NULL))
-      } else {
-        ret(cont, val)
-      }
+    ifTrue <- cons.expr(cont, ..., stop=stop, ret=ret)
+    gotCond <- function(val) {
+      if(isTRUE(val)) ifTrue()
+      else if(isFALSE(val)) ifFalse()
+      else stop("Invalid condition")
     }
-    cond(got_cond, ret=ret, ...)
+    getCond <- cond(gotCond, ..., stop=stop, ret=ret)
   }
 }
+
 
 switch_cps <- function(EXPR, ...) { force(EXPR); alts <- list(...)
   function(cont, ..., ret, stop) {
@@ -202,35 +206,45 @@ switch_cps <- function(EXPR, ...) { force(EXPR); alts <- list(...)
   }
 }
 
-# All the entries in both lists are continuation functions.  If you
-# call something you got from the LEFT arglist, you give it a
-# continuation-function that expects "val." If you call something you
-# got from the right arglist, you give it a "cont".
+force_then <- function(cont, ...) {
+  force(cont)
+  function(val) {
+    #if(!is_missing(val)) force(val) #prob not necessary?
+    force(val)
+    val <- NULL #force, then discard
+    cont()
+  }
+}
 
-`{_cps` <- function(...) { args <- list(...)
-  function(cont, ret, ...) {
-  i <- 0;
-  n <- length(args);
-  iterate <- function(val) {
-    i <<- i + 1
-    if (i <= n) {
-      trace(where <- str_c("{ arg ", i))
-      args[[i]](got_val, ret=ret, ...)
-    } else {
-      trace(where <- "{ returning")
-      ret(cont, invisible(val))
+`{_cps` <- function(...) {
+  args <- list(...)
+  function(cont, ..., ret) {
+    if (length(args) == 0) {
+      function() cont(NULL)
+    } else if (length(args) == 1) {
+      # just use the inner arg's continuation, like ()?
+      args[[1]](cont, ..., ret=ret)
+    }
+    else {
+      # build a chain last to first
+      entries <- rep(list(NULL), length(args))
+      entries[[length(args)]] <- args[[length(args)]](cont, ..., ret=ret)
+      for (i in rev(seq_len(length(args) - 1))) {
+        # string continuations together with "then"
+        cat(i, "\n")
+        entries[[i]] <- args[[i]](force_then(entries[[i+1]], ..., ret=ret), ..., ret=ret)
+      }
+      entry <- entries[[1]]
+      entries <- NULL
+      entry
     }
   }
-  got_val <- function(val) {
-    trace(where <- "{ got val")
-    if (missing(val)) {
-      stop("missing argument to {}")
-      val <- NULL
-    }
-    ret(iterate, val)
-  }
-  iterate(NULL)
-}}
+}
+
+# question: is there a situation in which not forcing the arg of () or {}
+# is consequential? What about side effects?
+
+
 
 # In CPS style, some functions take another CPS function as first
 # positional argument. These are called (or returned) to sequence the flow of
