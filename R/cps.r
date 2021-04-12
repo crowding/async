@@ -310,7 +310,7 @@ break_cps <- function()
     }
   }
 
-repeat_cps <- function(expa) { force(expa) #expr getting NULL???
+repeat_cps <- function(expr) { force(expr) #expr getting NULL???
   function(cont, ..., ret, brk, nxt) {
     list(cont, ret)
 
@@ -319,69 +319,61 @@ repeat_cps <- function(expa) { force(expa) #expr getting NULL???
       ret(cont, invisible(NULL))
     }
 
-    nxt_ <- function(val) {
+    nxt_ <- function(val) { 
       maybe(val) #discard
       val <- NULL
       trace("Next repeat")
       ret(begin)
     }
-
-    begin <- expa(nxt_, ..., ret=ret, brk=brk_, nxt=nxt_)
+    # nxt_ takes optional val_ because used both ways here:
+    begin <- expr(nxt_, ..., ret=ret, brk=brk_, nxt=nxt_)
     begin
   }
 }
 
-while_cps <- function(cond, expr) { list(cond, expr)
+while_cps <- function(cond, expr) {
+  list(cond, expr)
+  function(cont, ..., ret, nxt, brk) {
+    list(cont, ret)
 
-  function(cont, ..., ret) {
-    # we establish "nxt" and "brk" continuations
-    value <- NULL
-    get_cond <- function() {
-      cond(check_run, ret=ret, nxt=nxt, brk=brk, ...)
+    brk_ <- function() {
+      trace("Breaking from while")
+      ret(cont, invisible(NULL))
     }
-    check_run <- function(val) {
+    nxt_ <- function() {
+      trace("Next while")
+      ret(begin)
+    }
+    doExpr <- expr(force_then(nxt_, ..., ret=ret, nxt=nxt, brk=brk),
+                   ..., ret=ret, nxt=nxt_, brk=brk_)
+    gotCond <- function(val) {
       if (val) {
-        expr(got_expr, ret=ret, nxt=nxt, brk=brk, ...)
+        val <- NULL
+        doExpr()
       } else {
-        ret(cont, value)
+        val <- NULL
+        ret(cont, invisible(NULL))
       }
     }
-    got_expr <- function(val) {
-      value <<- val
-      ret(get_cond)
-    }
-    brk <- function(...) {
-      ret(cont, NULL)
-    }
-    nxt <- function(...) {
-      ret(get_cond)
-    }
-    get_cond()
+    begin <- cond(gotCond, ..., ret=ret, nxt=nxt_, brk=brk_)
   }
 }
 
+
 #' @import iterators
-for_cps <- function(var, seq, expr) { list(var, seq, expr)
-  function(cont, ..., ret) {
-    trace("for loop started")
+for_cps <- function(var, seq, expr) {
+  list(var, seq, expr)
+  function(cont, ..., ret, nxt, brk, stop) {
+    list(cont, ret, maybe(nxt), maybe(brk), stop)
     i <- 0
     var_ <- NULL
     env_ <- NULL
     seq_ <- NULL
-    value <- NULL
-    brk <- function(...) {
+    brk_ <- function() {
       ret(cont, invisible(NULL))
     }
-    got_var <- function(val) {
-      var_ <<- as.character(arg_expr(val))
-      env_ <<- arg_env(val)
-      seq(got_seq, ..., ret=ret, brk = brk)
-    }
-    got_seq <- function(val) {
-      trace(paste("for ", var_, "got seq"))
-      seq_ <<- iter(val)
-      trace("for ", var_, "made iterator", deparse(as.list(seq_$state)))
-      iterate()
+    nxt_ <- function() {
+      ret(iterate)
     }
     iterate <- function() {
       trace("for ", var_, "iterate")
@@ -395,23 +387,26 @@ for_cps <- function(var, seq, expr) { list(var, seq, expr)
                           NULL else stop(e)
                       })
       if (stopping) {
-        trace("for ", var_, "stopping")
-        ret(cont, invisible(value))
+        trace("for ", var_, " stopping")
+        ret(cont, invisible(NULL))
       } else {
-        value <<- NULL
         assign(var_, val, envir=env_)
-        trace("for ", var_, "= ", deparse(val))
-        expr(got_expr, ..., ret=ret, brk=brk, nxt=nxt)
+        trace("for ", var_, " = ", deparse(val))
+        doBody()
       }
     }
-    got_expr <- function(val) {
-      trace("for ", var_, "got value")
-      value <<- val
-      ret(iterate)
+    gotSeq <- function(val) {
+      seq_ <<- iter(val)
+      iterate()
     }
-    nxt <- function(...) {
-      ret(iterate)
+    gotVar <- function(val) {
+      var_ <<- as.character(arg_expr(val))
+      env_ <<- arg_env(val)
+      getSeq()
     }
-    var(got_var, ..., ret=ret) #just quoting so no context passed
+    doBody <- expr(force_then(iterate, ..., ret=ret, nxt=nxt_, brk=brk_),
+                   ..., ret=ret, nxt=nxt_, brk=brk_) # our brk_
+    getSeq <- seq(gotSeq, ..., ret=ret, nxt=nxt, brk=brk) #not our brk
+    begin <- var(gotVar, ..., ret=ret, nxt=nxt, brk=brk) #not our nrk
   }
 }

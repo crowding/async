@@ -111,6 +111,7 @@ test_that("repeat", {
 
 test_that("while", {
   pump(while_cps(arg_cps(TRUE), break_cps())) %is% NULL
+  pump(while_cps(break_cps(), arg_cps(TRUE))) %is% NULL
 
   x <- 0
   cps <- while_cps(arg_cps(x < 5), arg_cps(x <- x + 1))
@@ -147,14 +148,14 @@ test_that("for", {
   #
   out <- c()
   x <- 6
-  cps <- while_cps(
-    arg_cps(x > 0),
-    `{_cps`(arg_cps(x <- x - 1),
-            if_cps(arg_cps(x %% 2 == 0),
-                   next_cps(),
-                   arg_cps(out <- c(out, x)))))
+  cps <- for_cps(
+    arg_cps(x),
+    arg_cps(1:10),
+    if_cps(arg_cps(x %% 2 == 0),
+           next_cps(),
+           arg_cps(out <- c(out, x))))
   pump(cps)
-  out %is% c(5, 3, 1)
+  out %is% c(1, 3, 5, 7, 9)
 })
 
 test_that("pump forces value or error", {
