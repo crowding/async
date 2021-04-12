@@ -5,7 +5,10 @@ add_class <- function(x, ...) {
   x
 }
 
-pump <- function(expr) make_pump(expr)()
+pump <- function(expr) {
+  thisPump <- make_pump(expr)
+  thisPump()
+}
 
 make_pump <- function(expr, ...,
                       ret=base::stop("unused"),
@@ -54,6 +57,7 @@ make_pump <- function(expr, ...,
 
   got_value <- function(val) {
     trace(where <- "pump got value")
+    force(val)
     value <<- val
   }
 
@@ -100,7 +104,8 @@ make_pump <- function(expr, ...,
     cont <<- on_finish
     on_finish()
   }
-  pump #reset(pump, debug(pump))
+  pump
+  #reset(pump, debug(pump))
 }
 
 

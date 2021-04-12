@@ -135,12 +135,16 @@ make_store <- function(sym) function(x, value) { list(x, value)
     leftVal <- NULL
     gotRight <- function(val) {
       trace("|| got right")
-      cont(reset(leftVal, leftVal <<- NULL) || val)
+      ret(cont, reset(leftVal, leftVal <<- NULL) || val)
+      # cont(reset(leftVal, leftVal <<- NULL) || val)
     }
     getRight <- right(gotRight, ..., ret=ret)
     gotLeft <- function(val) {
       trace("|| got left")
-      if (isTRUE(val)) cont(TRUE) else {
+      if (isTRUE(val)) {
+        ret(cont, TRUE)
+        #cont(TRUE)
+      } else {
         leftVal <<- val
         getRight()
       }
@@ -161,8 +165,14 @@ if_cps <- function(cond, cons.expr, alt.expr) {
     }
     ifTrue <- cons.expr(cont, ..., stop=stop, ret=ret)
     gotCond <- function(val) {
-      if(isTRUE(val)) ifTrue()
-      else if(isFALSE(val)) ifFalse()
+      if(isTRUE(val)) {
+        trace("if true")
+        ifTrue()
+      }
+      else if(isFALSE(val)) {
+        trace("if false")
+        ifFalse()
+      }
       else stop("Invalid condition")
     }
     getCond <- cond(gotCond, ..., stop=stop, ret=ret)
@@ -206,13 +216,15 @@ switch_cps <- function(EXPR, ...) { force(EXPR); alts <- list(...)
   }
 }
 
-force_then <- function(cont, ...) {
+force_then <- function(cont, ..., ret) {
   force(cont)
+  if (!is.function(cont)) stop()
   function(val) {
     #if(!is_missing(val)) force(val) #prob not necessary?
     force(val)
     val <- NULL #force, then discard
-    cont()
+    #cont()
+    ret(cont)
   }
 }
 
@@ -231,7 +243,6 @@ force_then <- function(cont, ...) {
       entries[[length(args)]] <- args[[length(args)]](cont, ..., ret=ret)
       for (i in rev(seq_len(length(args) - 1))) {
         # string continuations together with "then"
-        cat(i, "\n")
         entries[[i]] <- args[[i]](force_then(entries[[i+1]], ..., ret=ret), ..., ret=ret)
       }
       entry <- entries[[1]]
@@ -279,40 +290,44 @@ force_then <- function(cont, ...) {
 # a CPS function wants a signal "next" or such, it adds "nxt" to the
 # continuation arguments.
 
-# Note on handling of ...; the rule is that you should
-# always pass ... "down" the stack into val-continuations
-# but discard "..." from val-continuations
-# "below" you on the syntax tree. Discard ... when returning
-# via ret().
-#
-# FIXME: Or should it be that you should never pass "..." UP the tree???
-# What breaks then?
-
 next_cps <- function()
   function(cont, ..., ret, nxt) {
-    if (missing(nxt)) stop("next called, but we do not seem to be in a loop")
-    ret(nxt)
+    if (missing(nxt)) stop("call to next is not in a loop")
+    list(ret, nxt)
+    function() {
+      trace("Next called")
+      ret(nxt)
+    }
   }
 
 break_cps <- function()
   function(cont, ..., ret, brk) {
-    if (is_missing(brk)) stop("break called, but we do not seem to be in a loop")
-    ret(brk)
+    if (is_missing(brk)) stop("call to break is not in a loop")
+    list(ret, brk)
+    function() {
+      trace("Break called")
+      ret(brk)
+    }
   }
 
-repeat_cps <- function(expr) { force(expr)
-  function(cont, ret, ...) {
-    brk <- function(...) {
-      # because the signal comes "from below" we discard ... and continue
+repeat_cps <- function(expa) { force(expa) #expr getting NULL???
+  function(cont, ..., ret, brk, nxt) {
+    list(cont, ret)
+
+    brk_ <- function() {
+      trace("Breaking from repeat")
       ret(cont, invisible(NULL))
     }
-    nxt <- function(val) {
-      expr(then, ret=ret, nxt=nxt, brk=brk, ...)
+
+    nxt_ <- function(val) {
+      maybe(val) #discard
+      val <- NULL
+      trace("Next repeat")
+      ret(begin)
     }
-    then <- function(val) {
-      ret(nxt, NULL)
-    }
-    nxt(NULL)
+
+    begin <- expa(nxt_, ..., ret=ret, brk=brk_, nxt=nxt_)
+    begin
   }
 }
 

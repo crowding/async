@@ -85,8 +85,8 @@ test_that("{}", {
   pump(`{_cps`(arg_cps(x <- 10))) %is% 10
   x %is% 10
   pump(`{_cps`(arg_cps(5))) %is% 5
-  pump(`{_cps`(arg_cps(x <- 5),
-               arg_cps(x <- x+4))) %is% 9
+  pump(`{_cps`(arg_cps(x <- 5), arg_cps({x <- x+4}))) %is% 9
+  x %is% 9
   expect_error(pump(`{_cps`(arg_cps(5), )), "missing")
   expect_error(pump(`{_cps`(arg_cps())), "missing")
   expect_error(pump(`{_cps`(arg_cps(5), arg_cps())), "missing")

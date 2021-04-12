@@ -5,12 +5,15 @@ arg_cps <- function(x) {
   x <- arg(x)
 
   function(cont, ..., wind) {
+    force(cont)
     if (is_missing(wind)) {
       function() {
+        trace("arg: ", deparse(expr(x)))
         do(cont, x)
       }
     } else {
       function() {
+        trace("arg: ", deparse(expr(x)))
         wind(function() do(cont, x))
       }
     }
