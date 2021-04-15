@@ -63,7 +63,7 @@ test_that("if", {
   pump(if_cps(arg_cps(3 > 2), arg_cps("left"), arg_cps("right"))) %is% "left"  
   pump(if_cps(arg_cps(2 > 3), arg_cps("left"), arg_cps("right"))) %is% "right"
   pump(if_cps(arg_cps(2 > 3), arg_cps("left"))) %is% NULL
-#  pump(if_cps(arg_cps(2 > 3), arg_cps("left"), arg_cps())) %is% NULL
+  #pump(if_cps(arg_cps(2 > 3), arg_cps("left"), arg_cps())) %is% NULL
   expect_error(pump(if_cps(arg_cps(2 < 3), arg_cps(stop("no")))), "no")
   expect_error(pump(if_cps(arg_cps(stop("no")), arg_cps(2 < 3))), "no")
 })

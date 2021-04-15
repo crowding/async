@@ -1,7 +1,5 @@
 `%is%` <- expect_equal
 
-if(exists("experimental", envir = globalenv()) && globalenv()$experimental) {
-
   test_that("simple try", {
     g <- gen({
       x <- 5
@@ -16,7 +14,6 @@ if(exists("experimental", envir = globalenv()) && globalenv()$experimental) {
   })
 
   test_that("yield inside of try", {
-
     g <- gen({
       try({
         yield(5)
@@ -27,7 +24,6 @@ if(exists("experimental", envir = globalenv()) && globalenv()$experimental) {
       stop("bar")
       yield(8)
     })
-
     expect_equal(nextElem(g), 5)
     expect_equal(nextElem(g), 7)
     expect_error(nextElem(g), "bar")
@@ -53,14 +49,84 @@ if(exists("experimental", envir = globalenv()) && globalenv()$experimental) {
     })
 
     expect_equal(nextElem(g), 5)
+    expect_equal(nextElem(g), 55)
     expect_equal(nextElem(g), 7)
     expect_error(nextElem(g), "bar")
     expect_error(nextElem(g), "StopIteration")
   })
 
-}
+test_that("return stops without throwing error", {
+  g <- gen(
+    for (i in 1:10) {
+      if (i == 2) return()
+      yield(i)
+    })
+  nextElem(g) %is% 1
+  expect_error(nextElem(g), "StopIteration")
+})
+
+test_that("Catch internal errors", {
+  # tryCatch should also catch errors arising from within interpreted functions.
+  # For instance FALSE || NULL will throw an error from ||_cps, because
+  # it just uses || internally and that throws an error.
+  g <- gen({
+    try(yield(yield(FALSE) || yield(NULL)), silent=TRUE)
+    yield("done")
+  })
+  nextElem(g) %is% FALSE
+  nextElem(g) %is% NULL
+  nextElem(g) %is% "done"
+})
+
+test_that("try/finally, stop and return", {
+
+  g <- gen(tryCatch({yield("Hello"); return(); yield("Goodbye")},
+                    finally={yield("Hola"); stop("oops"); yield("Adios")}))
+  nextElem(g) %is% "Hello"
+  nextElem(g) %is% "Hola"
+  expect_error(nextElem(g), "oops")
+
+  g <- gen(tryCatch({yield("Hello"); stop("oops"); yield("Goodbye")},
+                    finally={yield("Hola"); return(); yield("Adios")}))
+  nextElem(g) %is% "Hello"
+  nextElem(g) %is% "Hola"
+  expect_error(nextElem(g), "oops")
+
+  g <- gen(tryCatch({yield("Hello"); return(); yield("Goodbye")},
+                    finally={yield("Hola"); return(); yield("Adios")}))
+  nextElem(g) %is% "Hello"
+  nextElem(g) %is% "Hola"
+  expect_error(nextElem(g), "StopIteration")
+})
 
 if(FALSE) {
+
+  # hmm... to do an on.exit I have to dynamically modify the call
+  # graph??? or at least there needs to be some special handling at
+  # the end to gather up the list of exit handlers. Collection of exit handlers maybe... I convinced myself
+  # that tryCatch is simpler to start with.
+  test_that("on.exit normal", {
+    exited <- FALSE
+    g <- gen({
+      on.exit(exited <<- TRUE)
+      yield(1);
+    })
+
+    nextElem(g) %is% 1
+    exited %is% FALSE
+    expect_error(nextElem(g), "StopIteration")
+    exited %is% TRUE
+
+    exited <- FALSE
+    g <- gen({
+      on.exit(exited <<- TRUE)
+      yield(1);
+      return(1);
+      yield(2);
+    })
+  })
+
+
 
   # R doesn't even warn!
   # > (function() tryCatch(return(5), finally=return(6)))()
@@ -69,16 +135,6 @@ if(FALSE) {
   # [1] 5
   # > tryCatch((function() {on.exit(return(5)); stop("!")})(), error=function(e) {caught <<- TRUE; cat("caught\n"); 6}) 
   # [1] 5
-
-  
-  test_that("on.exit", {
-    exited <- FALSE
-    g <- gen({
-      on.exit(exited <- TRUE)
-      yield(1);
-      return();
-    })
-  })
 
   test_that("simple try-catch with yield in body", {
     g <- gen(tryCatch(yield(5)))

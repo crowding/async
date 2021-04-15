@@ -14,67 +14,27 @@ trace <- function(...) NULL
 # results in a constructor call tree like this:
 ## make_gen(for_cps(arg_cps(i), arg_cps(1:10), yield_cps(i)))
 #
-# Each _cps constructor constructs and returns a continuation
-# function.  "cps" stands for "continuation passing style" which
-# describes how execution of a generator works; one continuation
-# passes control to the next.
+# Each _cps constructor returns a "context" constructor.  This second
+# constructor takes a list of continuation arguments -- one argument
+# "cont" representing where to jump after the present computation, and
+# a set of named arguments corresponding to other contextualbranch
+# points (like break, next, stop, etc.)
 #
-# The _outer_ arguments correspond to things in the R language that
-# should result in values.
+# Providing top-level context to the outermost context constructor
+# will initialize all the below as well. The result is a graph of
+# functions implementing the computation, linked together in
+# continuation passing style -- that is, each function calls the next
+# in tail position.
 #
-# The cps functions (that is, the inner
-# functions constructed and returned) take a list of arguments that
-# represent other destinations you may have.  Every function has a
-# first argument "cont" representing what to The second argument is
-# usually "ret" which is used to eliminate tailcalls.
-#
-# So, when a continuation function is executing, it has two argument
-# lists. The outer, corresponding to the arguments, are all
-# continuation functions that should result in a value.
-#
-# The inner arguments represent execution state, traps, etc. They are
-# taken from continuations "above", and are passed to
-# continuations "below" (i.e. those representing your arguments)
-#
-# In true continuation passing style, each continustion function calls
+# In true continuation passing style, each continuation function calls
 # the next, so that execution state passes from one continuation
-# function to the next. Because R does not have tailcall elimination,
-# this would endlessly build the stack. So there is a trampoline; one
-# of the continuation arguments that is passed around is called
-# "ret". Pass "cont" and other continuations to "ret" and return
-# normally; this will unwind the stack. This is used to implement
-# `while`, `repeat`, `for`, etc. without endlessly growing the
-# stack. On the other hand, leaving things on the stack may make
-# stacktraces more readable.
+# function to the next. Because R does not have native tailcall
+# elimination, this would endlessly build the stack. So there is a
+# trampoline; one of the context arguments should be named "ret"; it
+# should save a call and arguments and re-start after the stack unwinds.
 #
-# CHECK: All in the outer arglist are val-continuation functions.
-#    If a function is a val-continuation function, its callbacks
-#    must use the first argument name "val".
-# CHECK: all in the inner arglist are sequence continuation functions.
-#    A sequence continuation function uses the first argument name "cont"
-# CHECK: The first argument provided to "ret" should be a
-#    sequence-continuation function.???
-# CHECK: ... are passed on to all value-continuation functions.
-# CHECK: All args are passed by name past the first argument.
-
-# NOTE: lots of stuff uses "ret" unnecessarily?
-
-# `(_cps` is the simplest continuation-passing function: it continues to the "expr" continuation
-
-
-## `(_cps` <- function(expr) {
-##   # in case () needs to force?
-##   force(expr)
-##   function(cont, ...) {
-##     gotVal <- function(val) {
-##       force(val)
-##       cont(val)
-##     }
-##     getVal <- expr(gotVal, ...)
-##     getVal
-##   }
-## }
-
+# Providing the execution context and trampoline is done by
+# make_pump().
 
 `(_cps` <- function(expr) {
   # () just disappears and returns its argument's continuation.
@@ -100,7 +60,7 @@ make_store <- function(sym) function(x, value) { list(x, value)
     getVal <- value(gotVal, ..., ret=ret)
     gotX <- function(val) {
       dest <<- arg(val)
-      getVal() <<- arg(val)
+      getVal()
     }
     getX <- x(gotX, ..., ret=ret)
     getX
@@ -156,14 +116,14 @@ make_store <- function(sym) function(x, value) { list(x, value)
 
 if_cps <- function(cond, cons.expr, alt.expr) {
   list(cond, cons.expr, maybe(alt.expr))
-  function(cont, ..., stop, ret) {
-    list(cont, ret)
+  function(cont, ..., ret, stop) {
+    list(cont, ret, stop)
     if (is_missing(alt.expr)) {
       ifFalse <- function() cont(invisible(NULL))
     } else {
-      ifFalse <- alt.expr(cont, ..., stop=stop, ret=ret)
+      ifFalse <- alt.expr(cont, ..., ret=ret, stop=stop)
     }
-    ifTrue <- cons.expr(cont, ..., stop=stop, ret=ret)
+    ifTrue <- cons.expr(cont, ..., ret=ret, stop=stop)
     gotCond <- function(val) {
       if(isTRUE(val)) {
         trace("if true")
@@ -218,7 +178,6 @@ switch_cps <- function(EXPR, ...) { force(EXPR); alts <- list(...)
 
 force_then <- function(cont, ..., ret) {
   force(cont)
-  if (!is.function(cont)) stop()
   function(val) {
     #if(!is_missing(val)) force(val) #prob not necessary?
     force(val)
@@ -404,9 +363,9 @@ for_cps <- function(var, seq, expr) {
       env_ <<- arg_env(val)
       getSeq()
     }
-    doBody <- expr(force_then(iterate, ..., ret=ret, nxt=nxt_, brk=brk_),
-                   ..., ret=ret, nxt=nxt_, brk=brk_) # our brk_
-    getSeq <- seq(gotSeq, ..., ret=ret, nxt=nxt, brk=brk) #not our brk
-    begin <- var(gotVar, ..., ret=ret, nxt=nxt, brk=brk) #not our nrk
+    doBody <- expr(force_then(iterate, ..., ret=ret, nxt=nxt_, brk=brk_, stop=stop),
+                   ..., ret=ret, nxt=nxt_, brk=brk_, stop=stop) # our brk_
+    getSeq <- seq(gotSeq, ..., ret=ret, nxt=nxt, brk=brk, stop=stop) #not our brk
+    begin <- var(gotVar, ..., ret=ret, nxt=nxt, brk=brk, stop=stop) #not our brk
   }
 }

@@ -2,7 +2,9 @@
 
 S3method(print,async)
 S3method(print,generator)
+export(await)
 export(gen)
 export(yield)
 import(iterators)
 import(nseval)
+import(promises)

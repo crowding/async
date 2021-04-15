@@ -68,3 +68,15 @@ test_that("nested for loops", {
   as.numeric(as.list(itertools::ilimit(x, 24))) %is%
     c(1,1,1,0,1,1,0,1,0,1,1,0,1,1,1,0,1,1,0,1,0,1,1,0)
 })
+
+test_that("generators create local scope", {
+  x <- 4
+  g <- gen({
+    while (x <= 10) {
+      x <- x + 1
+      yield(x)
+    }
+  })
+  as.numeric(as.list(g)) %is% 5:11
+  x %is% 4
+})

@@ -17,8 +17,8 @@ mock_promise <- function() {
   structure(p, class=c("promise", "mock_promise"))
 }
 
-if(exists("experimental", envir = globalenv()) && globalenv()$experimental) {
-
+# if(exists("experimental", envir = globalenv()) && globalenv()$experimental) {
+if(FALSE) {
   test_that("test mock promise", {
     p <- mock_promise()
     resolved <- FALSE

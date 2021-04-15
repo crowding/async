@@ -3,7 +3,7 @@
 # (or do we want to do something more focused in the parsing stage where
 # we start with "yield" but on reaching a "while" we add "next" to the
 # watchlist?
-base_endpoints <- c("break", "next")
+base_endpoints <- c("break", "next", "return")
 async_endpoints <- c(base_endpoints, "await")
 gen_endpoints <- c(base_endpoints, "yield")
 
@@ -12,7 +12,7 @@ gen_endpoints <- c(base_endpoints, "yield")
 base_blocks <- c("gen", "function", "async", "quote", "quo")
 
 # Translating an argument into CPS
-cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks) {
+cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks, local=TRUE) {
   # The continuation constructors will be arranged in the same syntax
   # tree as the source expression, just about. The trick here is to redirect
   # the `for`, `while`, `if` onto their CPS counterparts.
@@ -269,6 +269,9 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks) {
   if (! out$cps) {
     warning("no keywords (", paste(endpoints, collapse=", "), ") used?")
     out <- promote_arg(out)
+  }
+  if(local) {
+    out$expr <- as.call(list(as.call(list(quote(`function`), NULL, out$expr))))
   }
   quo_(out$expr, target_env)
 }

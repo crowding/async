@@ -40,6 +40,7 @@ await <- function(expr) {
   stop("Await must be called inside of an async() block")
 }
 
+#' @import promises
 await_cps <- function(expr) { force(expr)
   stop_ <- NULL
   await_ <- NULL

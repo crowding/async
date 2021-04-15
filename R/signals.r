@@ -4,56 +4,47 @@
 arg_cps <- function(x) {
   x <- arg(x)
 
-  function(cont, ..., wind) {
-    force(cont)
-    if (is_missing(wind)) {
-      function() {
-        trace("arg: ", deparse(expr(x)))
-        do(cont, x)
-      }
-    } else {
-      function() {
-        trace("arg: ", deparse(expr(x)))
-        wind(function() do(cont, x))
-      }
+  function(cont, ..., stop=base::stop) {
+    list(cont, stop)
+    function() {
+      trace("arg: ", deparse(expr(x)))
+      tryCatch(do(cont, x), error=stop)
     }
   }
 }
 
-#arg_cps <-
-function(cont, ..., wind) {
-  trace(where <- "arg_cps inner")
-  ## If we have been handed a "wind" function, use that
-  if (is_missing(wind)) {
-    do(cont, x)
-  } else {
-    trace(where <- "arg_cps winding...")
-    wind(function() do(cont, x))
+return_cps <- function(x) {
+  maybe(x)
+  function(cont, ..., ret, return) {
+    if (is_missing(x)) {
+      function() return(NULL) # this is out "return" argument not base return
+    } else {
+      x(doReturn, ..., ret=ret, return=return)
+    }
+  }
+}
+
+tryCatch_cps <- function(expr, ..., finally) {
+  list(expr, ..., maybe(finally))
+  function(cont, ..., ret, stop, windup, unwind, return) {
+    if (is_missing(finally)) {
+      doExpr <- expr(cont, ..., ret, stop=stop_, windup=windup, unwind=unwind, return=return)
+      windup(doExpr, ..., ret, stop=stop, windup=windup, unwind=unwind, return=return)
+      # stop and return need to unwind...
+    }
   }
 }
 
 try_cps <- function(expr, silent=arg_cps(FALSE),
                     outfile=arg_cps(getOption("try.outFile", default = stderr()))) {
-  list(expr, silent)
-  function(cont, ret, ..., wind) {
-    break_to <- cont
-    got_silent <- function(val) {
-      silent <<- val
-      trace(where <- "try_cps got silent")
-      outfile(got_outfile, ret=ret, ..., wind=wind)
-    }
-    got_outfile <- function(val) {
-      trace(where <- "try_cps got outfile")
-      outfile <<- val
-      # all we are doing is adding a "wind" to our state args. It is arg_cps
-      # that will actually invoke the "wind"
-      expr(cont, ret=ret, ..., wind=new_wind)
-    }
-    # so what is "windup?" this:
+  list(expr, silent, outfile)
+  function(cont, ..., ret, wind) {
+    outfile_ <- NULL
+    silent_ <- NULL
     wind_try <- function(to_try, ...) {
       trace(where <- "winding up")
-      tryCatch(to_try(...), error=function(e) {
-        trace(where <- "caught")
+      returning <- tryCatch(to_try(...), error=function(e) {
+        trace(where <- "try caught")
         # (copied from base::try) {{{
         call <- conditionCall(e)
         if (!is.null(call)) {
@@ -73,37 +64,23 @@ try_cps <- function(expr, silent=arg_cps(FALSE),
         }
         else prefix <- "Error : "
         msg <- paste0(prefix, conditionMessage(e), "\n")
+        trace(where <- "try formatted err msg")
         .Internal(seterrmessage(msg[1L]))
-        if (!silent && isTRUE(getOption("show.error.messages"))) {
-          cat(msg, file = outFile)
+        if (!silent_ && isTRUE(getOption("show.error.messages"))) {
+          cat(msg, file = outFile_)
           .Internal(printDeferredWarnings())
         }
         retval <- invisible(structure(msg, class = "try-error", condition = e))
         # }}} (copied)
-        ret(break_to, retval)
+        ret(cont, retval)
       })
     }
 
-    # If there is already a wind, wrap it
-    if (is_missing(wind)) {
-      new_wind <- wind_try
-    } else {
-      new_wind <- function(to_try, ...) {
-        trace(where <- "wrapped windup")
-        to_try(wind_try, cont, ...)
-      }
-    }
-
-    silent(got_silent, ret=ret, wind=wind, ...)
+    # provide "wind" context argument, which arg_cps will use
+    getExpr <- expr(cont, ..., ret=ret, wind=wind_try)
+    gotSilent <- function(val) {silent_ <<- val; getExpr()}
+    getSilent <- silent(gotSilent, ..., ret=ret, wind=wind)
+    gotOutfile <- function(val) {outfile_ <<- val; getSilent()}
+    getOutfile <- outfile(gotOutfile, ..., ret=ret, wind=wind)
   }
 }
-
-
-tryCatch_cps <- function(expr, ..., finally) {
-  list(expr, finally)
-  handlers <- list(...)
-  function(cont, ret, ...) {
-    
-  }
-}
-

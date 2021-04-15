@@ -2,30 +2,42 @@
 #' Create an iterator using sequential code.
 #'
 #' `gen({...})` with an expression written in its argument, creates a
-#' generator, which can be thought of as a block of code whose
-#' execution can pause and resume. From the inside, a generator looks
-#' like you are writing sequential code with loops, branches and such,
-#' writing values to the outside world by calling `yield()`. From the
-#' outside, a generator behaves like an iterator over
-#' an indefinite collection.
+#' generator, which acts like a block of code whose execution can
+#' pause and resume. From the "inside," a generator looks like you are
+#' writing sequential code with loops, branches and such, writing
+#' values to the outside world by calling `yield()`. From the "outside,"
+#' a generator behaves like an iterator over an indefinite collection.
+#'
+#' When `nextElem` is called on a generator, the generator executes
+#' its given expression until it reaches a call to `yield(...).` The
+#' value passed to `yield` is returned. The generator's execution
+#' state is preserved and will continue from where if left off on the
+#' next call to `nextElem.`
+#'
+#' The generator expression is evaluated in a local environment.
 #'
 #' Generators are not based on forking or parallel OS processes; they
 #' run in the same thread as their caller. The control flow in a
 #' generator is interleaved with that of the R code which queries it.
 #'
-#' When `nextItem` is called on a generator, the generator evaluates
-#' its given expression until it reaches a call to `yield(...).` The
-#' value passed to `yield` is returned. The generator's execution
-#' state is preserved and will continue form where ti left off on the
-#' next call to `nextItem.`
-#'
-#' There are some syntactic restrictions on what you can write in a
-#' generator expression. `yield` must appear only directly within
-#' control flow operators. Wherever `yield` appears in a generator
-#' expression, the calls it is nested within must have CPS
-#' implementations. (This package provides CPS implementations for
-#' several base R control flow builtins; the list is in the
-#' non-exported variable `generators:::cps_builtins`).
+#' A generator expression can use any R functions, but a call to
+#' "yield" may only appear in some positions. This package contains
+#' "restartable" equivalents to R's base control flow functions, such as
+#' `if`, `while`, `try`, `{}`, `||` and so on.  A call to `yield` may
+#' appear only on the arguments of these restartable functions. So
+#' this random walk generator:
+#' ```
+#' rwalk <- gen({x <- 0; repeat {x <- yield(x + rnorm(1))}})
+#' ```
+#' is legal, because `yield` appears within arguments to `{}`,
+#' `repeat`, and `<-`, for which this package has interruptible
+#' definitions. However, this:
+#' ```
+#' rwalk <- gen({x <- rnorm(1); repeat {x <- rnorm(1) + yield(x)}})
+#' ```
+#' is not legal, because `yield` appears in an argument to `+`, which
+#' does not have a restartable definition.
+
 #' @export
 gen <- function(expr, ...) { expr <- arg(expr)
   do(make_generator,
@@ -37,70 +49,68 @@ gen <- function(expr, ...) { expr <- arg(expr)
 #' @export
 #' @rdname gen
 yield <- function(expr) {
-  stop("Yield must be called inside of a gen() block")
+  stop("Yield called outside a generator")
 }
 
 yield_cps <- function(expr) { force(expr)
-  function(cont, ..., ret, yield) {
-    trace("Yield called")
-    if (is_missing(yield)) stop("yield called, but we do not seem to be in a generator")
+  function(cont, ..., ret, pause, yield) {
+    if (is_missing(yield)) stop("yield in code but this is not a generator")
+    list(cont, ret, pause, yield)
     got_val <- function(val) {
-      trace("Got a yield value")
-      ret(yield, cont, val)
+      trace("Yield called")
+      yield(cont, val)
     }
-    expr(got_val, ..., ret=ret, yield=yield)
+    expr(got_val, ..., ret=ret, pause=pause, yield=yield)
   }
 }
 
 make_generator <- function(expr, ...) { list(expr, ...)
 
   nonce <- function() NULL
-  cont <- nonce
   yielded <- nonce
+  err <- nonce
+  state <- "running"
 
-  yield <- function(cont, val) {
-    trace("Yield handler called")
-    cont <<- function(...) cont(val) # yield() returns its input
-    yielded <<- val
-    val
+  return_ <- function(val) {
+    force(val)
+    trace(where <- "generator got return value")
+    state <<- "finished"
   }
 
-  # "expr" represents the syntax tree, and is a constructor
-  # that returns the entry continuation.
-  # "make_pump" 
-  pump <- make_pump(expr, ..., yield=yield)
+  stop_ <- function(val) {
+    trace("generator got stop")
+    err <<- val
+    state <<- "stopped"
+  }
+
+  # yield handler goes into a wrapper to gain access to "pause"
+  wrapper <- function(cont, ..., pause, yield) {
+    yield_ <- function(cont, val) {
+      trace("Yield handler called")
+      yielded <<- val
+      pause(cont, val)
+    }
+
+    expr(cont, ..., pause=pause, yield=yield_)
+  }
+
+  pump <- make_pump(wrapper, ..., return=return_, stop=stop_)
 
   nextElem <- function(...) {
     trace("nextElem")
-    result <- tryCatch(if (identical(cont, nonce)) {
-      trace("nextElem: starting from scratch")
-      pump()
-    } else {
-      trace("nextElem has continuation")
-      pump(reset(cont, cont <<- nonce))
-    },
-    error = function(e) {
-      trace("nextElem pump threw error: ", deparse(e))
-      cont <<- function(...) stop("StopIteration")
-      #if (identical(conditionMessage(e), 'StopIteration'))
-      #  e else stop(e)
-      stop(e)
-    })
-    if (identical(cont, nonce)) {
-      trace("nextElem reached end")
-      cont <<- function(...) stop("StopIteration")
-      if (identical(yielded, nonce)) {
-        stop("StopIteration")
-      } else {
-        trace("nextElem returning value yielded from end")
-        reset(yielded, yielded <<- nonce)
-      }
-    } else if (identical(yielded, nonce)) {
-      warning("nextElem: neither yielded nor finished")
-    } else {
-      trace("nextElem returning yielded value")
-      reset(yielded, yielded <<- nonce)
-    }
+    switch(state,
+           stopped =,
+           finished = stop("StopIteration"),
+           running = {
+             pump()
+           })
+    switch(state,
+           stopped = stop(err),
+           finished = stop("StopIteration"),
+           running = {
+             if(identical(yielded, nonce)) stop("generator paused but no value yielded")
+             else reset(yielded, yielded <<- nonce)
+           })
   }
 
   add_class(itertools::new_iterator(nextElem), "generator")
