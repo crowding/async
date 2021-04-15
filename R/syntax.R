@@ -23,7 +23,7 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks, local
     if (exists(as.character(name), envir=target_env)) {
       as.symbol(name)
     } else {
-      call(":::", quote(generators), as.symbol(name))
+      call(":::", quote(async), as.symbol(name))
     }
   }
 
@@ -143,7 +143,7 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks, local
   trans_qualified_head <- function(expr) {
     package <- expr[[2]]
     name <- expr[[3]]
-    if (   as.character(package) %in% c("generators", "base")
+    if (   as.character(package) %in% c("async", "base")
         && as.character(name) %in% endpoints) {
       promote_qualified_head(list(expr=expr, cps=FALSE))
     } else
@@ -202,10 +202,10 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks, local
     } else {
       where_found <- locate_(original_name, target_env, ifnotfound=NULL)
       if (is.null(where_found)) {
-        # generators::gen(... yield() ...) should find "yield" even if
-        # generators is not attached
+        # async::gen(... yield() ...) should find "yield" even if
+        # async is not attached
         where_found <- locate_(original_name,
-                               getNamespace("generators"),
+                               getNamespace("async"),
                                ifnotfound=NULL)
         if (is.null(where_found)) {
           stop("Function `", as.character(original_name), "` was not found.")
@@ -215,10 +215,10 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks, local
       if (   is.primitive(obj)
           || identical(where_found, baseenv())
           || identical(environment(obj), getNamespace("base"))) {
-        # look in generators' exported namespace.
+        # look in async's exported namespace.
         if (exists(as.character(potential_name),
-                   getNamespace("generators"), inherit=FALSE)) {
-          list(expr = call(":::", quote(generators), potential_name),
+                   getNamespace("async"), inherit=FALSE)) {
+          list(expr = call(":::", quote(async), potential_name),
                cps = TRUE)
         } else {
           list(expr=original_name, cps=FALSE)
@@ -255,7 +255,7 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks, local
     } else {
       package <- l$expr[[2]]
       name <- l$expr[[3]]
-      if (as.character(package) == "base") package <- quote(generators)
+      if (as.character(package) == "base") package <- quote(async)
       new_name <- as.symbol(paste0(as.character(name), "_cps"))
       # at this point just trust the caller and stick a _cps on without
       # confirming its existence?

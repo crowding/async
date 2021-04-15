@@ -2,6 +2,7 @@
 
 S3method(print,async)
 S3method(print,generator)
+export(async)
 export(await)
 export(gen)
 export(yield)

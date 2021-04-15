@@ -38,49 +38,46 @@ tryCatch_cps <- function(expr, ..., finally) {
 try_cps <- function(expr, silent=arg_cps(FALSE),
                     outfile=arg_cps(getOption("try.outFile", default = stderr()))) {
   list(expr, silent, outfile)
-  function(cont, ..., ret, wind) {
+  function(cont, ..., ret, stop) {
     outfile_ <- NULL
     silent_ <- NULL
-    wind_try <- function(to_try, ...) {
-      trace(where <- "winding up")
-      returning <- tryCatch(to_try(...), error=function(e) {
-        trace(where <- "try caught")
-        # (copied from base::try) {{{
-        call <- conditionCall(e)
-        if (!is.null(call)) {
-          if (identical(call[[1L]], quote(doTryCatch)))
-            call <- sys.call(-4L)
-          dcall <- deparse(call)[1L]
-          prefix <- paste("Error in", dcall, ": ")
-          LONG <- 75L
-          sm <- strsplit(conditionMessage(e), "\n")[[1L]]
-          w <- 14L + nchar(dcall, type = "w") + nchar(sm[1L],
-                                                      type = "w")
-          if (is.na(w))
-            w <- 14L + nchar(dcall, type = "b") + nchar(sm[1L],
-                                                        type = "b")
-          if (w > LONG)
-            prefix <- paste0(prefix, "\n  ")
-        }
-        else prefix <- "Error : "
-        msg <- paste0(prefix, conditionMessage(e), "\n")
-        trace(where <- "try formatted err msg")
-        .Internal(seterrmessage(msg[1L]))
-        if (!silent_ && isTRUE(getOption("show.error.messages"))) {
-          cat(msg, file = outFile_)
-          .Internal(printDeferredWarnings())
-        }
-        retval <- invisible(structure(msg, class = "try-error", condition = e))
-        # }}} (copied)
-        ret(cont, retval)
-      })
+
+    stop_ <- function(err) {
+      trace(where <- "try caught")
+      # (copied from base::try) {{{
+      call <- conditionCall(err)
+      if (!is.null(call)) {
+        if (identical(call[[1L]], quote(doTryCatch)))
+          call <- sys.call(-4L)
+        dcall <- deparse(call)[1L]
+        prefix <- paste("Error in", dcall, ": ")
+        LONG <- 75L
+        sm <- strsplit(conditionMessage(err), "\n")[[1L]]
+        w <- 14L + nchar(dcall, type = "w") + nchar(sm[1L],
+                                                    type = "w")
+        if (is.na(w))
+          w <- 14L + nchar(dcall, type = "b") + nchar(sm[1L],
+                                                      type = "b")
+        if (w > LONG)
+          prefix <- paste0(prefix, "\n  ")
+      }
+      else prefix <- "Error : "
+      msg <- paste0(prefix, conditionMessage(err), "\n")
+      trace(where <- "try formatted err msg")
+      .Internal(seterrmessage(msg[1L]))
+      if (!silent_ && isTRUE(getOption("show.error.messages"))) {
+        cat(msg, file = outFile_)
+        .Internal(printDeferredWarnings())
+      }
+      retval <- invisible(structure(msg, class = "try-error", condition = err))
+      # }}} (copied)
+      ret(cont, retval)
     }
 
-    # provide "wind" context argument, which arg_cps will use
-    getExpr <- expr(cont, ..., ret=ret, wind=wind_try)
+    getExpr <- expr(cont, ..., ret=ret, stop=stop_)
     gotSilent <- function(val) {silent_ <<- val; getExpr()}
-    getSilent <- silent(gotSilent, ..., ret=ret, wind=wind)
+    getSilent <- silent(gotSilent, ..., ret=ret, stop=stop)
     gotOutfile <- function(val) {outfile_ <<- val; getSilent()}
-    getOutfile <- outfile(gotOutfile, ..., ret=ret, wind=wind)
+    getOutfile <- outfile(gotOutfile, ..., ret=ret, stop=stop)
   }
 }

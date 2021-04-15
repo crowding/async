@@ -37,7 +37,6 @@
 #' ```
 #' is not legal, because `yield` appears in an argument to `+`, which
 #' does not have a restartable definition.
-
 #' @export
 gen <- function(expr, ...) { expr <- arg(expr)
   do(make_generator,
@@ -57,8 +56,10 @@ yield_cps <- function(expr) { force(expr)
     if (is_missing(yield)) stop("yield in code but this is not a generator")
     list(cont, ret, pause, yield)
     got_val <- function(val) {
+      force(val)
       trace("Yield called")
-      yield(cont, val)
+      pause(function() cont(val))
+      yield(val)
     }
     expr(got_val, ..., ret=ret, pause=pause, yield=yield)
   }
@@ -66,7 +67,7 @@ yield_cps <- function(expr) { force(expr)
 
 make_generator <- function(expr, ...) { list(expr, ...)
 
-  nonce <- function() NULL
+  nonce <- (function () function() NULL)()
   yielded <- nonce
   err <- nonce
   state <- "running"
@@ -83,18 +84,14 @@ make_generator <- function(expr, ...) { list(expr, ...)
     state <<- "stopped"
   }
 
-  # yield handler goes into a wrapper to gain access to "pause"
-  wrapper <- function(cont, ..., pause, yield) {
-    yield_ <- function(cont, val) {
-      trace("Yield handler called")
-      yielded <<- val
-      pause(cont, val)
-    }
-
-    expr(cont, ..., pause=pause, yield=yield_)
+  yield_ <- function(val) {
+    force(val)
+    trace("Yield handler called")
+    yielded <<- val
   }
 
-  pump <- make_pump(wrapper, ..., return=return_, stop=stop_)
+  # yield handler goes into a wrapper to gain access to "pause"
+  pump <- make_pump(expr, ..., return=return_, stop=stop_, yield=yield_)
 
   nextElem <- function(...) {
     trace("nextElem")

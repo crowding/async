@@ -1,15 +1,19 @@
-Package: generators
-Title: Create Iterators From Sequential Code
-Version: 0.0.0.9000
+Package: async
+Title: Async/Await, Generators, Yield
+Version: 0.1
 Authors@R: 
     person(given = "Peter",
            family = "Meilstrup",
            role = c("aut", "cre"),
            email = "peter.meilstrup@gmail.com")
-Description: A generator is written using familiar sequential constructs like
-             `for` and `while` loops. This code is turned into an iterator that
-             is run incrementally. The iterator saves state and returns each time its
-             generator code reaches a `yield()` call.
+Description: Write sequential-looking code that can pause and resume.
+             `gen()` creates a generator, an iterator that returns a
+             value and pauses when it reaches a `yield()` call. `async()`
+             blocks use `await()` calls to pause, then resume when
+             information is available. These work similarly to
+             generator and async constructs from Python or Javascript.
+             Objects produced are compatible with the 'iterators' and
+             'promises' packages.
 License: BSD
 Encoding: UTF-8
 LazyData: true
@@ -24,6 +28,7 @@ Suggests:
     knitr,
     rmarkdown,
     audio,
-    profvis
+    profvis,
+    later
 RoxygenNote: 7.1.1
 VignetteBuilder: knitr

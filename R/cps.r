@@ -3,7 +3,7 @@
 # CPS definitions for core R control flow constructs
 
 trace <- function(...) NULL
-#trace <- function(...) cat(..., "\n")
+#trace <- function(...) cat(..., "\n", sep=" ")
 
 # The functions with names ending in "_cps" all construct and return
 # new functions. The constructors and their arguments correspond to
@@ -47,23 +47,26 @@ trace <- function(...) NULL
 maybe <- function(x, if_missing=NULL)
   if (!missing_(arg(x))) x else if_missing
 
-make_store <- function(sym) function(x, value) { list(x, value)
-  function(cont, ..., ret) {
-    dest <- NULL
-    gotVal <- function(val) {
-      val <- arg(val) # lazy
-      v <- do_(quo_(sym, env(dest)),
-               dest,
-               val)
-      ret(cont, v)
+make_store <- function(sym) { force(sym)
+  function(x, value) { list(x, value)
+    function(cont, ..., ret) {
+      list(cont, ret)
+      dest <- NULL
+      gotVal <- function(val) {
+        val <- arg(val) # lazy
+        v <- do_(quo_(sym, env(dest)),
+                 dest,
+                 val)
+        ret(cont, v)
+      }
+      getVal <- value(gotVal, ..., ret=ret)
+      gotX <- function(val) {
+        dest <<- arg(val)
+        getVal()
+      }
+      getX <- x(gotX, ..., ret=ret)
+      getX
     }
-    getVal <- value(gotVal, ..., ret=ret)
-    gotX <- function(val) {
-      dest <<- arg(val)
-      getVal()
-    }
-    getX <- x(gotX, ..., ret=ret)
-    getX
   }
 }
 
@@ -178,11 +181,10 @@ switch_cps <- function(EXPR, ...) { force(EXPR); alts <- list(...)
 
 force_then <- function(cont, ..., ret) {
   force(cont)
+  if (is.null(cont)) {trace("force_then cont is null?????")}
   function(val) {
-    #if(!is_missing(val)) force(val) #prob not necessary?
     force(val)
     val <- NULL #force, then discard
-    #cont()
     ret(cont)
   }
 }
@@ -190,18 +192,18 @@ force_then <- function(cont, ..., ret) {
 `{_cps` <- function(...) {
   args <- list(...)
   function(cont, ..., ret) {
+    list(cont, ret)
     if (length(args) == 0) {
       function() cont(NULL)
     } else if (length(args) == 1) {
-      # just use the inner arg's continuation, like ()?
+      # just use the inner arg's continuation, like ()
       args[[1]](cont, ..., ret=ret)
-    }
-    else {
+    } else {
       # build a chain last to first
       entries <- rep(list(NULL), length(args))
       entries[[length(args)]] <- args[[length(args)]](cont, ..., ret=ret)
       for (i in rev(seq_len(length(args) - 1))) {
-        # string continuations together with "then"
+        # use force_then to discard results
         entries[[i]] <- args[[i]](force_then(entries[[i+1]], ..., ret=ret), ..., ret=ret)
       }
       entry <- entries[[1]]

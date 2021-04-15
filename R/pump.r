@@ -5,8 +5,8 @@ add_class <- function(x, ...) {
   x
 }
 
-pump <- function(expr) {
-  thisPump <- make_pump(expr)
+pump <- function(expr, ...) {
+  thisPump <- make_pump(expr, ...)
   thisPump()
 }
 
@@ -25,10 +25,10 @@ make_pump <- function(expr, ...,
   err <- nonce
   windings <- list()
 
-  pause <- function(cont, ...) {
+  pause <- function(cont) {
     trace(where <- "pause handler")
-    list(cont, ...)
-    cont <<- function() cont(...)
+    list(cont)
+    cont <<- function(...) cont(...)
     action <<- "pause"
   }
 
@@ -36,7 +36,6 @@ make_pump <- function(expr, ...,
     ret <- function(cont, ...) {
       trace(where <- "pump ret")
       list(cont, ...) #force
-      trace(where <- "pump ret forced")
       cont <<- function() {
         trace(where <- "Thunk called")
         cont(...)

@@ -78,6 +78,7 @@ test_that("Catch internal errors", {
   nextElem(g) %is% "done"
 })
 
+if(exists("experimental", envir = globalenv()) && globalenv()$experimental) {
 test_that("try/finally, stop and return", {
 
   g <- gen(tryCatch({yield("Hello"); return(); yield("Goodbye")},
@@ -103,8 +104,9 @@ if(FALSE) {
 
   # hmm... to do an on.exit I have to dynamically modify the call
   # graph??? or at least there needs to be some special handling at
-  # the end to gather up the list of exit handlers. Collection of exit handlers maybe... I convinced myself
-  # that tryCatch is simpler to start with.
+  # the end to gather up the list of exit handlers. maintain a list of
+  # exit handlers maybe... I convinced myself that tryCatch is simpler
+  # to start with, at least it's scoped.
   test_that("on.exit normal", {
     exited <- FALSE
     g <- gen({
@@ -205,4 +207,5 @@ if(FALSE) {
     nextElem (g) %is% 3
     caught %is% TRUE
   })
+}
 }

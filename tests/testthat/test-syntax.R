@@ -23,27 +23,27 @@ test_that("basic translations", {
 test_that("Namespace qualification", {
   # get an environment that doesn't see into nseval, even in testing
 
-  cps_translate(quo(repeat generators::yield(4)), gen_endpoints) %is%
-    quo((function() repeat_cps(generators:::yield_cps(arg_cps(4))))())
+  cps_translate(quo(repeat async::yield(4)), gen_endpoints) %is%
+    quo((function() repeat_cps(async:::yield_cps(arg_cps(4))))())
 
-  cps_translate(quo(base::`repeat`(generators::yield(4))), gen_endpoints) %is%
-    quo((function() generators:::repeat_cps(generators:::yield_cps(arg_cps(4))))())
+  cps_translate(quo(base::`repeat`(async::yield(4))), gen_endpoints) %is%
+    quo((function() async:::repeat_cps(async:::yield_cps(arg_cps(4))))())
 
-  cps_translate(quo({nseval::yield(1); base::yield(1); generators::yield(1)}),
+  cps_translate(quo({nseval::yield(1); base::yield(1); async::yield(1)}),
                 gen_endpoints, local=FALSE) %is%
-    quo(`{_cps`(arg_cps(nseval::yield(1)), generators:::yield_cps(arg_cps(1)),
-                generators:::yield_cps(arg_cps(1))))
+    quo(`{_cps`(arg_cps(nseval::yield(1)), async:::yield_cps(arg_cps(1)),
+                async:::yield_cps(arg_cps(1))))
 
   expect_equal(
     expr(cps_translate(quo(for (i in 1:10) {yield(i); base::`break`()}),
                        gen_endpoints, local=FALSE)),
     quote(for_cps(arg_cps(i), arg_cps(1:10), `{_cps`(
       yield_cps(arg_cps(i)),
-      generators:::break_cps()))))
+      async:::break_cps()))))
 
-  cps_translate(quo(generators::`if`(2 %% 5 == 0, yield(TRUE), yield(FALSE))),
+  cps_translate(quo(async::`if`(2 %% 5 == 0, yield(TRUE), yield(FALSE))),
                 gen_endpoints, local=FALSE) %is%
-    quo(generators:::if_cps(arg_cps(2%%5 == 0), yield_cps(arg_cps(TRUE)),
+    quo(async:::if_cps(arg_cps(2%%5 == 0), yield_cps(arg_cps(TRUE)),
                              yield_cps(arg_cps(FALSE))))
 })
 
@@ -85,12 +85,12 @@ test_that("Translating expressions", {
                xout)
 })
 
-test_that("Makes fully qualified names when generators package not attached", {
-  if ("package:generators" %in% search()) {
+test_that("Makes fully qualified names when async package not attached", {
+  if ("package:async" %in% search()) {
     on.exit({
-      attachNamespace("generators")
+      attachNamespace("async")
     }, add=TRUE)
-    detach("package:generators")
+    detach("package:async")
   }
 
   xin <- nseval::quo({
@@ -107,27 +107,27 @@ test_that("Makes fully qualified names when generators package not attached", {
 
   target <- quote(
     (function()
-    generators:::`{_cps`(
-      generators:::arg_cps(max <- 10),
-      generators:::arg_cps(skip <- 4),
-      generators:::arg_cps(i <- 0),
-      generators:::repeat_cps(
-        generators:::`{_cps`(
-        generators:::arg_cps(i <- i + 1),
-        generators:::if_cps(
-          generators:::arg_cps(i %% skip == 0),
-          generators:::next_cps()),
-        generators:::if_cps(
-          generators:::arg_cps(i > max),
-          generators:::break_cps()),
-        generators:::yield_cps(generators:::arg_cps(i)))))
+    async:::`{_cps`(
+      async:::arg_cps(max <- 10),
+      async:::arg_cps(skip <- 4),
+      async:::arg_cps(i <- 0),
+      async:::repeat_cps(
+        async:::`{_cps`(
+        async:::arg_cps(i <- i + 1),
+        async:::if_cps(
+          async:::arg_cps(i %% skip == 0),
+          async:::next_cps()),
+        async:::if_cps(
+          async:::arg_cps(i > max),
+          async:::break_cps()),
+        async:::yield_cps(async:::arg_cps(i)))))
     )())
 
-  xout <- generators:::cps_translate(xin, endpoints=c("yield", "next", "break"))
+  xout <- async:::cps_translate(xin, endpoints=c("yield", "next", "break"))
   expect_equal(nseval::expr(xout), target)
 
   # can run a generator without having the package attached
-  g <- nseval::do(generators::gen, xin)
+  g <- nseval::do(async::gen, xin)
   l <- as.numeric(as.list((g)))
   l %is% c(1, 2, 3, 5, 6, 7, 9, 10)
 })
