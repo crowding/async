@@ -15,10 +15,10 @@ trace <- function(...) NULL
 ## make_gen(for_cps(arg_cps(i), arg_cps(1:10), yield_cps(i)))
 #
 # Each _cps constructor returns a "context" constructor.  This second
-# constructor takes a list of continuation arguments -- one argument
-# "cont" representing where to jump after the present computation, and
-# a set of named arguments corresponding to other contextualbranch
-# points (like break, next, stop, etc.)
+# constructor takes a list of callback argument -- one argument "cont"
+# representing where to jump after the present computation, and a set
+# of named arguments corresponding to other branch points (like break,
+# next, stop, etc.)
 #
 # Providing top-level context to the outermost context constructor
 # will initialize all the below as well. The result is a graph of
@@ -37,9 +37,9 @@ trace <- function(...) NULL
 # make_pump().
 
 `(_cps` <- function(expr) {
-  # () just disappears and returns its argument's continuation.
   force(expr)
   function(...) {
+    # () constructor just disappears and runs expr's constructor instead
     expr(...)
   }
 }
@@ -49,8 +49,7 @@ maybe <- function(x, if_missing=NULL)
 
 make_store <- function(sym) { force(sym)
   function(x, value) { list(x, value)
-    function(cont, ..., ret) {
-      list(cont, ret)
+    function(cont, ..., ret) { list(cont, ret)
       dest <- NULL
       gotVal <- function(val) {
         val <- arg(val) # lazy

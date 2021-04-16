@@ -16,6 +16,18 @@ mock_promise <- function() {
   structure(p, class=c("promise", "mock_promise"))
 }
 
+# Block until all pending later tasks have executed
+wait_for_it <- function(timeout = 30) {
+  start <- Sys.time()
+  while (!later::loop_empty()) {
+    if (difftime(Sys.time(), start, units = "secs") > timeout) {
+      stop("Waited too long")
+    }
+    later::run_now()
+    Sys.sleep(0.01)
+  }
+}
+
 test_that("test mock promise", {
   p <- mock_promise()
   resolved <- FALSE
@@ -27,6 +39,7 @@ test_that("test mock promise", {
          expect_equal(x, 5)
        })
   p$resolve(5)
+  wait_for_it()
   expect_true(resolved)
   p <- mock_promise()
   then(p,
@@ -35,6 +48,7 @@ test_that("test mock promise", {
          expect_equal(conditionMessage(e), "foo")
        })
   p$reject("foo")
+  wait_for_it()
   expect_true(rejected)
 })
 
@@ -42,12 +56,12 @@ test_that("async with no await resolves immediately", {
   p <- make_async(arg_cps(5))
   result <- NULL
   then(p, function(x) {result <<- x})
-  later::run_now()
+  wait_for_it()
   expect_equal(result, 5)
   a <- make_async(arg_cps(stop("oops")))
-  e <- NULL
-  then(p, onRejected=function(err) e <<- err)
-  later::run_now()
+  e <- simpleError("wat")
+  then(a, onRejected=function(err) {cat("rejecting!!"); e <<- err})
+  wait_for_it()
   expect_equal(conditionMessage(e), "oops")
 })
 
@@ -60,7 +74,7 @@ test_that("async with one await", {
   result <- NULL
   then(as, function(x) result <<- x)
   pr$resolve(10)
-  later::run_now()
+  wait_for_it()
   expect_equal(result, 15)
 })
 
@@ -73,7 +87,7 @@ test_that("more than one await", {
   result <- NULL
   then(asy, function(x) result <<- x)
   p1$resolve(FALSE)
-  later::run_now()
+  wait_for_it()
   expect_false(result)
 
   p1 <- mock_promise()
@@ -84,10 +98,10 @@ test_that("more than one await", {
   result <- NULL
   then(asy, function(x) result <<- x)
   p1$resolve(TRUE)
-  later::run_now()
+  wait_for_it()
   expect_identical(result, NULL)
   p2$resolve(FALSE)
-  later::run_now()
+  wait_for_it()
   expect_false(result)
 })
 
@@ -100,9 +114,26 @@ test_that("async grammar", {
   then(asy, function(x) result <<- x)
   p2$resolve("hello")
   p1$resolve(FALSE)
-  later::run_now()
+  wait_for_it()
   expect_identical(result, NULL)
   p3$resolve(42)
-  later::run_now()
+  wait_for_it()
   expect_equal(result, 42)
+})
+
+test_that("async format", {
+  pr <- mock_promise()
+  as <- suppressMessages(async({x <- await(pr); x + 5}))
+
+  expect_output(print(as), "pending")
+  expect_output(print(as), "x \\+ 5")
+  pr$resolve(5)
+  wait_for_it()
+  expect_output(print(as), "fulfilled: numeric")
+  pr <- mock_promise()
+  as <- async({x <- await(pr); x + 5})
+  pr$then(onFulfilled=function() 3, onRejected=function() 3)
+  pr$reject("oops")
+  wait_for_it()
+  expect_output(print(as), "rejected")
 })

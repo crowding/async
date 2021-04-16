@@ -42,6 +42,7 @@ gen <- function(expr, ...) { expr <- arg(expr)
   do(make_generator,
      cps_translate(expr,
                    endpoints=gen_endpoints),
+     orig=forced_quo(expr),
      dots(...))
 }
 
@@ -65,12 +66,12 @@ yield_cps <- function(expr) { force(expr)
   }
 }
 
-make_generator <- function(expr, ...) { list(expr, ...)
+make_generator <- function(expr, orig=NULL, ...) { list(expr, ...)
 
   nonce <- (function () function() NULL)()
   yielded <- nonce
   err <- nonce
-  state <- "running"
+  state <- "paused"
 
   return_ <- function(val) {
     force(val)
@@ -87,6 +88,7 @@ make_generator <- function(expr, ...) { list(expr, ...)
   yield_ <- function(val) {
     force(val)
     trace("Yield handler called")
+    state <<- "paused"
     yielded <<- val
   }
 
@@ -98,30 +100,42 @@ make_generator <- function(expr, ...) { list(expr, ...)
     switch(state,
            stopped =,
            finished = stop("StopIteration"),
-           running = {
+           paused = {
+             state <<- "running"
              pump()
-           })
+           },
+           running = stop("Generator is already running (recursive loop?)"))
     switch(state,
            stopped = stop(err),
            finished = stop("StopIteration"),
-           running = {
+           paused = {
              if(identical(yielded, nonce)) stop("generator paused but no value yielded")
              else reset(yielded, yielded <<- nonce)
-           })
+           },
+           running = stop("Generator paused without yielding"))
   }
 
-  add_class(itertools::new_iterator(nextElem), "generator")
+  g <- add_class(itertools::new_iterator(nextElem), "generator")
+  g$orig <- orig
+  g
 }
 
 #' @export
-print.generator <- function(x) {
-  code <- substitute(expr, environment(x$nextElem))
-  cat("Generator object with code:\n", deparse(code), "\n")
-  # the really spiffo thing would be if you could propagate srcrefs
-  # through the syntactic transform, then introspect back to which code
-  # corresponds to the current "state" of the run. (i.e. which "yield"
-  # we are paused at.) You could poke around at the "cont"
-  # argument. and figure out which "yield" it corresponds to? It would
-  # also be spiffo to support inline substitutions in the original
-  # source comments.
+print.generator <- function(x, ...) {
+  cat(format(x, ...), sep="\n")
+}
+
+#' @export
+format.generator <- function(x, ...) {
+  envir <- environment(x$nextElem)
+  code <- envir$orig
+  a <- deparse(call("gen", expr(code)), backtick=TRUE)
+  b <- format(env(code), ...)
+  state <- envir$state
+  c <- paste0(c("<Generator [",
+         if(state=="stopped")
+           c("stopped: ", capture.output(print(envir$err)))
+         else state,
+         "]>"), collapse="")
+  c(a, b, c)
 }

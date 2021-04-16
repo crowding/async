@@ -80,3 +80,27 @@ test_that("generators create local scope", {
   as.numeric(as.list(g)) %is% 5:11
   x %is% 4
 })
+
+test_that("generators reject recursion", {
+  g <- gen(yield(nextElem(g)))
+  expect_error(nextElem(g), "running")
+
+  f <- gen(repeat yield(nextElem(g)))
+  g <- gen(repeat yield(nextElem(f)))
+  expect_error(nextElem(g), "running")
+})
+
+test_that("generator format", {
+  g <- gen({x <- 0; while(x <= 12) x <- yield(x + 5)})
+
+  expect_output(print(g), "paused")
+  expect_output(print(g), "while \\(x <= 12\\) x <- yield\\(x \\+ 5\\)")
+  as.list(g)
+  expect_output(print(g), "finished")
+  g <- gen({x <- 0; repeat {if (x > 12) stop("oops"); x <- yield(x + 5)}})
+  expect_error(as.list(g), "oops")
+  expect_output(print(g), "stopped:.*oops")
+
+  g <- gen(yield(capture.output(print(g))))
+  expect_output(cat(nextElem(g)), "running")
+})

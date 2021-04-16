@@ -17,9 +17,9 @@ return_cps <- function(x) {
   maybe(x)
   function(cont, ..., ret, return) {
     if (is_missing(x)) {
-      function() return(NULL) # this is out "return" argument not base return
+      function() return(NULL) # this is our "return" callback not base::return
     } else {
-      x(doReturn, ..., ret=ret, return=return)
+      x(return, ..., ret=ret, return=return)
     }
   }
 }

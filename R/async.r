@@ -27,11 +27,12 @@
 #' it receives the value.
 #'
 #' @param expr An expression, to be evaluated asynchronously on demand.
-#' @return `async` constructs and returns [promises::promise] object.
+#' @return `async` constructs and returns a [promises::promise] object.
 #' @export
 async <- function(expr, ...) { expr <- arg(expr)
   do(make_async,
      cps_translate(expr, async_endpoints),
+     orig=forced_quo(expr),
      dots(...))
 }
 
@@ -68,8 +69,8 @@ await_cps <- function(prom) { force(prom)
 }
 
 #' @import promises
-make_async <- function(expr, ...) {
-  list(expr, ...)
+make_async <- function(expr, orig=arg(expr), ...) {
+  list(expr, orig, ...)
 
   nonce <- (function() function() NULL)()
   state <- "pending"
@@ -97,7 +98,7 @@ make_async <- function(expr, ...) {
     succ <- function(val) {
       pump(success, val)
     }
-    fail <- function(val) {
+    fail <- function(err) {
       pump(failure, err)
     }
     then(promise, succ, fail)
@@ -106,20 +107,33 @@ make_async <- function(expr, ...) {
 
   resolve_ <- NULL
   reject_ <- NULL
-  pump <- make_pump(expr, ..., return=return_, stop=stop_, await=await_)
 
-  add_class(promise(function(resolve, reject) {
+  pr <- add_class(promise(function(resolve, reject) {
     resolve_ <<- resolve
     reject_ <<- reject
-    pump()
   }), "async")
-}
 
+  pump <- make_pump(expr, ..., return=return_, stop=stop_, await=await_)
+  pump()
+  pr$orig <- orig
+  pr
+}
 
 #' @export
 print.async <- function(x, ...) {
   code <- substitute(expr, environment(x$nextElem))
   # pending nseval 0.4.1
   # scope <- nseval::caller(environment(delay$nextElem), ifnotfound="original scope not available")
-  cat("Async object with code:\n", deparse(code), "\n")
+  cat(format(x, ...), sep="\n")
+}
+
+#' @export
+format.async <- function(x, ...) {
+  if (is.null(x$orig)) {
+    a <- deparse(call("async(...)"))
+  }
+  a <- deparse(call("async", expr(x$orig)), backtick = TRUE)
+  b <- format(env(x$orig))
+  c <- NextMethod(x)
+  c(a, b, c)
 }

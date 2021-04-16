@@ -1,4 +1,4 @@
 library(testthat)
-library(generators)
+library(async)
 
-test_check("generators")
+test_check("async")

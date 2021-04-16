@@ -1,21 +1,21 @@
 `%is%` <- expect_equal
 
 test_that("namespacing", {
-  x <- generators::gen(yield(0))
+  x <- async::gen(yield(0))
   nextElem(x) %is% 0
-  x <- evalq(generators::gen(yield(0)), baseenv())
+  x <- evalq(async::gen(yield(0)), baseenv())
   nextElem(x) %is% 0
-  x <- evalq(generators::gen({yield(0); yield(1)}), baseenv())
+  x <- evalq(async::gen({yield(0); yield(1)}), baseenv())
   nextElem(x) %is% 0
   nextElem(x) %is% 1
 })
 
 
 test_that("Isolated env", {
-  g <- eval(quote(generators::gen(yield(0))), baseenv())
+  g <- eval(quote(async::gen(yield(0))), baseenv())
   nextElem(g) %is% 0
 
-  g <- evalq(generators::gen({yield(1); yield(2)}), baseenv())
+  g <- evalq(async::gen({yield(1); yield(2)}), baseenv())
 })
 
 test_that("custom CPS function in isolated env", {
@@ -29,12 +29,12 @@ test_that("custom CPS function in isolated env", {
     identity <- function(x) x
   })
 
-  g <- evalq(generators::gen(yield(identity(yield(5)))), e)
+  g <- evalq(async::gen(yield(identity(yield(5)))), e)
   nextElem(g) %is% 5
   nextElem(g) %is% 5
 
   f <- new.env(baseenv())
   f$identity = e$identity
-  g <- evalq(generators::gen(yield(identity(yield(5)))), f)
+  g <- evalq(async::gen(yield(identity(yield(5)))), f)
   nextElem(g) %is% 5
 })

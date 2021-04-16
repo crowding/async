@@ -65,40 +65,41 @@ test_that("return stops without throwing error", {
   expect_error(nextElem(g), "StopIteration")
 })
 
-test_that("Catch internal errors", {
-  # tryCatch should also catch errors arising from within interpreted functions.
-  # For instance FALSE || NULL will throw an error from ||_cps, because
-  # it just uses || internally and that throws an error.
-  g <- gen({
-    try(yield(yield(FALSE) || yield(NULL)), silent=TRUE)
-    yield("done")
-  })
-  nextElem(g) %is% FALSE
-  nextElem(g) %is% NULL
-  nextElem(g) %is% "done"
-})
 
 if(exists("experimental", envir = globalenv()) && globalenv()$experimental) {
-test_that("try/finally, stop and return", {
+  test_that("Catch internal errors", {
+    # tryCatch should also catch errors arising from within interpreted functions.
+    # For instance FALSE || NULL will throw an error from ||_cps, because
+    # it just uses || internally and that throws an error.
+    g <- gen({
+      try(yield(yield(FALSE) || yield(NULL)), silent=TRUE)
+      yield("done")
+    })
+    nextElem(g) %is% FALSE
+    nextElem(g) %is% NULL
+    nextElem(g) %is% "done"
+  })
 
-  g <- gen(tryCatch({yield("Hello"); return(); yield("Goodbye")},
-                    finally={yield("Hola"); stop("oops"); yield("Adios")}))
-  nextElem(g) %is% "Hello"
-  nextElem(g) %is% "Hola"
-  expect_error(nextElem(g), "oops")
+  test_that("try/finally, stop and return", {
 
-  g <- gen(tryCatch({yield("Hello"); stop("oops"); yield("Goodbye")},
-                    finally={yield("Hola"); return(); yield("Adios")}))
-  nextElem(g) %is% "Hello"
-  nextElem(g) %is% "Hola"
-  expect_error(nextElem(g), "oops")
+    g <- gen(tryCatch({yield("Hello"); return(); yield("Goodbye")},
+                      finally={yield("Hola"); stop("oops"); yield("Adios")}))
+    nextElem(g) %is% "Hello"
+    nextElem(g) %is% "Hola"
+    expect_error(nextElem(g), "oops")
 
-  g <- gen(tryCatch({yield("Hello"); return(); yield("Goodbye")},
-                    finally={yield("Hola"); return(); yield("Adios")}))
-  nextElem(g) %is% "Hello"
-  nextElem(g) %is% "Hola"
-  expect_error(nextElem(g), "StopIteration")
-})
+    g <- gen(tryCatch({yield("Hello"); stop("oops"); yield("Goodbye")},
+                      finally={yield("Hola"); return(); yield("Adios")}))
+    nextElem(g) %is% "Hello"
+    nextElem(g) %is% "Hola"
+    expect_error(nextElem(g), "oops")
+
+    g <- gen(tryCatch({yield("Hello"); return(); yield("Goodbye")},
+                      finally={yield("Hola"); return(); yield("Adios")}))
+    nextElem(g) %is% "Hello"
+    nextElem(g) %is% "Hola"
+    expect_error(nextElem(g), "StopIteration")
+  })
 
 if(FALSE) {
 
