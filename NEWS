@@ -1,0 +1,11 @@
+
+
+Version: 0.1
+
+  * Rename from "generators" to "async"
+  * Async/await blocks implementing the promise interface 
+  * Performance improvements from building the call graph ahead of time
+
+Version 0.0.0.9000
+
+  * Initial Github release.

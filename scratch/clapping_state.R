@@ -2,6 +2,7 @@
 # up looking like?
 
 # first, "clapping music" in generators:
+library(iterators)
 
 gen_claps <- function() gen({
   repeat {
@@ -35,8 +36,7 @@ gen_collect <- function(iter, n) {
   out
 }
 
-# now a manually "compiled" version (skipping iterators)
-
+# now a "hand-compiled" state machine version (skipping iterators)
 claps <- function() {
   nonce <- (function() function () NULL)()
   .iter <- NULL
@@ -100,7 +100,7 @@ claps <- function() {
     if (is.null(.yielded)) stop("StopIteration")
     else reset(.yielded, .yielded <<- NULL)
   }
-  #itertools::new_iterator(.nextElem)
+  itertools::new_iterator(.nextElem)
 }
 
 
@@ -124,12 +124,12 @@ skip_after <- function(iter, howmany) {
       { #2
         if(.ix <= .last) {
           i <<- .iter[.ix]
-          .yielded <<- iter()
+          .yielded <<- nextElem(iter)
           .ix <<- .ix + 1
           .state <<- 2
         } else {
           .iter <<- NULL
-          iter()
+          nextElem(iter)
           .state <<- 1
         }
       })
@@ -137,7 +137,7 @@ skip_after <- function(iter, howmany) {
     if (is.null(.yielded)) stop("StopIteration")
     else reset(.yielded, .yielded <<- NULL)
   }
-  #itertools::new_iterator(.nextElem)
+  itertools::new_iterator(.nextElem)
 }
 
 add2gether <- function(iter1, iter2) {
@@ -150,25 +150,26 @@ add2gether <- function(iter1, iter2) {
     while(is.null(.yielded) && !is.null(.state)) {
       switch(reset(.state, state <<- NULL),
       { #1
-        .yielded <<- iter1() + iter2()
+        .yielded <<- nextElem(iter1) + nextElem(iter2)
         .state <<- 1
       })
     }
     if (is.null(.yielded)) stop("StopIteration")
     else reset(.yielded, .yielded <<- NULL)
   }
-  #itertools::new_iterator(.nextElem)
+  itertools::new_iterator(.nextElem)
 }
 
 collect <- function(iter, n) {
   out <- rep(0, n)
   for (i in 1:n) {
-    out[i] <- iter()
+    out[i] <- nextElem(iter)
   }
   out
 }
 
-# third comparison is to compute clapping music without any iterators.
+# our third comparison is to compute clapping music in a direct loop
+# without any iterators.
 direct_clap <- function(n) {
   out <- rep(0, n)
 
@@ -210,20 +211,43 @@ direct_clap <- function(n) {
   out
 }
 
-
-dt <- system.time(direct_clap(144*13*10))
-st <- system.time(collect(add2gether(claps(), skip_after(claps(), 144)), 144*13*10))
-
-#state_iter <- ilimit(add2gether(claps(), skip_after(claps(), 144)), 144*13)
-#st <- system.time({sc <- as.numeric(as.list(state_iter))})
-
+direct_time <- system.time(direct_clap(144*13*10))
+state_iter <- add2gether(claps(), skip_after(claps(), 144))
+state_time <- system.time(collect(state_iter, 144*13*10))
 gen_iter <- gen_add2gether(gen_claps(), gen_skip_after(gen_claps(), 144))
-gt <- system.time({gc <- gen_collect(gen_iter, 144*13)})
+gen_time <- system.time(collect(gen_iter, 144*13*10))
+## > direct_time
+## user  system elapsed 
+## 0.001   0.000   0.001 
+## > gen_time
+## user  system elapsed 
+## 64.478   0.390  65.421 
+## > state_time
+## user  system elapsed 
+## 1.291   0.073   1.370
 
-# so state machine could offer a ~100x speedup vs. COS generators, but
-# leaves you ~5-10x off of direct, non-incremental speed.
+# So this give us some sort of idea the speedup possible with better
+# compilation. I thought that moving the setup ahead of time would
+# give more of a speedup though.
 
-# experiment with the performance of switch vs. array of handlers.
+direct_startup <- system.time(for (i in 1:1000) direct_clap(1))
+state_startup <- system.time(for(i in 1:1000) nextElem(add2gether(claps(), skip_after(claps(), 144))))
+gen_startup <- 10*system.time(for (i in 1:100) nextElem(gen_add2gether(gen_claps(), gen_skip_after(claps(), 144))))
+
+## > direct_startup
+## user  system elapsed 
+## 0.546   0.007   0.556 
+## > state_startup
+## user  system elapsed 
+## 0.169   0.002   0.173 
+## > gen_startup
+## user  system elapsed 
+## 13.51    0.38   14.02 
+
+
+# strange that the state machine is faster than running the bare function once!
+
+# experiment with the performance of switch vs. array of handlers?
 switching <- function(n) {
   tot <- 0
   for(i in 1:n) {
@@ -333,6 +357,7 @@ switching <- function(n) {
   tot
 }
 
+
 bare <- function(n) {
   tot <- 0
   for (i in 1:n) {
@@ -365,5 +390,8 @@ calling2 <- function(n) {
   tot
 }
 
+system.time(switching(10000))
+system.time(bare(10000))
+system.time(calling(10000))
 
-
+# So yeah, calling isn't slow.
