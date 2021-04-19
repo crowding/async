@@ -24,16 +24,82 @@ return_cps <- function(x) {
   }
 }
 
-tryCatch_cps <- function(expr, ..., finally) {
-  list(expr, ..., maybe(finally))
-  function(cont, ..., ret, stop, windup, unwind, return) {
-    if (is_missing(finally)) {
-      doExpr <- expr(cont, ..., ret, stop=stop_, windup=windup, unwind=unwind, return=return)
-      windup(doExpr, ..., ret, stop=stop, windup=windup, unwind=unwind, return=return)
-      # stop and return need to unwind...
+tryCatch_cps <- function(expr, ..., error, finally) {
+  list(expr, maybe(error), maybe(finally))
+  function(cont, ..., ret, stop, brk, nxt, windup, unwind, return) {
+    list(cont, ..., ret, stop, maybe(brk), maybe(nxt), windup, unwind, return)
+    if (is_missing(error)) {
+      if (is_missing(finally)) {
+        #no-op
+        cont(cont, ..., ret=ret, stop=stop, brk=brk, nxt=nxt,
+             windup=windup, unwind=unwind, return=return)
+      } else {
+        # try-finally
+        value <- NULL
+        error <- NULL
+        after <- NULL
+        after_finally <- function(val) {
+          switch(after,
+                 success=cont(value),
+                 failure=stop(error),
+                 return=return(value),
+                 `next`=nxt(),
+                 `break`=brk())
+        }
+        # if there is an uncaught error, then a return, break or next
+        # from the finally block, throw the saved error instead.
+        finally_return <- function(...) if (after=="failure") stop(error) else return(...) 
+        finally_brk <- function() if (after=="failure") stop(error) else brk()
+        finally_nxt <- function() if (after=="failure") stop(error) else nxt()
+        finally_then <- finally(after_finally, ...,
+                                ret=ret, stop=stop, brk=finally_brk, nxt=finally_nxt,
+                                windup=windup, unwind=unwind, return=finally_return)
+        stop_ <- function(err) {
+          trace("try-finally stop")
+          error <<- err
+          after <<- "failure"
+          unwind()
+          ret(finally_then)
+        }
+        return_ <- function(val) {
+          trace("try-finally return")
+          value <<- val
+          after <<- "return"
+          unwind(finally_then)
+        }
+        brk_ <- function() {
+          trace("try-finally break")
+          after <<- "break"
+          unwind(finally_then)
+        }
+        nxt_ <- function() {
+          trace("try-finally next")
+          after <<- "next"
+          unwind(finally_then)
+        }
+        do_expr <- expr(finally_then, ...,
+                        ret=ret, stop=stop_, brk=brk_, nxt=nxt_,
+                        windup=windup, unwind=unwind, return=return_)
+        do_windup <- function(f, ...) {
+          list(f, ...)
+          trace("try-finally winding up")
+          on.exit(trace("try-finally unwinding"))
+          tryCatch(f(...), error=stop_)
+        }
+        windup_ <- function() {
+          after <<- NULL
+          value <<- NULL
+          error <<- NULL
+          windup(do_windup, do_expr)
+        }
+        windup_
+      }
+    } else {
+      stop("catch unimplemented")
     }
   }
 }
+
 
 try_cps <- function(expr, silent=arg_cps(FALSE),
                     outfile=arg_cps(getOption("try.outFile", default = stderr()))) {

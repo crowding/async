@@ -14,18 +14,20 @@ make_pump <- function(expr, ...,
                       ret=base::stop("unused"),
                       windup=base::stop("unused"),
                       unwind=base::stop("unused"),
+                      pause=base::stop("unused"),
                       stop=base::stop,
                       return=base::return,
                       eliminate.tailcalls = TRUE) { list(expr, ...)
   nonce <- (function() function() NULL)()
 
-  action <<- "pause" # windup, unwind, stopped, pause
+  context_action <<- "none" # or rewind
+
+  action <<- "pause" # stopped, pause
   cont <- nonce
   value <- nonce
   err <- nonce
-  windings <- list()
 
-  pause <- function(cont) {
+  pause_ <- function(cont) {
     trace(where <- "pause handler")
     list(cont)
     cont <<- function(...) cont(...)
@@ -33,7 +35,7 @@ make_pump <- function(expr, ...,
   }
 
   if (eliminate.tailcalls) {
-    ret <- function(cont, ...) {
+    ret_ <- function(cont, ...) {
       trace(where <- "pump ret")
       list(cont, ...) #force
       cont <<- function() {
@@ -43,21 +45,11 @@ make_pump <- function(expr, ...,
       action <<- "continue"
     }
   } else {
-    ret <- function(cont, ...) {
+    ret_ <- function(cont, ...) {
       trace(where <- "pump fake ret")
       list(cont, ...) #force
       cont(...)
     }
-  }
-
-  windup <- function(..., finally) {
-    # error handlers are given to us as functions, finally as a continuation
-    # need to return a continuation....
-    action <<- "windup"
-  }
-
-  unwind <- function(..., finally) {
-    action <<- "unwind"
   }
 
   stop_ <- function(err) {
@@ -75,41 +67,80 @@ make_pump <- function(expr, ...,
     return(val)
   }
 
+  # We maintain a list of "windings."
+  # A "winding" is a function that must tailcall into its args like:
+  # null_winding <- function(cont, ...) cont(...)
+  # f(cont) that establishes a context,
+  # and returning from f(cont), unwinds that context.
+  base_winding <- function(cont, ...) {
+    trace("Base windup")
+    tryCatch(cont(...), error=function(err){
+      trace("Stop fired!")
+      stop_(err)
+    }, finally=trace("Base unwind\n"))
+  }
+  windings <- list(base_winding)
+
+  windup_ <- function(f, cont, ...) {
+    list(f, cont, ...)
+    trace("Adding to windup list")
+    outerWinding <- windings[[1]]
+    g <- function(...) {
+      outerWinding(f, ...)
+    }
+    windings <<- c(list(g), windings)
+    cont <<- function() {
+      trace(where <- "continuing after windup")
+      cont(...)
+    }
+    action <<- "rewind"
+  }
+
+  unwind_ <- function(cont, ...) {
+    trace("removing from windup list")
+    windings[[1]] <<- NULL
+    cont <<- function() {
+      trace(where <- "continuing after unwind")
+      cont(...)
+    }
+    action <<- "rewind"
+  }
+
+  doWindup <- function(...) {
+    windings[[1]](...)
+  }
+
   # "expr" represents the syntax tree, It is a context constructor
   # that takes some context functions ("our "ret" and "stop" etc) and
   # returns an entry continuation.
-  entry <- expr(return_, ..., ret=ret, stop=stop_, return=return_,
-                windup=windup, unwind=unwind, pause=pause)
+  entry <- expr(return_, ..., ret=ret_, stop=stop_, return=return_,
+                windup=windup_, unwind=unwind_, pause=pause_)
   cont <- entry
 
   pump <- function(...) {
+    doWindup(runPump, ...)
+    while(action == "rewind") {
+      action <<- "pause"
+      doWindup(runPump)
+    }
+    if (!identical(value, nonce)) value
+  }
+
+  runPump <- function(...) {
     if (action == "pause") {
-      #action <<- "continue"
+      trace("continuing from pause")
       cont(...) # here's where you inject a return value into an await
     } else {
       stop("asked to continue but pump was not paused")
     }
     trace(where <- "pump first return")
-    repeat
-      switch(action,
-             continue={
-               trace("pump is continuing")
-               action <<- "pause"; reset(cont, cont <<- NULL)()
-             },
-             pause=,
-             finish=,
-             stop={
-               trace("pump ", action)
-               break
-             },
-             windup=,
-             unwind={
-               stop("pump wind/unwind not implemented")
-             })
-    if (!identical(value, nonce)) value
+    while(action == "continue") {
+      trace("pump is continuing")
+      action <<- "pause"; reset(cont, cont <<- NULL)()
+    }
+    trace("pump ", action)
   }
 
-  #debug(pump)
   pump
 }
 

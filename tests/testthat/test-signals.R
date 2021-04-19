@@ -1,59 +1,59 @@
 `%is%` <- expect_equal
 
-  test_that("simple try", {
-    g <- gen({
-      x <- 5
-      try({x <- 6; NULL(); x <- 7}, silent=TRUE)
-      yield(x)
-      x <- 8
-      NULL()
-      yield(x)
-    })
-    nextElem(g) %is% 6
-    expect_error(nextElem(g), "non-function")
+test_that("simple try", {
+  g <- gen({
+    x <- 5
+    try({x <- 6; NULL(); x <- 7}, silent=TRUE)
+    yield(x)
+    x <- 8
+    NULL()
+    yield(x)
   })
+  nextElem(g) %is% 6
+  expect_error(nextElem(g), "non-function")
+})
 
-  test_that("yield inside of try", {
-    g <- gen({
+test_that("yield inside of try", {
+  g <- gen({
+    try({
+      yield(5)
+      stop("foo")
+      yield(6)
+    }, silent=TRUE)
+    yield(7)
+    stop("bar")
+    yield(8)
+  })
+  expect_equal(nextElem(g), 5)
+  expect_equal(nextElem(g), 7)
+  expect_error(nextElem(g), "bar")
+  expect_error(nextElem(g), "StopIteration")
+})
+
+test_that("nested tries", {
+
+  g <- gen({
+    try({
+      yield(5)
       try({
-        yield(5)
-        stop("foo")
-        yield(6)
+        yield(55)
+        stop("baz")
+        yield(56)
       }, silent=TRUE)
-      yield(7)
-      stop("bar")
-      yield(8)
-    })
-    expect_equal(nextElem(g), 5)
-    expect_equal(nextElem(g), 7)
-    expect_error(nextElem(g), "bar")
-    expect_error(nextElem(g), "StopIteration")
+      stop("foo")
+      yield(6)
+    }, silent=TRUE)
+    yield(7)
+    stop("bar")
+    yield(8)
   })
 
-  test_that("nested tries", {
-
-    g <- gen({
-      try({
-        yield(5)
-        try({
-          yield(55)
-          stop("baz")
-          yield(56)
-        }, silent=TRUE)
-        stop("foo")
-        yield(6)
-      }, silent=TRUE)
-      yield(7)
-      stop("bar")
-      yield(8)
-    })
-
-    expect_equal(nextElem(g), 5)
-    expect_equal(nextElem(g), 55)
-    expect_equal(nextElem(g), 7)
-    expect_error(nextElem(g), "bar")
-    expect_error(nextElem(g), "StopIteration")
-  })
+  expect_equal(nextElem(g), 5)
+  expect_equal(nextElem(g), 55)
+  expect_equal(nextElem(g), 7)
+  expect_error(nextElem(g), "bar")
+  expect_error(nextElem(g), "StopIteration")
+})
 
 test_that("return stops without throwing error", {
   g <- gen(
@@ -65,12 +65,34 @@ test_that("return stops without throwing error", {
   expect_error(nextElem(g), "StopIteration")
 })
 
+test_that("try/finally, stop and return", {
+
+  g <- gen(tryCatch({yield("Hello"); return(); yield("Goodbye")},
+                    finally={yield("Hola"); stop("oops"); yield("Adios")}))
+  nextElem(g) %is% "Hello"
+  nextElem(g) %is% "Hola"
+  expect_error(nextElem(g), "oops")
+
+  g <- gen(tryCatch({yield("Hello"); stop("oops"); yield("Goodbye")},
+                    finally={yield("Hola"); return(); yield("Adios")}))
+  nextElem(g) %is% "Hello"
+  nextElem(g) %is% "Hola"
+  expect_error(nextElem(g), "oops")
+
+  g <- gen(tryCatch({yield("Hello"); return(); yield("Goodbye")},
+                    finally={yield("Hola"); return(); yield("Adios")}))
+  nextElem(g) %is% "Hello"
+  nextElem(g) %is% "Hola"
+  expect_error(nextElem(g), "StopIteration")
+})
 
 if(exists("experimental", envir = globalenv()) && globalenv()$experimental) {
+
   test_that("Catch internal errors", {
-    # tryCatch should also catch errors arising from within interpreted functions.
-    # For instance FALSE || NULL will throw an error from ||_cps, because
-    # it just uses || internally and that throws an error.
+    # tryCatch should also catch errors arising from within
+    # interpreted functions.  For instance FALSE || NULL will throw an
+    # error from ||_cps, because it just uses || internally and that
+    # throws an error.
     g <- gen({
       try(yield(yield(FALSE) || yield(NULL)), silent=TRUE)
       yield("done")
@@ -80,26 +102,7 @@ if(exists("experimental", envir = globalenv()) && globalenv()$experimental) {
     nextElem(g) %is% "done"
   })
 
-  test_that("try/finally, stop and return", {
-
-    g <- gen(tryCatch({yield("Hello"); return(); yield("Goodbye")},
-                      finally={yield("Hola"); stop("oops"); yield("Adios")}))
-    nextElem(g) %is% "Hello"
-    nextElem(g) %is% "Hola"
-    expect_error(nextElem(g), "oops")
-
-    g <- gen(tryCatch({yield("Hello"); stop("oops"); yield("Goodbye")},
-                      finally={yield("Hola"); return(); yield("Adios")}))
-    nextElem(g) %is% "Hello"
-    nextElem(g) %is% "Hola"
-    expect_error(nextElem(g), "oops")
-
-    g <- gen(tryCatch({yield("Hello"); return(); yield("Goodbye")},
-                      finally={yield("Hola"); return(); yield("Adios")}))
-    nextElem(g) %is% "Hello"
-    nextElem(g) %is% "Hola"
-    expect_error(nextElem(g), "StopIteration")
-  })
+}
 
 if(FALSE) {
 
@@ -138,7 +141,9 @@ if(FALSE) {
   # [1] 5
   # > tryCatch((function() {on.exit(return(5)); stop("!")})(), error=function(e) {caught <<- TRUE; cat("caught\n"); 6}) 
   # [1] 5
+}
 
+if(exists("experimental", envir = globalenv()) && globalenv()$experimental) {
   test_that("simple try-catch with yield in body", {
     g <- gen(tryCatch(yield(5)))
     nextElem(g) %is% 5
@@ -188,7 +193,7 @@ if(FALSE) {
     caught %is% TRUE
   })
 
-  test_that("tryCatch treats warning same as error", {
+  test_that("tryCatch warnings", {
     caught <- FALSE
     g <- gen({
       tryCatch({
@@ -205,8 +210,16 @@ if(FALSE) {
 
     nextElem (g) %is% 1
     nextElem (g) %is% 2
+    nextElem (g) %is% 33
     nextElem (g) %is% 3
     caught %is% TRUE
   })
+
+  
+  test_that("now what happens when there is an error in the finally/cleanup?")
+
 }
-}
+
+
+# promise rejections coming from "await" should bubble into
+# exceptions, and exceptions occurring in async should emerge as rejections.
