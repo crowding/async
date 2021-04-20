@@ -18,28 +18,40 @@ trace <- function(...) NULL
 # constructor takes a list of callback argument -- one argument "cont"
 # representing where to jump after the present computation, and a set
 # of named arguments corresponding to other branch points (like break,
-# next, stop, etc.)
+# next, return, stop, yield, await, etc.)
 #
-# Providing top-level context to the outermost context constructor
-# will initialize all the below as well. The result is a graph of
-# functions implementing the computation, linked together in
-# continuation passing style -- that is, each function calls the next
-# in tail position.
+# When you the topmost context constructor and provide the return
+# callback and other top-level callbacks(*), each constructor will
+# instantiate its children, propagating its own callbacks. For example
+# a "for" loop constructor will construct new "nxt" and "brk"
+# callbacks to provide to its children.
 #
-# In true continuation passing style, each continuation function calls
-# the next, so that execution state passes from one continuation
-# function to the next. Because R does not have native tailcall
-# elimination, this would endlessly build the stack. So there is a
-# trampoline; one of the context arguments should be named "ret"; it
-# should save a call and arguments and re-start after the stack unwinds.
+# (*) The common set of execution callbacks is provided by
+# make_pump(); make_gen() and make_async() add their own special
+# callbacks to those of make_pump.
 #
-# Providing the execution context and trampoline is done by
-# make_pump().
+# The context constructor should returns a single "begin" function. It
+# should also instantiate any other functions it requires. Each
+# function tail-calls into the next, optionally passing along some
+# arguments; each callback thus forms a node on a directed graph of
+# execuation. All the necessary nodes should be instantiated by
+# the context constructor, so that in a future version, a compiler can
+# statically walk over them to extract the call graph.
+#
+# Because R does not have native tailcall elimination, nodes can
+# optionally tailcall into the "ret" callback, which takes a
+# continuation function as argument. This sets a thunk which allows
+# the stack to unwind and continue from the callback passed to it.
+# make_pump() operates a trampoline that makes this work.
+#
+# "cps_" stood for "continuation passing style," but we are actually now
+# building a static graph, rather than passing continuations around as
+# arguments at runtime.
 
 `(_cps` <- function(expr) {
   force(expr)
   function(...) {
-    # () constructor just disappears and runs expr's constructor instead
+    # ()'s constructor just forwards to expr's constructor
     expr(...)
   }
 }
@@ -190,20 +202,20 @@ force_then <- function(cont, ..., ret) {
 
 `{_cps` <- function(...) {
   args <- list(...)
-  function(cont, ..., ret) {
-    list(cont, ret)
+  function(cont, ...) {
+    list(cont)
     if (length(args) == 0) {
       function() cont(NULL)
     } else if (length(args) == 1) {
       # just use the inner arg's continuation, like ()
-      args[[1]](cont, ..., ret=ret)
+      args[[1]](cont, ...)
     } else {
       # build a chain last to first
       entries <- rep(list(NULL), length(args))
-      entries[[length(args)]] <- args[[length(args)]](cont, ..., ret=ret)
+      entries[[length(args)]] <- args[[length(args)]](cont, ...)
       for (i in rev(seq_len(length(args) - 1))) {
         # use force_then to discard results
-        entries[[i]] <- args[[i]](force_then(entries[[i+1]], ..., ret=ret), ..., ret=ret)
+        entries[[i]] <- args[[i]](force_then(entries[[i+1]], ...), ...)
       }
       entry <- entries[[1]]
       entries <- NULL
@@ -212,50 +224,18 @@ force_then <- function(cont, ..., ret) {
   }
 }
 
-# question: is there a situation in which not forcing the arg of () or {}
-# is consequential? What about side effects?
-
-
-
-# In CPS style, some functions take another CPS function as first
-# positional argument. These are called (or returned) to sequence the flow of
-# control.  flow. Conventionally I will use the first argument name
-# "cont" for these functions.
-
-# Some functions in CPS style take a domain value (a returned value)
-# as first positional argument; these functions are called to "return"
-# values. I will use the argument name "val" for these
-# functions. Generally a "val" function does not receive "..."
-# arguments other than "ret".
-
-# In either case, whether calling or thunking, always pass the first
-# argument positionally and not named.
-
-# The rest of the arguments should be passed with names. They must
-# include "ret" which is used to set up a thunk and unwind the
-# stack. By using "ret(cont, <value>)" instead of cont(value), this
-# will set up the call that will be made when your function exits,
-# then return the value ret() gives you.  Note that "ret" will force
-# all its arguments, while making a non-thunked call allows lazy
-# arguments to pass through; for this reason, `cps_expr` calls cont
-# directly rather than use ret.
-
-# CHECK: Ensure that all arguments other than the first are passed by name.
-# CHECK: Ensure that ... are discarded when receiving a "val"
-
-
-# Here's how sigils and restarts are handled: continuation functions
-# accept and pass down a list of alternate continuations (...) through
-# the right hand side. Of these we have "cont" and "ret" always.  When
-# a CPS function wants a signal "next" or such, it adds "nxt" to the
-# continuation arguments.
+# Here's how sigils and restarts are handled: context constructors
+# accept and pass down a list of handlers (...) through the right hand
+# side. Of these we have "cont" and "ret" always. If a CPS function
+# wants a signal "next" or such, it does that by calling into its
+# `nxt` handler.
 
 next_cps <- function()
   function(cont, ..., ret, nxt) {
     if (missing(nxt)) stop("call to next is not in a loop")
     list(ret, nxt)
     function() {
-      trace("Next called")
+      trace("next")
       ret(nxt)
     }
   }
@@ -265,28 +245,31 @@ break_cps <- function()
     if (is_missing(brk)) stop("call to break is not in a loop")
     list(ret, brk)
     function() {
-      trace("Break called")
+      trace("break")
       ret(brk)
     }
   }
 
+# If you want to establish a new target for "break" or "next" you have to 
+
 repeat_cps <- function(expr) { force(expr) #expr getting NULL???
   function(cont, ..., ret, brk, nxt) {
     list(cont, ret)
-
-    brk_ <- function() {
-      trace("Breaking from repeat")
-      ret(cont, invisible(NULL))
-    }
-
-    nxt_ <- function(val) { 
-      maybe(val) #discard
+    again <- function(val) {
+      trace("repeat again")
+      force(val)
       val <- NULL
-      trace("Next repeat")
       ret(begin)
     }
-    # nxt_ takes optional val_ because used both ways here:
-    begin <- expr(nxt_, ..., ret=ret, brk=brk_, nxt=nxt_)
+    brk_ <- function() {
+      trace("repeat break")
+      ret(cont, invisible(NULL))
+    }
+    nxt_ <- function() {
+      trace("repeat next")
+      ret(begin)
+    }
+    begin <- expr(again, ..., ret=ret, brk=brk_, nxt=nxt_)
     begin
   }
 }
@@ -295,17 +278,20 @@ while_cps <- function(cond, expr) {
   list(cond, expr)
   function(cont, ..., ret, nxt, brk) {
     list(cont, ret)
-
+    again <- function(val) {
+      force(val)
+      val <- NULL
+      ret(begin)
+    }
     brk_ <- function() {
-      trace("Breaking from while")
+      trace("while break")
       ret(cont, invisible(NULL))
     }
     nxt_ <- function() {
-      trace("Next while")
+      trace("while next")
       ret(begin)
     }
-    doExpr <- expr(force_then(nxt_, ..., ret=ret, nxt=nxt, brk=brk),
-                   ..., ret=ret, nxt=nxt_, brk=brk_)
+    doExpr <- expr(again, ..., ret=ret, nxt=nxt_, brk=brk_)
     gotCond <- function(val) {
       if (val) {
         val <- NULL

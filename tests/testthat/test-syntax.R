@@ -131,3 +131,28 @@ test_that("Makes fully qualified names when async package not attached", {
   l <- as.numeric(as.list((g)))
   l %is% c(1, 2, 3, 5, 6, 7, 9, 10)
 })
+
+if(exists("experimental", envir = globalenv()) && globalenv()$experimental) {
+
+  test_that("Lifting pipe heads", {
+    # To help us play with pipelines, here's a set of pipe heads
+    # the idea is that if we have "await" buried in the left arg of a chain, like
+    #     await(foo) %>% spin(side="middle", direction="topwise")
+    # await( data ) %>% group_by(state) %>% with(sum(population)),
+    # then you may be able to 
+
+    # Await in the middle of a pipeline!? More likely than you think?
+
+    #       await(data) |> extract_urls() |> submit_query() |> await(reject=NULL) |> moreStuff
+    # Because R 4.0 pipe expressions are desugared in the parsing stage,
+    # this is equivalent to:
+    #       moreStuff(await(submit_query(extract_urls(await(data), reject=NULL))))
+    # which becomes:
+    #  {.tmp <- await(submit_query(extract_urls(await(data), reject=NULL))); moreStuff(.tmp)}
+    #  {.tmp <- {.tmp2 <- await(data); submit_query(extract_urls(.tmp2))}; moreStuff(.tmp)}
+
+    # or, equivalently in "left-to-right" form:
+    # {{data |> await() -> .tmp; .tmp |> extract_urls() |> submit_query()} -> .tmp; .tmp |> moreStuff()}
+
+  })
+}

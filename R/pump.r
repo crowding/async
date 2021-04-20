@@ -17,7 +17,8 @@ make_pump <- function(expr, ...,
                       pause=base::stop("unused"),
                       stop=base::stop,
                       return=base::return,
-                      eliminate.tailcalls = TRUE) { list(expr, ...)
+                      eliminate.tailcalls = TRUE) {
+  list(expr, ..., stop, return)
   nonce <- (function() function() NULL)()
 
   context_action <<- "none" # or rewind
@@ -131,7 +132,7 @@ make_pump <- function(expr, ...,
       trace("continuing from pause")
       cont(...) # here's where you inject a return value into an await
     } else {
-      stop("asked to continue but pump was not paused")
+      stop("asked to continue, but pump was not paused")
     }
     trace(where <- "pump first return")
     while(action == "continue") {

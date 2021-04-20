@@ -24,6 +24,18 @@ test_that("yield inside of try", {
     stop("bar")
     yield(8)
   })
+
+  g <- gen({
+    tryCatch({
+      yield(5)
+      stop("foo")
+      yield(6)
+    }, error=function(e) print(e))
+    yield(7)
+    stop("bar")
+    yield(8)
+  })
+
   expect_equal(nextElem(g), 5)
   expect_equal(nextElem(g), 7)
   expect_error(nextElem(g), "bar")
@@ -65,6 +77,29 @@ test_that("return stops without throwing error", {
   expect_error(nextElem(g), "StopIteration")
 })
 
+test_that("simple try-catch with yield in body", {
+  g <- gen(tryCatch(yield(5)))
+  nextElem(g) %is% 5
+
+  g <- gen(tryCatch({stop("already"); yield(5)}))
+  expect_error(nextElem(g), "already")
+})
+
+test_that("try-finally", {
+  g <- gen({
+    tryCatch({
+      yield(1); stop("someError")
+    }, finally={
+      yield(2)
+    })
+    yield (3)
+  })
+
+  nextElem(g) %is% 1
+  nextElem(g) %is% 2
+  expect_error(nextElem(g), "someError")
+})
+
 test_that("try/finally, stop and return", {
 
   g <- gen(tryCatch({yield("Hello"); return(); yield("Goodbye")},
@@ -86,140 +121,224 @@ test_that("try/finally, stop and return", {
   expect_error(nextElem(g), "StopIteration")
 })
 
-if(exists("experimental", envir = globalenv()) && globalenv()$experimental) {
-
-  test_that("Catch internal errors", {
-    # tryCatch should also catch errors arising from within
-    # interpreted functions.  For instance FALSE || NULL will throw an
-    # error from ||_cps, because it just uses || internally and that
-    # throws an error.
-    g <- gen({
-      try(yield(yield(FALSE) || yield(NULL)), silent=TRUE)
-      yield("done")
+test_that("try-catch with error", {
+  caught <- FALSE
+  g <- gen({
+    tryCatch({
+      yield(1)
+      yield(2)
+      stop("here")
+      yield(33)
+    }, error = function(e) {
+      e$message %is% "here"
+      caught <<- TRUE
     })
-    nextElem(g) %is% FALSE
-    nextElem(g) %is% NULL
-    nextElem(g) %is% "done"
+    yield(3)
   })
+  nextElem (g) %is% 1
+  nextElem (g) %is% 2
+  nextElem (g) %is% 3
+  caught %is% TRUE
+})
 
-}
+test_that("try-catch yield in error", {
 
-if(FALSE) {
-
-  # hmm... to do an on.exit I have to dynamically modify the call
-  # graph??? or at least there needs to be some special handling at
-  # the end to gather up the list of exit handlers. maintain a list of
-  # exit handlers maybe... I convinced myself that tryCatch is simpler
-  # to start with, at least it's scoped.
-  test_that("on.exit normal", {
-    exited <- FALSE
-    g <- gen({
-      on.exit(exited <<- TRUE)
-      yield(1);
-    })
-
-    nextElem(g) %is% 1
-    exited %is% FALSE
-    expect_error(nextElem(g), "StopIteration")
-    exited %is% TRUE
-
-    exited <- FALSE
-    g <- gen({
-      on.exit(exited <<- TRUE)
-      yield(1);
-      return(1);
-      yield(2);
-    })
-  })
-
-
-
-  # R doesn't even warn!
-  # > (function() tryCatch(return(5), finally=return(6)))()
-  # [1] 6
-  # > (function() {on.exit(return(5)); return(6)})()
-  # [1] 5
-  # > tryCatch((function() {on.exit(return(5)); stop("!")})(), error=function(e) {caught <<- TRUE; cat("caught\n"); 6}) 
-  # [1] 5
-}
-
-if(exists("experimental", envir = globalenv()) && globalenv()$experimental) {
-  test_that("simple try-catch with yield in body", {
-    g <- gen(tryCatch(yield(5)))
-    nextElem(g) %is% 5
-
-    g <- gen(tryCatch({stop("already"); yield(5)}))
-    tryCatch(nextElem(g),
-             error=function (e) {
-               e$message %is% "already"
-               1234
-             }) %is% 1234
-  })
-
-  test_that("try-finally", {
-    g <- gen({
+  g <- gen({
+    yield(
       tryCatch({
-        yield(1); stop("someError")
-      }, finally={
-        yield(2)
+        yield("one")
+        stop("foo")
+      }, error={
+        yield("two")
+        function(e) {"three"}
       })
-      yield (3)
-    })
-
-    nextElem(g) %is% 1
-    nextElem(g) %is% 2
-    tryCatch(nextElem(g) || stop("oops"),
-             error = function (e) e$message %is% "someError")
+    )
   })
 
-  test_that("try-catch with error", {
-    caught <- FALSE
-    g <- gen({
+  nextElem(g) %is% "one"
+  nextElem(g) %is% "two"
+  nextElem(g) %is% "three"
+  expect_error(nextElem(g), "StopIteration")
+})
+
+test_that("try-catch error in catch", {
+
+  g <- gen({
+    tryCatch({
+      yield("one")
+      stop("first")
+    }, error=function(e) stop("second"))
+  })
+  nextElem(g) %is% "one"
+  expect_error(nextElem(g), "second")
+  expect_match(toString(g), "second")
+
+  g <- gen({
+    tryCatch({
+      yield("one")
+      stop("first")
+    }, error={
+      yield("two")
+      stop("second")
+    })
+  })
+  nextElem(g) %is% "one"
+  nextElem(g) %is% "two"
+  expect_error(nextElem(g), "second")
+  expect_match(toString(g), "second")
+
+
+  g <- gen({
+    yield({
       tryCatch({
-        yield(1)
-        yield(2)
-        stop("here")
-        yield(33)
-      }, error = function(e) {
-        e$message %is% "here"
-        caught <<- TRUE
+        tryCatch({
+          yield("one")
+          stop("first")
+        }, error={
+          yield("two")
+          stop("second")
+        })
+      }, error={
+        yield("three")
+        function(e) conditionMessage(e)
       })
-      yield(3)
     })
-
-    nextElem (g) %is% 1
-    nextElem (g) %is% 2
-    nextElem (g) %is% 3
-    caught %is% TRUE
   })
 
-  test_that("tryCatch warnings", {
-    caught <- FALSE
-    g <- gen({
-      tryCatch({
-        yield(1)
-        yield(2)
-        warning("here")
-        yield(33)
-      }, warning = function(e) {
-        e$message %is% "here"
-        caught <<- TRUE
-      })
-      yield(3)
-    })
+  nextElem(g) %is% "one"
+  nextElem(g) %is% "two"
+  nextElem(g) %is% "three"
+  nextElem(g) %is% "second"
+  expect_error(nextElem(g), "StopIteration")
+})
 
-    nextElem (g) %is% 1
-    nextElem (g) %is% 2
-    nextElem (g) %is% 33
-    nextElem (g) %is% 3
-    caught %is% TRUE
+
+test_that("Catch internal errors", {
+  # tryCatch should also catch errors arising from within
+  # interpreted functioncs.  For instance FALSE || NULL will throw an
+  # error from ||_cps, because it just uses || internally and that
+  # throws an error.
+  g <- gen({
+    tryCatch(yield(yield(FALSE) || yield(NULL)),
+             error=yield("done"))
+    yield("tada!")
   })
+  nextElem(g) %is% FALSE
+  nextElem(g) %is% NULL
+  nextElem(g) %is% "done"
+  nextElem(g) %is% "tada!"
+})
 
+test_that("try-catch-finally", {
   
-  test_that("now what happens when there is an error in the finally/cleanup?")
+  g <- gen({
+    yield(
+      tryCatch({
+        yield("one")
+        stop()
+      }, error={
+        yield("two")
+      }, finally={
+        yield("three")
+      })
+    )
+  })
 
-}
+  nextElem(g) %is% "one"
+  nextElem(g) %is% "two"
+  nextElem(g) %is% "three"
+  nextElem(g) %is% "two"
+  expect_error(nextElem(g), "StopIteration")
 
+  g <- gen({
+    tryCatch({
+      yield("one")
+      stop()
+    }, error={
+      yield("two")
+      stop("oops")
+    }, finally={
+      yield("three")
+    })
+  })
 
-# promise rejections coming from "await" should bubble into
-# exceptions, and exceptions occurring in async should emerge as rejections.
+  nextElem(g) %is% "one"
+  nextElem(g) %is% "two"
+  nextElem(g) %is% "three"
+  expect_error(nextElem(g), "oops")
+})
+
+test_that("try-catch-finally and break, next", {
+  g <- gen({
+    repeat {
+      tryCatch({
+        yield("one")
+        stop()
+      }, error={
+        yield("two")
+        break
+      }, finally={
+        yield("three")
+      })
+    }
+    yield("four")
+  })
+  nextElem(g) %is% "one"
+  nextElem(g) %is% "two"
+  nextElem(g) %is% "three"
+  nextElem(g) %is% "four"
+  expect_error(nextElem(g), "StopIteration")
+
+  g <- gen({
+    repeat {
+      tryCatch({
+        yield("one")
+        next
+      }, finally={
+        yield("two")
+        break
+      })
+    }
+    yield("three")
+  })
+
+  nextElem(g) %is% "one"
+  nextElem(g) %is% "two"
+  nextElem(g) %is% "three"
+  expect_error(nextElem(g), "StopIteration")
+
+  g <- gen({
+    repeat {
+      tryCatch({
+        yield("one")
+        break
+      }, finally={
+        yield("two")
+        next
+      })
+    }
+    yield("three")
+  })
+
+  nextElem(g) %is% "one"
+  nextElem(g) %is% "two"
+  nextElem(g) %is% "one"
+  nextElem(g) %is% "two"
+
+  g <- gen({
+    repeat {
+      tryCatch({
+        yield("one")
+        return()
+      }, finally={
+        yield("two")
+      })
+    }
+    yield("three")
+  })
+
+  nextElem(g) %is% "one"
+  nextElem(g) %is% "two"
+  expect_error(nextElem(g), "StopIteration")
+  expect_output(print(g), "finished")
+})

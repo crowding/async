@@ -104,3 +104,12 @@ test_that("generator format", {
   g <- gen(yield(capture.output(print(g))))
   expect_output(cat(nextElem(g)), "running")
 })
+
+test_that("last statement is forced", {
+  hello <- NULL
+  g <- gen({yield("one"); yield("two"); hello <<- "three"})
+  nextElem(g) %is% "one"
+  nextElem(g) %is% "two"
+  expect_error(nextElem(g), "StopIteration")
+  expect_equal(hello, "three")
+})
