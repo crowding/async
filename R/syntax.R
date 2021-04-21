@@ -12,7 +12,8 @@ gen_endpoints <- c(base_endpoints, "yield")
 base_blocks <- c("gen", "function", "async", "quote", "quo")
 
 # Translating an argument into CPS
-cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks, local=TRUE) {
+cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks,
+                          local=TRUE, split_pipes=FALSE) {
   # The continuation constructors will be arranged in the same syntax
   # tree as the source expression, just about. The trick here is to redirect
   # the `for`, `while`, `if` onto their CPS counterparts.
@@ -72,22 +73,60 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks, local
     }
     t_rest <- lapply(expr[-1], trans)
     t_head <- trans_head(expr[[1]])
-    needs_cps <- any(t_head$cps,
-                     as.logical(lapply(t_rest,
-                                       function(x) x$cps)))
-    if (needs_cps) {
-      promoted <- c(list(promote_head(t_head)),
-                    lapply(t_rest, promote_arg))
-      if (! promoted[[1]]$cps)
-        stop("Could not find a CPS implementation for",
-             " `", deparse(t_head$expr), "`.")
-      if (! all(as.logical(lapply(promoted, function(x) x$cps))))
-        stop("Could not make some arguments of",
-             " `", deparse(t_head$expr), "` into CPS form")
-      list(expr = as.call(lapply(promoted,
-                                 function(x)x$expr)),
-           cps = TRUE)
+    t_rest_cps <- as.logical(lapply(t_rest, function(x) x$cps))
+    any_cps <- any(t_head$cps, t_rest_cps)
+    if (any_cps) {
+      promoted <- c(list(try_promote_head(t_head)),
+                    lapply(t_rest, try_promote_arg))
+      if (! promoted[[1]]$cps) {
+        # we have an ordinary R function, but some argument wants to be pausable
+        # Can we split?
+        can_split_pipe <-
+          isFALSE(t_head$cps) &&
+          length(t_rest) >= 1 &&
+          isTRUE(t_rest_cps[1]) &&
+          (is.null(names(t_rest)) || names(t_rest)[1] == "") &&
+          !any(t_rest_cps[-1])
+        if (can_split_pipe) {
+          if (split_pipes) {
+            if ("alt" %in% names(t_rest[[1]])) {
+              # continue a previous split
+              preamble <- t_rest[[1]]$preamble
+              t_rest[[1]] <- t_rest[[1]]$alt
+            } else {
+              # split out arg 1
+              preamble <- call("<-_cps",
+                               quote(arg_cps(..async.tmp)),
+                               t_rest[[1]]$expr)
+              t_rest[[1]]$expr <- quote(..async.tmp)
+              t_rest[[1]]$cps <- FALSE
+            }
+            new_call <- as.call(lapply(c(list(t_head), t_rest),
+                                       function(x)x$expr))
+            list(expr=call("{_cps", preamble, call("arg_cps", new_call)),
+                 cps=TRUE,
+                 preamble=preamble,
+                 alt=list(expr=new_call, cps=FALSE))
+          } else {
+            stop("A pause or break appears in an argument to `",
+                 deparse(t_head$expr),
+                 "`, which is not pausable. Perhaps try with split_pipes=TRUE")
+          }
+        } else {
+          stop("A pause or break appears in an argument to `", deparse(t_head$expr),
+               "`, which is not pausable.")
+        }
+      } else {
+        if (! all(as.logical(lapply(promoted, function(x) x$cps)))) {
+          stop("Could not make some arguments of",
+               " `", deparse(t_head$expr), "` pausable")
+        }
+        list(expr = as.call(lapply(promoted,
+                                   function(x)x$expr)),
+             cps = TRUE)
+      }
     } else {
+      # no pausables in this call
       list(expr =
              as.call(lapply(c(list(t_head), t_rest),
                             function(x)x$expr)),
@@ -114,7 +153,7 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks, local
              } else {
                t_call <- trans_call(expr)
                if (t_call$cps)
-                 stop("Control keywords not allowed in head position of call: ",
+                 stop("Pauses / breaks not allowed in head position of call: ",
                       deparse(expr))
                t_call
              }
@@ -126,9 +165,8 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks, local
                if (new_name$cps) {
                  new_name
                } else {
-                 stop("Could not find a CPS implementation of",
-                      " `", deparse(expr),
-                      "` but it is listed as a control operator.")
+                 stop(deparse(expr),
+                      "is listed as an endpoint, but can't find a pausable definition")
                }
              } else {
                list(expr=expr, cps=FALSE)
@@ -151,7 +189,7 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks, local
   }
 
   # promote_ functions take in a list(expr=quote(), cps=logical(1))
-  promote_arg <- function(l) {
+  try_promote_arg <- function(l) {
     if(! l$cps) {
       list(expr = as.call(list(arg_wrapper, l$expr)), cps=TRUE)
     } else {
@@ -159,7 +197,7 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks, local
     }
   }
 
-  promote_head <- function(l) {
+  try_promote_head <- function(l) {
     if (l$cps || blocked(l$expr)) {
       l
     } else {
@@ -168,8 +206,7 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks, local
                n <- promote_function_name(l$expr)
                if (n$cps)
                  n else {
-                   stop("Could not find a CPS implementation of",
-                        " `", deparse(l$expr), "`.")
+                  l
                  }
              },
              call = {
@@ -268,7 +305,7 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks, local
   out <- trans(expr)
   if (! out$cps) {
     warning("no keywords (", paste(endpoints, collapse=", "), ") used?")
-    out <- promote_arg(out)
+    out <- try_promote_arg(out)
   }
   if(local) {
     out$expr <- as.call(list(as.call(list(quote(`function`), NULL, out$expr))))

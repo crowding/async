@@ -11,7 +11,7 @@ test_that("basic translations", {
   cps_translate(quo(next), local=FALSE) %is% quo(next_cps())
   expect_error(cps_translate(quo(break())), "break")
   expect_warning(cps_translate(quo(2+2), local=FALSE) %is% quo(arg_cps(2+2)), "keywords")
-  expect_error(cps_translate(quo(list(`break`(4)))), "CPS")
+  expect_error(cps_translate(quo(list(`break`(4)))), "pausable")
   cps_translate(endpoints="yield",
                 quo(if(TRUE) yield(2+2) else yield(4)), local=FALSE) %is%
     quo(if_cps(arg_cps(TRUE), yield_cps(arg_cps(2 + 2)), yield_cps(arg_cps(4))))
@@ -132,27 +132,50 @@ test_that("Makes fully qualified names when async package not attached", {
   l %is% c(1, 2, 3, 5, 6, 7, 9, 10)
 })
 
-if(exists("experimental", envir = globalenv()) && globalenv()$experimental) {
+test_that("splitting pipes", {
+  expect_error(cps_translate(quo( await(x)+2 ), endpoints=async_endpoints),
+               "split_pipes")
 
-  test_that("Lifting pipe heads", {
-    # To help us play with pipelines, here's a set of pipe heads
-    # the idea is that if we have "await" buried in the left arg of a chain, like
-    #     await(foo) %>% spin(side="middle", direction="topwise")
-    # await( data ) %>% group_by(state) %>% with(sum(population)),
-    # then you may be able to 
+  expect_identical(
+    cps_translate(quo( await(x)+2 )
+                , endpoints=async_endpoints, split_pipes=TRUE),
+    cps_translate(quo( {..async.tmp <- await(x); ..async.tmp + 2} ),
+                  endpoints=async_endpoints, split_pipes=FALSE))
 
-    # Await in the middle of a pipeline!? More likely than you think?
+  # The head can be carried out of a nested call.
+  expect_identical(
+    cps_translate(quo(
+      sort(await(open(with(await(directory), find_record(idCol)))))
+    ), endpoints=async_endpoints, split_pipes=TRUE),
+    cps_translate(quo({
+      ..async.tmp <- await({
+        ..async.tmp <- await(directory);
+        open(with(..async.tmp, find_record(idCol)))
+      });
+      sort(..async.tmp)
+    }), endpoints=async_endpoints, split_pipes=FALSE))
 
-    #       await(data) |> extract_urls() |> submit_query() |> await(reject=NULL) |> moreStuff
-    # Because R 4.0 pipe expressions are desugared in the parsing stage,
-    # this is equivalent to:
-    #       moreStuff(await(submit_query(extract_urls(await(data), reject=NULL))))
-    # which becomes:
-    #  {.tmp <- await(submit_query(extract_urls(await(data), reject=NULL))); moreStuff(.tmp)}
-    #  {.tmp <- {.tmp2 <- await(data); submit_query(extract_urls(.tmp2))}; moreStuff(.tmp)}
-
-    # or, equivalently in "left-to-right" form:
-    # {{data |> await() -> .tmp; .tmp |> extract_urls() |> submit_query()} -> .tmp; .tmp |> moreStuff()}
-
-  })
-}
+  expect_identical(
+    #actually should be identical to the prev test, but written
+    #all-left-to-right style which may be easier to follow.
+    expr(cps_translate(quo(
+      directory |>
+      await() |>
+      with(findRecord(idCol)) |>
+      open() |>
+      await() |>
+      sort()
+    ), endpoints=async_endpoints, split_pipes=TRUE)),
+    # the placement of braces winds up like this, but this aspect is
+    # not important as braces disappear when constructing the graph.
+    # Also note that if you only do this "splitting" to one
+    # argument, you should only need one temp var.
+    expr(cps_translate(quo(
+    {{directory |>
+      await() -> ..async.tmp; ..async.tmp |>
+      with(findRecord(idCol)) |>
+      open() } |>
+      await() -> ..async.tmp; ..async.tmp |>
+      sort() }
+    ), endpoints=async_endpoints, split_pipes=FALSE)))
+})

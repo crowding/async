@@ -113,3 +113,12 @@ test_that("last statement is forced", {
   expect_error(nextElem(g), "StopIteration")
   expect_equal(hello, "three")
 })
+
+test_that("can optionally split pipes", {
+  expect_error(gen(repeat x <- yield(x)[x]), "split_pipes")
+  x <- c(2, 4, 1, 3)
+  g <- gen(repeat x <- yield(x)[x], split_pipes=TRUE)
+  nextElem(g) %is% c(2, 4, 1, 3)
+  nextElem(g) %is% c(4, 3, 2, 1)
+  nextElem(g) %is% c(1, 2, 3, 4)
+})

@@ -1,3 +1,5 @@
+`%is%` <- expect_equal
+
 mock_promise <- function() {
   resolve <- NULL
   reject <- NULL
@@ -136,4 +138,17 @@ test_that("async format", {
   pr$reject("oops")
   wait_for_it()
   expect_output(print(as), "rejected")
+})
+
+test_that("async splits pipes by default", {
+  pr <- mock_promise()
+  expect_error(async(await(pr) + 5, split_pipes=FALSE), "split_pipes")
+  result <- NULL
+  as <- async(await(pr) + 5)
+  then(as,
+       onFulfilled = function(x) result <<- x,
+       onRejected=stop)
+  pr$resolve(5)
+  wait_for_it()
+  result %is% 10
 })

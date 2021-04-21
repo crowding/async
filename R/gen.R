@@ -22,26 +22,31 @@
 #'
 #' A generator expression can use any R functions, but a call to
 #' "yield" may only appear in some positions. This package contains
-#' "restartable" equivalents to R's base control flow functions, such as
+#' "pausable" equivalents to R's base control flow functions, such as
 #' `if`, `while`, `try`, `{}`, `||` and so on.  A call to `yield` may
-#' appear only on the arguments of these restartable functions. So
+#' appear only on the arguments of these pausable functions. So
 #' this random walk generator:
 #' ```
 #' rwalk <- gen({x <- 0; repeat {x <- yield(x + rnorm(1))}})
 #' ```
 #' is legal, because `yield` appears within arguments to `{}`,
-#' `repeat`, and `<-`, for which this package has interruptible
+#' `repeat`, and `<-`, for which this package has pausable
 #' definitions. However, this:
 #' ```
 #' rwalk <- gen({x <- rnorm(1); repeat {x <- rnorm(1) + yield(x)}})
 #' ```
 #' is not legal, because `yield` appears in an argument to `+`, which
 #' does not have a restartable definition.
+#'
+#' @param expr An expression, to be turned into an iterator.
+#' @param split_pipes Enable some syntactic sugar so that "yield" can
+#' be used as part of a chain. See ?async for more details
 #' @export
-gen <- function(expr, ...) { expr <- arg(expr)
+gen <- function(expr, ..., split_pipes=FALSE) { expr <- arg(expr)
   do(make_generator,
      cps_translate(expr,
-                   endpoints=gen_endpoints),
+                   endpoints=gen_endpoints,
+                   split_pipes=split_pipes),
      orig=forced_quo(expr),
      dots(...))
 }
