@@ -163,3 +163,18 @@ test_that("pump forces value or error", {
   expect_error(pump(arg_cps(stop("yes"))), "yes")
   expect_error(pump(arg_cps()), "missing")
 })
+
+test_that("switch", {
+  expect_null(pump(switch_cps(arg_cps("three"), four=arg_cps("wrong"))))
+  pump(switch_cps(arg_cps("three"), four=arg_cps("wrong"), three=arg_cps("right"))) %is% "right"
+  expect_error(
+    pump(switch_cps(arg_cps("C"), arg_cps(0), arg_cps(0), three=arg_cps(0))),
+    "default")
+  pump(switch_cps(arg_cps(3),
+                  ignored=arg_cps(stop()),
+                  arg_cps(stop()),
+                  arg_cps(5),
+                  arg_cps(stop()))) %is% 5
+})
+
+  

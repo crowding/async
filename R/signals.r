@@ -94,7 +94,7 @@ catch_ctor <- function(expr, error) {
       })
     }
     windup_ <- function() {
-      value <<- NULL
+      result <<- NULL
       windup(do_windup, do_expr)
     }
     windup_
@@ -109,6 +109,7 @@ finally_ctor <- function(expr, finally) {
     result <- NULL
     after <- NULL
     after_finally <- function(val) {
+      force(val)
       trace("try-finally after")
       switch(after,
              caught=,

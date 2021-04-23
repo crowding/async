@@ -152,3 +152,118 @@ test_that("async splits pipes by default", {
   wait_for_it()
   result %is% 10
 })
+
+test_that("async return", {
+
+  notrun <- TRUE
+  result <- NULL
+  then(async({
+    for (i in 1:10) {
+      if (i > 5) await(NULL)
+      if (i == 5) {
+        return(i)
+        notrun <<- FALSE
+      }
+    }
+    notrun <<- FALSE
+  }),
+  function(val) result <<- val)
+  wait_for_it()
+  result %is% 5
+  notrun %is% TRUE
+
+})
+
+test_that("async try-finally with return", {
+  cleanup <- FALSE
+  result <- NULL
+  not_run <- TRUE
+  then(
+    async({
+      tryCatch({
+        if(FALSE) await(NULL)
+        return(2)
+        not_run <<- FALSE
+      }, finally={
+        cleanup <<- TRUE
+      })
+      not_run <<- FALSE
+      5
+    }),
+    function(x) result <<- x, stop)
+  wait_for_it()
+
+  cleanup %is% TRUE
+  not_run %is% TRUE
+  result %is% 2
+})
+
+test_that("async try-finally with return", {
+  pr <- mock_promise()
+  cleanup <- FALSE
+  retval <- NULL
+  not_run <- TRUE
+  as <- async({
+    tryCatch({
+      if (await(pr)) {
+        return(5)
+        not_run <<- FALSE
+        5
+      } else 4
+    }, finally={
+      cleanup <<- TRUE
+    })
+  })
+  then(as, function(x) {
+    retval <<- x
+  })
+  pr$resolve(TRUE)
+  wait_for_it()
+  cleanup %is% TRUE
+  retval %is% 5
+  notrun %is% TRUE
+})
+
+if(FALSE) {
+  test_that("tryCatch({..., return(x)}, finally={...}) resolves promise before 'finally'",
+  {
+    filename <- mock_promise()
+    opened <- FALSE
+    closed <- TRUE
+    pass <- FALSE
+    dataset <- async({
+      tryCatch({
+        opened <<- await(filename)
+        return(paste0(opened, ".Rdata"))
+      }, finally={
+        # it should service the next promise before coming back here
+        cat("closed\n")
+        closed <<- TRUE
+      })
+    })
+
+    closed2 <- FALSE
+    opened2 <- FALSE
+    results <- async({
+      tryCatch({
+        await(dataset)
+        opened2 <<- TRUE
+        expect_false(closed)
+        dataset # no "return" so finally will execute inline
+      }, finally={
+        cat("closed2\n")
+        closed2 <<- FALSE
+      })
+    })
+
+    check <- async({
+      expect_equal(await(results), 5)
+      expect_false(closed)
+      expect_true(closed2) #
+      pass <<- TRUE
+    })
+
+    wait_for_it()
+    expect_true(pass)
+  })
+}

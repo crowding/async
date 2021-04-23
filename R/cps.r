@@ -154,39 +154,33 @@ if_cps <- function(cond, cons.expr, alt.expr) {
 }
 
 
-switch_cps <- function(EXPR, ...) { force(EXPR); alts <- list(...)
+switch_cps <- function(EXPR, ...) {
+  force(EXPR); alts <- list(...)
   function(cont, ..., ret, stop) {
+    alts <- lapply(alts, function(x) x(cont, ..., ret=ret, stop=stop))
     got_expr <- function(val) {
       if (is.numeric(val)) {
         branch <- alts[[val]]
-        alts(cont, ..., ret=ret, stop=stop)
+        branch()
       } else {
-        alt <- alts[[val]]
-        if (is.null(alt)) {
-          #default
-          default <- alts[[names(alts) == ""]]
-        } else {
-          ret(alt, cont)
+        defaults <- alts[names(alts) == ""]
+        if (length(defaults) > 1) {
+          stop("Duplicate 'switch' defaults")
         }
-        if (i %in% names(alts)) {
-          default <- alts[[names(alts) == ""]]
-        } else {
-          defaults <- alts[names(alts) == ""]
+        branch <- alts[[val]]
+        if (is.null(branch)) {
           if (length(defaults) == 1) {
-            defaults[[1]](cont, ..., ret=ret, stop=stop)
-          } else if (length(defaults) == 0) {
+            defaults[[1]]()
+          } else {
             #this actually is what switch does? Wild.
             ret(cont, invisible(NULL))
-          } else {
-            ret(stop, "Duplicate 'switch' defaults")
           }
+        } else {
+          ret(branch)
         }
       }
     }
-    done <- function(val) {
-      ret(val)
-    }
-    EXPR(got_expr, ret, ...)
+    EXPR(got_expr, ..., ret=ret, stop=stop)
   }
 }
 

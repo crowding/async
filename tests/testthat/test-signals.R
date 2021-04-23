@@ -268,7 +268,7 @@ test_that("try-catch-finally", {
   expect_error(nextElem(g), "oops")
 })
 
-test_that("try-catch-finally and break, next", {
+test_that("try-catch-finally and break, next, return", {
   g <- gen({
     repeat {
       tryCatch({
@@ -341,4 +341,36 @@ test_that("try-catch-finally and break, next", {
   nextElem(g) %is% "two"
   expect_error(nextElem(g), "StopIteration")
   expect_output(print(g), "finished")
+})
+
+test_that("Nested try-catch-finally", {
+
+  g <- gen({
+    tryCatch({
+      yield("body 1")
+      tryCatch({
+        yield("body 2")
+        stop("foo")
+      }, error = {
+        yield("error 2")
+        function(e) stop(e)
+      }, finally = {
+        yield("finally 2")
+      })
+    }, error = {
+      yield("error 1")
+    }, finally = {
+      yield("finally 1")
+    })
+  })
+
+  nextElem(g) %is% "body 1"
+  nextElem(g) %is% "body 2"
+  nextElem(g) %is% "error 2"
+  nextElem(g) %is% "finally 2" # this how R does it...
+  nextElem(g) %is% "error 1"
+  nextElem(g) %is% "finally 1"
+
+  # though there's an argument for asyncs to "fail fast," i.e.
+  # error2 -> error1 -> REJECT -> finally2 -> finally1
 })
