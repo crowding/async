@@ -128,15 +128,12 @@ make_pump <- function(expr, ...,
   }
 
   runPump <- function(...) {
-    if (action == "pause") {
-      trace("continuing from pause")
-      cont(...) # here's where you inject a return value into an await
-    } else {
-      stop("asked to continue, but pump was not paused")
-    }
-    trace(where <- "pump first return")
+    assert(action == "pause",
+           "asked to continue, but pump was not paused")
+    trace("pump continue from pause")
+    cont(...) # here's where you inject a return value into an await
     while(action == "continue") {
-      trace("pump is continuing")
+      trace("pump continue")
       action <<- "pause"; reset(cont, cont <<- NULL)()
     }
     trace("pump ", action)
@@ -144,7 +141,3 @@ make_pump <- function(expr, ...,
 
   pump
 }
-
-
-
-

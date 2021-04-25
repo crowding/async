@@ -178,4 +178,37 @@ test_that("splitting pipes", {
       await() -> ..async.tmp; ..async.tmp |>
       sort() }
     ), endpoints=async_endpoints, split_pipes=FALSE)))
+
+  expect_error(
+    cps_translate(quo( cat("first argument", yield(5)) ),
+                      endpoints=gen_endpoints, split_pipes=TRUE),
+                  "pausable")
+
 })
+
+test_that("Call in call head", {
+  # wrapping a keyword call in parens makes us ignore it
+  yield <- function(x) x+5
+  cps_translate(quo( yield((yield)(5))),
+                endpoints=gen_endpoints, local=FALSE) %is%
+    quo( yield_cps(arg_cps((yield)(5))) )
+  expect_error(
+    cps_translate(quo( (yield)(yield(5))),
+                  endpoints=gen_endpoints, local=FALSE),
+    "pausable")
+
+  # do we want to allow (await(getCallback()))(moreArgs) via pipe splitting?
+  # I think you can always await(getCallback) |> do(moreArgs)
+})
+
+test_that("weird calls", {
+  expect_error(expr(cps_translate(quo( 10(return(5))), local=FALSE)),
+               "pausable")
+  expect_error(expr(cps_translate(quo( NULL(return(5))), local=FALSE)),
+               "pausable")
+
+  notafunction <- "not a function"
+  expect_error(expr(cps_translate(quo( notafunction(return(5))), local=FALSE)),
+               "found")
+})
+

@@ -64,6 +64,7 @@ test_that("if", {
   pump(if_cps(arg_cps(2 > 3), arg_cps("left"), arg_cps("right"))) %is% "right"
   pump(if_cps(arg_cps(2 > 3), arg_cps("left"))) %is% NULL
   #pump(if_cps(arg_cps(2 > 3), arg_cps("left"), arg_cps())) %is% NULL
+  expect_error(pump(if_cps(arg_cps("notalogical"), arg_cps(1), arg_cps(2))))
   expect_error(pump(if_cps(arg_cps(2 < 3), arg_cps(stop("no")))), "no")
   expect_error(pump(if_cps(arg_cps(stop("no")), arg_cps(2 < 3))), "no")
 })
@@ -107,6 +108,9 @@ test_that("repeat", {
                             if_cps(arg_cps(x <= 0), break_cps())))
   pump(cps)
   out %is% c(5, 3, 1, -1)
+
+  expect_error(pump(if_cps(arg_cps(TRUE), break_cps(), arg_cps(2))), "break")
+  expect_error(pump(if_cps(arg_cps(TRUE), next_cps(), arg_cps(2))), "next")
 })
 
 test_that("while", {
@@ -158,6 +162,12 @@ test_that("for", {
   out %is% c(1, 3, 5, 7, 9)
 })
 
+test_that("for over iterator", {
+  x <- 0
+  pump(for_cps(arg_cps(i), arg_cps(icount(10)), arg_cps(x <- x + i)))
+  x %is% 55
+})
+
 test_that("pump forces value or error", {
   pump(arg_cps(12+12)) %is% 24
   expect_error(pump(arg_cps(stop("yes"))), "yes")
@@ -175,6 +185,5 @@ test_that("switch", {
                   arg_cps(stop()),
                   arg_cps(5),
                   arg_cps(stop()))) %is% 5
+  pump(switch_cps(arg_cps("default"), special=arg_cps(22), arg_cps(33))) %is% 33
 })
-
-  

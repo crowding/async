@@ -184,9 +184,8 @@ switch_cps <- function(EXPR, ...) {
   }
 }
 
-force_then <- function(cont, ..., ret) {
-  force(cont)
-  if (is.null(cont)) {trace("force_then cont is null?????")}
+`;_ctor` <- function(cont, ..., ret) {
+  list(cont, ret)
   function(val) {
     force(val)
     val <- NULL #force, then discard
@@ -209,7 +208,7 @@ force_then <- function(cont, ..., ret) {
       entries[[length(args)]] <- args[[length(args)]](cont, ...)
       for (i in rev(seq_len(length(args) - 1))) {
         # use force_then to discard results
-        entries[[i]] <- args[[i]](force_then(entries[[i+1]], ...), ...)
+        entries[[i]] <- args[[i]](`;_ctor`(entries[[i+1]], ...), ...)
       }
       entry <- entries[[1]]
       entries <- NULL
@@ -318,17 +317,22 @@ for_cps <- function(var, seq, expr) {
     iterate <- function() {
       trace("for ", var_, "iterate")
       stopping <- FALSE
+      reason <- NULL
       trace("for ", var_, "iterator", deparse(as.list(seq_$state)))
       val <- tryCatch(iterators::nextElem(seq_),
                       error = function(e) {
                         trace("for ", var_, " caught error", conditionMessage(e))
                         stopping <<- TRUE
-                        if (identical(conditionMessage(e), 'StopIteration'))
-                          NULL else stop(e)
+                        reason <<- e
                       })
       if (stopping) {
-        trace("for ", var_, " stopping")
-        ret(cont, invisible(NULL))
+        if (identical(conditionMessage(reason), 'StopIteration')) {
+          trace("for ", var_, " stopping")
+          cont(invisible(NULL))
+        } else {
+          trace("for ", var_, " throwing: ", conditionMessage(reason))
+          stop(reason)
+        }
       } else {
         assign(var_, val, envir=env_)
         trace("for ", var_, " = ", deparse(val))
@@ -344,7 +348,7 @@ for_cps <- function(var, seq, expr) {
       env_ <<- arg_env(val)
       getSeq()
     }
-    doBody <- expr(force_then(iterate, ..., ret=ret, nxt=nxt_, brk=brk_, stop=stop),
+    doBody <- expr(`;_ctor`(iterate, ..., ret=ret, nxt=nxt_, brk=brk_, stop=stop),
                    ..., ret=ret, nxt=nxt_, brk=brk_, stop=stop) # our brk_
     getSeq <- seq(gotSeq, ..., ret=ret, nxt=nxt, brk=brk, stop=stop) #not our brk
     begin <- var(gotVar, ..., ret=ret, nxt=nxt, brk=brk, stop=stop) #not our brk

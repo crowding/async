@@ -51,6 +51,8 @@ gen <- function(expr, ..., split_pipes=FALSE) { expr <- arg(expr)
      dots(...))
 }
 
+assert <- function(condition, msg) if (!isTRUE(condition)) stop(msg)
+
 #' @export
 #' @rdname gen
 yield <- function(expr) {
@@ -59,7 +61,7 @@ yield <- function(expr) {
 
 yield_cps <- function(expr) { force(expr)
   function(cont, ..., ret, pause, yield) {
-    if (is_missing(yield)) stop("yield in code but this is not a generator")
+    if (is_missing(yield)) base::stop("yield used but this is not a generator")
     list(cont, ret, pause, yield)
     got_val <- function(val) {
       force(val)
@@ -105,19 +107,21 @@ make_generator <- function(expr, orig=NULL, ...) { list(expr, ...)
     switch(state,
            stopped =,
            finished = stop("StopIteration"),
+           running = stop("Generator is already running (recursive loop?)"),
            paused = {
              state <<- "running"
              pump()
-           },
-           running = stop("Generator is already running (recursive loop?)"))
-    switch(state,
-           stopped = stop(err),
-           finished = stop("StopIteration"),
-           paused = {
-             if(identical(yielded, nonce)) stop("generator paused but no value yielded")
-             else reset(yielded, yielded <<- nonce)
-           },
-           running = stop("Generator paused without yielding"))
+             assert(state != "running",
+                    msg="Generator paused without yielding?")
+             switch(state,
+                    stopped = stop(err),
+                    finished = stop("StopIteration"),
+                    paused = {
+                      assert(!identical(yielded, nonce),
+                             msg="generator paused but no value yielded?")
+                      reset(yielded, yielded <<- nonce)
+                    })
+           })
   }
 
   g <- add_class(itertools::new_iterator(nextElem), "generator")

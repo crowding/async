@@ -32,3 +32,4 @@ g <- function(x, ...) tryCatch(
 )
 
 g(g, f)
+

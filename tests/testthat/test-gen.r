@@ -46,7 +46,6 @@ test_that("further nextElems will error with stopIteration", {
   expect_error(nextElem(g), "StopIteration")
 })
 
-
 test_that("a generator", {
   x <- gen(for (i in 1:10) yield(i))
   as.numeric(as.list(x)) %is% 1:10
@@ -55,6 +54,11 @@ test_that("a generator", {
 test_that("for loop over an iterator", {
   x <- gen(for (i in icount()) {yield(i)})
   as.numeric(as.list(itertools::ilimit(x, 10))) %is% 1:10
+
+  j <- gen(for(i in 1:10) if (i %% 7 == 0) stop("oops") else yield(i))
+  x <- 0
+  g <- gen(for(i in j) if (FALSE) yield(NULL) else x <<- x + 1)
+  expect_error(nextElem(g), "oops")
 })
 
 test_that("nested for loops", {
@@ -121,4 +125,22 @@ test_that("can optionally split pipes", {
   nextElem(g) %is% c(2, 4, 1, 3)
   nextElem(g) %is% c(4, 3, 2, 1)
   nextElem(g) %is% c(1, 2, 3, 4)
+})
+
+test_that("Dummy", {
+  expect_error(yield(5), "outside")
+  expect_error( gen(await(yield(5))), "await" )
+})
+
+test_that("tailcalls", {
+  x <- gen({for (i in 1:10) if(FALSE) yield("no"); yield(sys.nframe())},
+           eliminate.tailcalls=TRUE)
+  s1 <- nextElem(x)
+  x <- gen({for (i in 1:10) if(FALSE) yield("no"); yield(sys.nframe())},
+           eliminate.tailcalls=FALSE)
+  s2 <- nextElem(x)
+
+  # this test doesn't work, sys.nframe() is getting me "0"?
+  # maybe related to arg_cps's "do..."
+  expect_true(s2 >= s1)
 })

@@ -25,23 +25,23 @@ return_cps <- function(x) {
 }
 
 tryCatch_cps <- function(expr, ..., error, finally) {
-  if (length(list(...)) > 0) stop("Unsupported arguments to tryCatch_cps")
+  assert(length(list(...)) == 0, "Unsupported arguments to tryCatch_cps")
   if (is_missing(finally)) {
     if (is_missing(error)) {
       function(cont, ...) expr(cont, ...)
     } else {
-      catch_ctor(expr, error)
+      catch_cps_(expr, error)
     }
   } else {
     if (is_missing(error)) {
-      finally_ctor(expr, finally)
+      finally_cps_(expr, finally)
     } else {
-      finally_ctor(catch_ctor(expr, error), finally)
+      finally_cps_(catch_cps_(expr, error), finally)
     }
   }
 }
 
-catch_ctor <- function(expr, error) {
+catch_cps_ <- function(expr, error) {
   list(expr, error)
   function(cont, ..., ret, stop, brk, nxt, windup, unwind, return) {
     list(cont, ret, stop, maybe(brk), maybe(nxt), windup, unwind, return)
@@ -101,7 +101,7 @@ catch_ctor <- function(expr, error) {
   }
 }
 
-finally_ctor <- function(expr, finally) {
+finally_cps_ <- function(expr, finally) {
   list(expr, finally)
   function(cont, ..., ret, stop, brk, nxt, windup, unwind, return) {
     list(cont, ..., ret, stop, maybe(brk), maybe(nxt), windup, unwind, return)

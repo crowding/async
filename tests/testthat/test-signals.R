@@ -30,7 +30,7 @@ test_that("yield inside of try", {
       yield(5)
       stop("foo")
       yield(6)
-    }, error=function(e) print(e))
+    }, error=identity)
     yield(7)
     stop("bar")
     yield(8)
@@ -374,3 +374,38 @@ test_that("Nested try-catch-finally", {
   # though there's an argument for asyncs to "fail fast," i.e.
   # error2 -> error1 -> REJECT -> finally2 -> finally1
 })
+
+test_that("break/next/return in trycatch", {
+  g <- gen({
+    i <- 1
+    repeat {
+      repeat {
+        tryCatch({
+          if (razz <- (i %% 2 == 0)) yield("Razz")
+          if (fizz <- (i %% 3 == 0)) yield("Fizz")
+          if (buzz <- (i %% 5 == 0)) yield("Buzz")
+          if (razz && buzz) stop()
+          if (fizz && buzz) break
+          if (razz || fizz || buzz) next
+          yield(toString(i))
+          if (i > 30) return()
+        }, error = {
+          yield("\n---")
+        }, finally = {
+          yield("\n")
+          i <- i + 1
+        })
+      }
+      yield("<>\n")
+    }
+  })
+  (g |> as.list() |> paste0(collapse="") |> strsplit("\n") |> unlist()) %is%
+    c("1", "Razz", "Fizz", "Razz", "Buzz",
+    "RazzFizz", "7", "Razz", "Fizz", "RazzBuzz", "---",
+    "11", "RazzFizz", "13", "Razz", "FizzBuzz", "<>",
+    "Razz", "17", "RazzFizz", "19", "RazzBuzz", "---",
+    "Fizz", "Razz", "23", "RazzFizz", "Buzz",
+    "Razz", "Fizz", "Razz", "29", "RazzFizzBuzz", "---",
+    "31")
+})
+

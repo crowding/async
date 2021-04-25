@@ -64,7 +64,7 @@ await <- function(prom) {
 
 await_cps <- function(prom) { force(prom)
   function(cont, ..., await, pause, stop) {
-    if (is_missing(await)) stop("await called, but we don't seem to be in an async()")
+    if (is_missing(await)) base::stop("await used, but this is not an async")
     list(cont, await, stop)
 
     trace("await called")
