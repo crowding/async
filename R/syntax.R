@@ -87,25 +87,30 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks,
               t_rest[[1]] <- t_rest[[1]]$alt
             } else {
               # split out arg 1
-              preamble <- call("<-_cps",
-                               quote(arg_cps(..async.tmp)),
-                               t_rest[[1]]$expr)
+              preamble <- as.call(list(qualify("<-_cps"),
+                                       as.call(list(qualify("arg_cps"),
+                                                    quote(..async.tmp))),
+                                       t_rest[[1]]$expr))
               t_rest[[1]]$expr <- quote(..async.tmp)
               t_rest[[1]]$cps <- FALSE
             }
             new_call <- as.call(lapply(c(list(t_head), t_rest),
                                        function(x)x$expr))
-            list(expr=call("{_cps", preamble, call("arg_cps", new_call)),
+            list(expr=as.call(list(qualify("{_cps"),
+                                   preamble,
+                                   as.call(list(qualify("arg_cps"),
+                                                new_call)))),
                  cps=TRUE,
                  preamble=preamble,
                  alt=list(expr=new_call, cps=FALSE))
           } else {
             stop("A pause or break appears in an argument to `",
                  deparse(t_head$expr),
-                 "`, which is not pausable. Perhaps try with split_pipes=TRUE")
+                 "`, which is not pausable. Consider using split_pipes=TRUE")
           }
         } else {
-          stop("A pause or break appears in an argument to `", deparse(t_head$expr),
+          stop("A pause or break appears in an argument to `",
+               deparse(t_head$expr),
                "`, which is not pausable.")
         }
       } else {
@@ -117,7 +122,7 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks,
              cps = TRUE)
       }
     } else {
-      # no pausables in this call
+      # no pausables in this call so just wrap it
       list(expr =
              as.call(lapply(c(list(t_head), t_rest),
                             function(x)x$expr)),

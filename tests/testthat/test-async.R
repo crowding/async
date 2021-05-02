@@ -231,6 +231,21 @@ test_that("async try-finally with return", {
   not_run %is% TRUE
 })
 
+test_that("Dummy", {
+  expect_error(await(5), "outside")
+  expect_error(async(yield(await(5))), "yield")
+})
+
+test_that("One async awaiting another", {
+  a <- mock_promise()
+  b <- async(await(a) + 1)
+  c <- async(await(b) + 2)
+  out <- NULL
+  then(c, function(x) out <<- x)
+  a$resolve(5)
+  wait_for_it()
+  out %is% 8
+})
 
 
 if(FALSE) {
@@ -238,7 +253,7 @@ if(FALSE) {
   # async(try({...}, finally={})), and the "try" either stops or
   # returns, then we fire the resolve/reject first, and deal with the
   # finally block later. I think this should only apply to a
-  # try/finally at top level.
+  # try/finally at top level. (or on.exit)
   # In a nested clause like
 
   test_that("tryCatch({..., return(x)}, finally={...}) resolves promise before 'finally'",
@@ -283,8 +298,3 @@ if(FALSE) {
     expect_true(pass)
   })
 }
-
-test_that("Dummy", {
-  expect_error(await(5), "outside")
-  expect_error(async(yield(await(5))), "yield")
-})

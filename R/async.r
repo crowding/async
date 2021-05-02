@@ -13,14 +13,14 @@
 #'
 #' When an async block finishes (either by reaching the end, or using
 #' `return()`), the promise resolves with the resulting value. If the
-#' async expression stops with an error, the promise is rejected with
+#' async block stops with an error, the promise is rejected with
 #' that error.
 #'
 #' The syntax rules for an `async` are analogous to that for [gen()];
 #' `await` must appear only within the arguments of functions for
 #' which there is a pausable implementation (See `?[pausable]`). By
-#' default the `split_pipes` option will rewrite certain expressions
-#' to satisfy this requirement.
+#' default `split_pipes` is enabled and this will reorder some
+#' expressions to satisfy this requirement.
 #'
 #' Async blocks and generators are conceptually related and share much
 #' of the same underlying mechanism. You can think of one as "output"
@@ -30,16 +30,21 @@
 #' it receives the value, then continues.
 #'
 #' @param expr An expression, to be executed asynchronously.
-#' @param split_pipes As mentioned above, `await()` can only appear in
-#'   the arguments of [pausable] functions and not general R
-#'   functions.  This is an inconvenience if you want to use `await()
-#'   in a pipeline. `async` by default has `split_pipes=TRUE` which
-#'   enacts some syntactic sugar, so that if an `await()` appears in
-#'   the leftmost, unnamed, argument of an R function, the call will
-#'   be "split" using a temporary variable. For instance
-#'   `sort(await(x))` will be rewritten as `{..async.tmp <- await(x);
-#'   sort(..async.tmp)}`. This works only so long as `await` appears
-#'   in calls that evaluate their leftmost arguments normally.
+#' @param split_pipes When `split_pipes=FALSE`, `await()` can only
+#'   appear in the arguments of [pausable] functions and not ordinary
+#'   R functions.  This is a inconvenience as it prevents using
+#'   `await()` in a pipeline. `async` by default has
+#'   `split_pipes=TRUE` which enables some syntactic sugar: if an
+#'   `await()` appears in the leftmost, unnamed, argument of an R
+#'   function, the pipe will be "split" at that call using a temporary
+#'   variable. For instance `sort(await(x))` will be silently
+#'   rewritten as `{..async.tmp <- await(x); sort(..async.tmp)}`. This
+#'   works only so long as `await` appears in calls that evaluate
+#'   their leftmost arguments normally. `split_pipes` can backfire if
+#'   the outer call has other side effects; for instance
+#'   `suppressWarnings(await(x))` will be rewritten as `{.tmp <-
+#'   await(x); suppressWarnings(x)}` which will rather defeat the
+#'   purpose.
 #'
 #' @return `async` constructs and returns a [promises::promise]
 #'   object.
@@ -65,9 +70,8 @@ await <- function(prom) {
 await_cps <- function(prom) { force(prom)
   function(cont, ..., await, pause, stop) {
     if (is_missing(await)) base::stop("await used, but this is not an async")
-    list(cont, await, stop)
+    list(cont, ..., await, pause, stop)
 
-    trace("await called")
     and_then <- function(branch, val) {
       # will receive either a branch to continue or a branch to error
       trace("await taking promise branch")
@@ -77,7 +81,7 @@ await_cps <- function(prom) { force(prom)
       tryCatch(prom <- as.promise(val), on.error=stop)
       trace("await got promise")
       pause(and_then)
-      await(prom, cont, stop)
+      await(prom, cont, stop) # return either "cont" or "stop" to and_then
     }
     prom(got_prom, ..., pause=pause, await=await, stop=stop)
   }
@@ -88,20 +92,20 @@ make_async <- function(expr, orig=arg(expr), ...) {
   list(expr, orig, ...)
 
   nonce <- (function() function() NULL)()
-  state <- "pending"
+  state <- "pending" #print method uses this
   awaiting <- nonce
   value <- nonce
   err <- nonce
 
   return_ <- function(val) {
-    trace("async resolving")
+    trace("async return (resolving)")
     state <<- "resolved"
     value <<- val
     resolve_(val)
   }
 
   stop_ <- function(val) {
-    trace("async rejecting")
+    trace("async stop (rejecting)")
     err <<- val
     state <<- "rejected"
     reject_(val)
@@ -111,13 +115,15 @@ make_async <- function(expr, orig=arg(expr), ...) {
     list(promise, success, failure)
     awaiting <<- promise
     succ <- function(val) {
+      trace("await success")
       pump(success, val)
     }
     fail <- function(err) {
+      trace("await fail")
       pump(failure, err)
     }
     then(promise, succ, fail)
-    trace("await registered with promise")
+    trace("await registered with promise (", action, ")")
   }
 
   resolve_ <- NULL
@@ -131,6 +137,7 @@ make_async <- function(expr, orig=arg(expr), ...) {
   pump <- make_pump(expr, ..., return=return_, stop=stop_, await=await_)
   pump()
   pr$orig <- orig
+  pr$state <- environment()
   pr
 }
 

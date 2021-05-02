@@ -2,8 +2,19 @@
 
 # CPS definitions for core R control flow constructs
 
-trace <- function(...) NULL
-#trace <- function(...) cat(..., "\n", sep=" ")
+# debugging constants....
+# assign("verbose", TRUE, envir=getNamespace("async"))
+verbose <- FALSE
+trace <- function(...) if(verbose) cat(..., "\n", sep=" ")
+
+browseOnAssert <- FALSE
+# assign("browseOnAssert", TRUE, envir=getNamespace("async"))
+assert <- function(condition, msg) {
+  if (!isTRUE(condition)) {
+    if(browseOnAssert) browser()
+    stop(msg)
+  }
+}
 
 # The functions with names ending in "_cps" all construct and return
 # new functions. The constructors and their arguments correspond to

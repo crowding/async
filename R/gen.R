@@ -51,8 +51,6 @@ gen <- function(expr, ..., split_pipes=FALSE) { expr <- arg(expr)
      dots(...))
 }
 
-assert <- function(condition, msg) if (!isTRUE(condition)) stop(msg)
-
 #' @export
 #' @rdname gen
 yield <- function(expr) {

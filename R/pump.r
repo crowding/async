@@ -23,7 +23,7 @@ make_pump <- function(expr, ...,
 
   context_action <<- "none" # or rewind
 
-  action <<- "pause" # stopped, pause
+  action <- "pause" # stopped, pause
   cont <- nonce
   value <- nonce
   err <- nonce
@@ -129,8 +129,8 @@ make_pump <- function(expr, ...,
 
   runPump <- function(...) {
     assert(action == "pause",
-           "asked to continue, but pump was not paused")
-    trace("pump continue from pause")
+           paste0("pump asked to continue, but last action was ", action))
+    trace("pump unpause")
     cont(...) # here's where you inject a return value into an await
     while(action == "continue") {
       trace("pump continue")

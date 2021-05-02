@@ -21,8 +21,6 @@ test_that("basic translations", {
 })
 
 test_that("Namespace qualification", {
-  # get an environment that doesn't see into nseval, even in testing
-
   cps_translate(quo(repeat async::yield(4)), gen_endpoints) %is%
     quo((function() repeat_cps(async:::yield_cps(arg_cps(4))))())
 
@@ -142,6 +140,13 @@ test_that("splitting pipes", {
     cps_translate(quo( {..async.tmp <- await(x); ..async.tmp + 2} ),
                   endpoints=async_endpoints, split_pipes=FALSE))
 
+  expect_error(
+    cps_translate(quo( cat("first argument", yield(5)) ),
+                  endpoints=gen_endpoints, split_pipes=TRUE),
+    "pausable")
+})
+
+test_that("Nested split pipes", {
   # The head can be carried out of a nested call.
   expect_identical(
     cps_translate(quo(
@@ -178,12 +183,26 @@ test_that("splitting pipes", {
       await() -> ..async.tmp; ..async.tmp |>
       sort() }
     ), endpoints=async_endpoints, split_pipes=FALSE)))
+})
 
-  expect_error(
-    cps_translate(quo( cat("first argument", yield(5)) ),
-                      endpoints=gen_endpoints, split_pipes=TRUE),
-                  "pausable")
+test_that("Split pipe vs namespaces", {
+  if ("package:async" %in% search()) {
+    on.exit({
+      attachNamespace("async")
+    }, add=TRUE)
+    detach("package:async")
+  }
 
+  locate("{_cps")
+  x <- nseval::quo( await(x)+2 , baseenv() )
+  t <- expr(async:::cps_translate(x, endpoints=async:::async_endpoints,
+                                  split_pipes=TRUE, local=FALSE))
+
+  expect_equal(t, quote(
+    async:::`{_cps`(
+      async:::`<-_cps`(async:::arg_cps(..async.tmp), 
+                       async:::await_cps(async:::arg_cps(x))),
+      async:::arg_cps(..async.tmp + 2))))
 })
 
 test_that("Call in call head", {
