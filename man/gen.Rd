@@ -12,8 +12,8 @@ yield(expr)
 \arguments{
 \item{expr}{An expression, to be turned into an iterator.}
 
-\item{split_pipes}{Enable some syntactic sugar so that "yield" can
-be used as part of a chain. See ?async for more details}
+\item{split_pipes}{Silently rewrite expressions where "yield"
+appears in chained calls. See `?async` for more details}
 }
 \description{
 `gen({...})` with an expression written in its argument, creates a
@@ -39,9 +39,9 @@ generator is interleaved with that of the R code which queries it.
 A generator expression can use any R functions, but a call to
 "yield" may only appear in some positions. This package contains
 "pausable" equivalents to R's base control flow functions, such as
-`if`, `while`, `try`, `{}`, `||` and so on.  A call to `yield` may
-appear only on the arguments of these pausable functions. So
-this random walk generator:
+`if`, `while`, `tryCatch`, `<-`, `{}`, `||` and so on.  A call to
+`yield` may only appear in an argument of one of these pausable
+functions. So this random walk generator:
 ```
 rwalk <- gen({x <- 0; repeat {x <- yield(x + rnorm(1))}})
 ```

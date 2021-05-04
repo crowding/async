@@ -60,9 +60,8 @@ test_that("async with no await resolves immediately", {
   then(p, function(x) {result <<- x})
   wait_for_it()
   expect_equal(result, 5)
-  a <- make_async(arg_cps(stop("oops")))
   e <- simpleError("wat")
-  then(a, onRejected=function(err) {cat("rejecting!!"); e <<- err})
+  then(make_async(arg_cps(stop("oops"))), onRejected=function(err) {e <<- err})
   wait_for_it()
   expect_equal(conditionMessage(e), "oops")
 })
@@ -134,7 +133,7 @@ test_that("async format", {
   expect_output(print(as), "fulfilled: numeric")
   pr <- mock_promise()
   as <- async({x <- await(pr); x + 5})
-  pr$then(onFulfilled=function() 3, onRejected=function() 3)
+  then(pr, onFulfilled=function(val) NULL, onRejected=function(err) {NULL})
   pr$reject("oops")
   wait_for_it()
   expect_output(print(as), "rejected")
@@ -298,3 +297,10 @@ if(FALSE) {
     expect_true(pass)
   })
 }
+
+test_that("tracing", {
+  expect_output(
+    g <- async(if(TRUE) 1 else await(pr),
+               trace=with_prefix("one")),
+    "one: R: TRUE.*R: 1.*async: return")
+})

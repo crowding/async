@@ -23,9 +23,9 @@
 #' A generator expression can use any R functions, but a call to
 #' "yield" may only appear in some positions. This package contains
 #' "pausable" equivalents to R's base control flow functions, such as
-#' `if`, `while`, `try`, `{}`, `||` and so on.  A call to `yield` may
-#' appear only on the arguments of these pausable functions. So
-#' this random walk generator:
+#' `if`, `while`, `tryCatch`, `<-`, `{}`, `||` and so on.  A call to
+#' `yield` may only appear in an argument of one of these pausable
+#' functions. So this random walk generator:
 #' ```
 #' rwalk <- gen({x <- 0; repeat {x <- yield(x + rnorm(1))}})
 #' ```
@@ -39,8 +39,8 @@
 #' does not have a restartable definition.
 #'
 #' @param expr An expression, to be turned into an iterator.
-#' @param split_pipes Enable some syntactic sugar so that "yield" can
-#' be used as part of a chain. See ?async for more details
+#' @param split_pipes Silently rewrite expressions where "yield"
+#'   appears in chained calls. See `?async` for more details
 #' @export
 gen <- function(expr, ..., split_pipes=FALSE) { expr <- arg(expr)
   do(make_generator,
@@ -58,20 +58,20 @@ yield <- function(expr) {
 }
 
 yield_cps <- function(expr) { force(expr)
-  function(cont, ..., ret, pause, yield) {
+  function(cont, ..., ret, pause, yield, trace) {
     if (is_missing(yield)) base::stop("yield used but this is not a generator")
-    list(cont, ret, pause, yield)
+    list(cont, ret, pause, yield, trace)
     got_val <- function(val) {
       force(val)
-      trace("Yield called")
+      trace("yield\n")
       pause(function() cont(val))
       yield(val)
     }
-    expr(got_val, ..., ret=ret, pause=pause, yield=yield)
+    expr(got_val, ..., ret=ret, pause=pause, yield=yield, trace=trace)
   }
 }
 
-make_generator <- function(expr, orig=NULL, ...) { list(expr, ...)
+make_generator <- function(expr, orig=NULL, ..., trace=trace_) { list(expr, ...)
 
   nonce <- (function () function() NULL)()
   yielded <- nonce
@@ -80,28 +80,27 @@ make_generator <- function(expr, orig=NULL, ...) { list(expr, ...)
 
   return_ <- function(val) {
     force(val)
-    trace(where <- "generator got return value")
+    trace("generator: return\n")
     state <<- "finished"
   }
 
   stop_ <- function(val) {
-    trace("generator got stop")
+    trace("generator: stop\n")
     err <<- val
     state <<- "stopped"
   }
 
   yield_ <- function(val) {
-    force(val)
-    trace("Yield handler called")
-    state <<- "paused"
+    trace("generator: yield\n")
     yielded <<- val
+    state <<- "paused"
   }
 
   # yield handler goes into a wrapper to gain access to "pause"
-  pump <- make_pump(expr, ..., return=return_, stop=stop_, yield=yield_)
+  pump <- make_pump(expr, ..., return=return_, stop=stop_, yield=yield_, trace=trace)
 
   nextElem <- function(...) {
-    trace("nextElem")
+    trace("generator: nextElem\n")
     switch(state,
            stopped =,
            finished = stop("StopIteration"),

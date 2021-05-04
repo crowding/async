@@ -2,20 +2,6 @@
 
 # CPS definitions for core R control flow constructs
 
-# debugging constants....
-# assign("verbose", TRUE, envir=getNamespace("async"))
-verbose <- FALSE
-trace <- function(...) if(verbose) cat(..., "\n", sep=" ")
-
-browseOnAssert <- FALSE
-# assign("browseOnAssert", TRUE, envir=getNamespace("async"))
-assert <- function(condition, msg) {
-  if (!isTRUE(condition)) {
-    if(browseOnAssert) browser()
-    stop(msg)
-  }
-}
-
 # The functions with names ending in "_cps" all construct and return
 # new functions. The constructors and their arguments correspond to
 # the nodes in the syntax tree; that is, a generator like this:
@@ -72,21 +58,23 @@ maybe <- function(x, if_missing=NULL)
 
 make_store <- function(sym) { force(sym)
   function(x, value) { list(x, value)
-    function(cont, ..., ret) { list(cont, ret)
+    function(cont, ..., ret, trace=trace_) {
+      list(cont, ret, trace)
       dest <- NULL
       gotVal <- function(val) {
         val <- arg(val) # lazy
+        trace(paste0(deparse(expr(dest)), " ", deparse(sym), "\n"))
         v <- do_(quo_(sym, env(dest)),
                  dest,
                  val)
         ret(cont, v)
       }
-      getVal <- value(gotVal, ..., ret=ret)
+      getVal <- value(gotVal, ..., ret=ret, trace=trace)
       gotX <- function(val) {
         dest <<- arg(val)
         getVal()
       }
-      getX <- x(gotX, ..., ret=ret)
+      getX <- x(gotX, ..., ret=ret, trace=trace)
       getX
     }
   }
@@ -96,84 +84,91 @@ make_store <- function(sym) { force(sym)
 `<<-_cps` <- make_store(quote(`<<-`))
 
 `&&_cps` <- function(left, right) { list(left, right)
-  function(cont, ..., ret) {
+  function(cont, ..., ret, trace=trace_) {
+    list(cont, ret, trace)
     leftVal <- NULL
     gotRight <- function(val) {
-      trace("&& got right")
-      cont(reset(leftVal, leftVal <<- NULL) && val)
+      test <- leftVal && val
+      trace(paste0("&& ", as.character(test), "\n"))
+      leftVal <<- NULL
+      cont(test)
     }
-    getRight <- right(gotRight, ..., ret=ret)
+    getRight <- right(gotRight, ..., ret=ret, trace=trace)
     gotLeft <- function(val) {
-      trace("&& got left")
-      if (isFALSE(val)) cont(FALSE) else {
-        leftVal <<- val
-        getRight()
-      }
-    }
-    getLeft <- left(gotLeft, ..., ret=ret)
-    getLeft
-  }
-}
-
-`||_cps` <- function(left, right) { list(left, right)
-  function(cont, ..., ret) {
-    leftVal <- NULL
-    gotRight <- function(val) {
-      trace("|| got right")
-      ret(cont, reset(leftVal, leftVal <<- NULL) || val)
-      # cont(reset(leftVal, leftVal <<- NULL) || val)
-    }
-    getRight <- right(gotRight, ..., ret=ret)
-    gotLeft <- function(val) {
-      trace("|| got left")
-      if (isTRUE(val)) {
-        ret(cont, TRUE)
-        #cont(TRUE)
+      if (isFALSE(val)) {
+        trace("&&: false (skip)\n")
+        cont(FALSE)
       } else {
         leftVal <<- val
         getRight()
       }
     }
-    getLeft <- left(gotLeft, ..., ret=ret)
+    getLeft <- left(gotLeft, ..., ret=ret, trace=trace)
+    getLeft
+  }
+}
+
+`||_cps` <- function(left, right) { list(left, right)
+  function(cont, ..., ret, trace=trace_) {
+    list(cont, ret, trace)
+    leftVal <- NULL
+    gotRight <- function(val) {
+      test <- leftVal || val
+      trace(paste0("||: ", deparse(test), "\n"))
+      cont(test)
+    }
+    getRight <- right(gotRight, ..., ret=ret, trace=trace)
+    gotLeft <- function(val) {
+      if (isTRUE(val)) {
+        trace("||: true (skip)\n")
+        cont(TRUE)
+      } else {
+        leftVal <<- val
+        getRight()
+      }
+    }
+    getLeft <- left(gotLeft, ..., ret=ret, trace=trace)
     getLeft
   }
 }
 
 if_cps <- function(cond, cons.expr, alt.expr) {
   list(cond, cons.expr, maybe(alt.expr))
-  function(cont, ..., ret, stop) {
-    list(cont, ret, stop)
+  function(cont, ..., ret, stop, trace=trace_) {
+    list(cont, ret, stop, trace)
     if (is_missing(alt.expr)) {
       ifFalse <- function() cont(invisible(NULL))
     } else {
-      ifFalse <- alt.expr(cont, ..., ret=ret, stop=stop)
+      ifFalse <- alt.expr(cont, ..., ret=ret, stop=stop, trace=trace)
     }
-    ifTrue <- cons.expr(cont, ..., ret=ret, stop=stop)
+    ifTrue <- cons.expr(cont, ..., ret=ret, stop=stop, trace=trace)
     gotCond <- function(val) {
       if(isTRUE(val)) {
-        trace("if true")
+        trace("if: true\n")
         ifTrue()
       }
       else if(isFALSE(val)) {
-        trace("if false")
+        trace("if: false\n")
         ifFalse()
       }
-      else stop("Invalid condition")
+      else stop("if: Invalid condition")
     }
-    getCond <- cond(gotCond, ..., stop=stop, ret=ret)
+    getCond <- cond(gotCond, ..., stop=stop, ret=ret, trace=trace)
   }
 }
 
 
 switch_cps <- function(EXPR, ...) {
   force(EXPR); alts <- list(...)
-  function(cont, ..., ret, stop) {
-    alts <- lapply(alts, function(x) x(cont, ..., ret=ret, stop=stop))
+  function(cont, ..., ret, stop, trace=trace_) {
+    list(cont, ret, stop, trace)
+    alts <- lapply(alts, function(x) x(cont, ..., ret=ret, stop=stop, trace=trace))
     got_expr <- function(val) {
       if (is.numeric(val)) {
+        trace(paste0("switch: ", val, "\n"))
         branch <- alts[[val]]
         branch()
-      } else {
+      } else if (is.character(val)) {
         defaults <- alts[names(alts) == ""]
         if (length(defaults) > 1) {
           stop("Duplicate 'switch' defaults")
@@ -181,33 +176,38 @@ switch_cps <- function(EXPR, ...) {
         branch <- alts[[val]]
         if (is.null(branch)) {
           if (length(defaults) == 1) {
+            trace(paste0("switch: default (", deparse(val), ")", "\n"))
             defaults[[1]]()
           } else {
+            trace(paste0("switch: no branch taken (", deparse(val), ")"))
             #this actually is what switch does? Wild.
             ret(cont, invisible(NULL))
           }
         } else {
+          trace(paste0("switch: ", deparse(val)))
           ret(branch)
         }
       }
     }
-    EXPR(got_expr, ..., ret=ret, stop=stop)
+    EXPR(got_expr, ..., ret=ret, stop=stop, trace=trace)
   }
 }
 
-`;_ctor` <- function(cont, ..., ret) {
-  list(cont, ret)
+`;_ctor` <- function(cont, ..., ret, trace=trace_) {
+  # a semicolon forces its input but discards it
+  list(cont, ret, trace)
   function(val) {
     force(val)
     val <- NULL #force, then discard
-    ret(cont)
+    cont()
+    #ret(cont)
   }
 }
 
 `{_cps` <- function(...) {
   args <- list(...)
   function(cont, ...) {
-    list(cont)
+    force(cont)
     if (length(args) == 0) {
       function() cont(NULL)
     } else if (length(args) == 1) {
@@ -218,7 +218,7 @@ switch_cps <- function(EXPR, ...) {
       entries <- rep(list(NULL), length(args))
       entries[[length(args)]] <- args[[length(args)]](cont, ...)
       for (i in rev(seq_len(length(args) - 1))) {
-        # use force_then to discard results
+        # link args together with semicolons
         entries[[i]] <- args[[i]](`;_ctor`(entries[[i+1]], ...), ...)
       }
       entry <- entries[[1]]
@@ -228,84 +228,87 @@ switch_cps <- function(EXPR, ...) {
   }
 }
 
-# Here's how sigils and restarts are handled: context constructors
+# Here's how signals and restarts are handled: context constructors
 # accept and pass down a list of handlers (...) through the right hand
 # side. Of these we have "cont" and "ret" always. If a CPS function
 # wants a signal "next" or such, it does that by calling into its
 # `nxt` handler.
 
 next_cps <- function()
-  function(cont, ..., ret, nxt) {
+  function(cont, ..., ret, nxt, trace=trace_) {
     if (missing(nxt)) stop("call to next is not in a loop")
-    list(ret, nxt)
+    list(ret, nxt, trace)
     function() {
-      trace("next")
+      trace("next\n")
       ret(nxt)
     }
   }
 
 break_cps <- function()
-  function(cont, ..., ret, brk) {
+  function(cont, ..., ret, brk, trace=trace_) {
     if (is_missing(brk)) stop("call to break is not in a loop")
-    list(ret, brk)
+    list(ret, brk, trace)
     function() {
-      trace("break")
+      trace("break\n")
       ret(brk)
     }
   }
 
-# If you want to establish a new target for "break" or "next" you have to 
+# If you want to establish a new target for "break" or "next" you
+# pass that down to constructor arguments:
 
 repeat_cps <- function(expr) { force(expr) #expr getting NULL???
-  function(cont, ..., ret, brk, nxt) {
-    list(cont, ret)
+  function(cont, ..., ret, brk, nxt, trace=trace_) {
+    list(cont, ret, maybe(brk), maybe(nxt), trace)
     again <- function(val) {
-      trace("repeat again")
+      trace("repeat: again\n")
       force(val)
       val <- NULL
       ret(begin)
     }
     brk_ <- function() {
-      trace("repeat break")
+      trace("repeat: break\n")
       ret(cont, invisible(NULL))
     }
     nxt_ <- function() {
-      trace("repeat next")
+      trace("repeat: next\n")
       ret(begin)
     }
-    begin <- expr(again, ..., ret=ret, brk=brk_, nxt=nxt_)
+    begin <- expr(again, ..., ret=ret, brk=brk_, nxt=nxt_, trace=trace)
     begin
   }
 }
 
 while_cps <- function(cond, expr) {
   list(cond, expr)
-  function(cont, ..., ret, nxt, brk) {
-    list(cont, ret)
+  function(cont, ..., ret, nxt, brk, trace=trace_) {
+    list(cont, ret, maybe(nxt), maybe(brk), trace)
     again <- function(val) {
       force(val)
       val <- NULL
       ret(begin)
     }
     brk_ <- function() {
-      trace("while break")
+      trace("while: break\n")
       ret(cont, invisible(NULL))
     }
     nxt_ <- function() {
-      trace("while next")
+      trace("while: next\n")
       ret(begin)
     }
-    doExpr <- expr(again, ..., ret=ret, nxt=nxt_, brk=brk_)
+    doExpr <- expr(again, ..., ret=ret, nxt=nxt_, brk=brk_, trace=trace)
     gotCond <- function(val) {
       if (val) {
+        trace("while: do\n")
         val <- NULL
         doExpr()
       } else {
+        trace("while: end\n")
         val <- NULL
         ret(cont, invisible(NULL))
       }
     }
-    begin <- cond(gotCond, ..., ret=ret, nxt=nxt_, brk=brk_)
+    begin <- cond(gotCond, ..., ret=ret, nxt=nxt_, brk=brk_, trace=trace)
   }
 }
 
@@ -313,8 +316,8 @@ while_cps <- function(cond, expr) {
 #' @import iterators
 for_cps <- function(var, seq, expr) {
   list(var, seq, expr)
-  function(cont, ..., ret, nxt, brk, stop) {
-    list(cont, ret, maybe(nxt), maybe(brk), stop)
+  function(cont, ..., ret, nxt, brk, stop, trace=trace_) {
+    list(cont, ret, maybe(nxt), maybe(brk), stop, trace)
     i <- 0
     var_ <- NULL
     env_ <- NULL
@@ -326,27 +329,26 @@ for_cps <- function(var, seq, expr) {
       ret(iterate)
     }
     iterate <- function() {
-      trace("for ", var_, "iterate")
+      trace(paste0("for ", var_, ": next\n"))
       stopping <- FALSE
       reason <- NULL
-      trace("for ", var_, "iterator", deparse(as.list(seq_$state)))
       val <- tryCatch(iterators::nextElem(seq_),
                       error = function(e) {
-                        trace("for ", var_, " caught error", conditionMessage(e))
+                        #trace(paste0("for ", var_, ": caught ", conditionMessage(e), "\n"))
                         stopping <<- TRUE
                         reason <<- e
                       })
       if (stopping) {
         if (identical(conditionMessage(reason), 'StopIteration')) {
-          trace("for ", var_, " stopping")
+          trace(paste0("for ", var_, ": finished\n"))
           cont(invisible(NULL))
         } else {
-          trace("for ", var_, " throwing: ", conditionMessage(reason))
+          trace(paste0("for ", var_, ": throwing: ", conditionMessage(reason), "\n"))
           stop(reason)
         }
       } else {
         assign(var_, val, envir=env_)
-        trace("for ", var_, " = ", deparse(val))
+        trace(paste0("for ", var_, ": = ", deparse(val), "\n"))
         doBody()
       }
     }
@@ -359,9 +361,9 @@ for_cps <- function(var, seq, expr) {
       env_ <<- arg_env(val)
       getSeq()
     }
-    doBody <- expr(`;_ctor`(iterate, ..., ret=ret, nxt=nxt_, brk=brk_, stop=stop),
-                   ..., ret=ret, nxt=nxt_, brk=brk_, stop=stop) # our brk_
-    getSeq <- seq(gotSeq, ..., ret=ret, nxt=nxt, brk=brk, stop=stop) #not our brk
-    begin <- var(gotVar, ..., ret=ret, nxt=nxt, brk=brk, stop=stop) #not our brk
+    doBody <- expr(`;_ctor`(iterate, ..., ret=ret, nxt=nxt_, brk=brk_, stop=stop, trace=trace),
+                   ..., ret=ret, nxt=nxt_, brk=brk_, stop=stop, trace=trace) # our brk_
+    getSeq <- seq(gotSeq, ..., ret=ret, nxt=nxt, brk=brk, stop=stop, trace=trace) #not our brk
+    begin <- var(gotVar, ..., ret=ret, nxt=nxt, brk=brk, stop=stop, trace=trace) #not our brk
   }
 }
