@@ -207,7 +207,7 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks,
                n <- try_promote_function_name(l$expr)
                if (n$cps)
                  n else {
-                  l
+                   l
                  }
              },
              `(`=,
@@ -223,82 +223,8 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks,
     }
   }
 
-  # Given a name, map it onto a CPS function if one is defined, and return
-  # it with the necessary namespace qualification.
-  #
-  # If you want to add a custom control flow operator: Say it's called
-  # "deflate_promise". Do the following: export a normal function named
-  # "deflate_promise" from your package, then implement a function
-  # named `deflate_promise_cps`. The second function need not be exported,
-  # find_cps_version will look in the package namespace for it.
   try_promote_function_name <- function(name) {
-    original_name <- as.symbol(name)
-    potential_name <- as.symbol(paste0(as.character(name), "_cps"))
-    where_found <- locate_(potential_name, target_env, mode="function", ifnotfound=NULL)
-    if (!is.null(where_found)) {
-      # A CPS function is defined in full view, excellent.
-      list(expr=potential_name, cps=TRUE)
-    } else {
-      where_found <- locate_(original_name, target_env, mode="function", ifnotfound=NULL)
-      if (is.null(where_found)) {
-        # async::gen(... yield() ...) should find "yield" even if
-        # async is not attached.
-        where_found <- locate_(original_name,
-                               getNamespace("async"),
-                               ifnotfound=NULL)
-        if (is.null(where_found)) {
-          stop("Function `", as.character(original_name), "` was not found.")
-        }
-      }
-      obj <- get(as.character(original_name), envir=where_found, mode="function")
-      if (   is.primitive(obj)
-          || identical(where_found, baseenv())
-          || identical(environment(obj), getNamespace("base"))) {
-        # look in async's exported namespace.
-        if (exists(as.character(potential_name),
-                   getNamespace("async"), inherit=FALSE)) {
-          list(expr = call(":::", quote(async), potential_name),
-               cps = TRUE)
-        } else {
-          list(expr=original_name, cps=FALSE)
-        }
-      } else {
-        # look alongside found function
-        lookin <- environment(obj)
-        if (exists(as.character(potential_name),
-                   lookin, inherit=FALSE)) {
-          if(isNamespace(lookin)) {
-            list(expr = call(":::",
-                             as.symbol(getNamespaceName(lookin)),
-                             as.symbol(potential_name)),
-                 cps = TRUE)
-          } else {
-            # ugh just include the literal function
-            list(expr = get(as.character(potential_name), environment(obj)),
-                 cps = TRUE)
-          }
-        } else {
-          #guess it's an ordinary function
-          list(expr = original_name, cps = FALSE)
-        }
-      }
-    }
-  }
-
-  promote_qualified_head <- function(l) {
-    if (l$cps) {
-      l
-    } else {
-      package <- l$expr[[2]]
-      name <- l$expr[[3]]
-      if (as.character(package) == "base") package <- quote(async)
-      new_name <- as.symbol(paste0(as.character(name), "_cps"))
-      # at this point just trust the caller and stick a _cps on without
-      # confirming its existence?
-      ## if (exists(name, packageNamespace(as.character(new_name)))) {
-      list(expr=call(":::", package, new_name),cps=TRUE)
-      ## } else list(expr=expr, cps=FALSE)
-    }
+    try_promote_function_name_(name, target_env)
   }
 
   out <- trans(expr)
@@ -310,4 +236,146 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks,
     out$expr <- as.call(list(as.call(list(quote(`function`), NULL, out$expr))))
   }
   quo_(out$expr, target_env)
+}
+
+
+
+# Given a name, map it onto a CPS function if one is defined, and return
+# it with the necessary namespace qualification.
+#
+# If you want to add a custom control flow operator: Say it's called
+# "deflate_promise". Do the following: export a normal function named
+# "deflate_promise" from your package, then implement a function
+# named `deflate_promise_cps`. The second function need not be exported,
+# find_cps_version will look in the package namespace for it.
+try_promote_function_name_ <- function(name, target_env) {
+  original_name <- as.symbol(name)
+  potential_name <- as.symbol(paste0(as.character(name), "_cps"))
+  where_found <- locate_(potential_name, target_env, mode="function", ifnotfound=NULL)
+  if (!is.null(where_found)) {
+    # A CPS function is defined in full view, excellent.
+    list(expr=potential_name, cps=TRUE)
+  } else {
+    where_found <- locate_(original_name, target_env, mode="function", ifnotfound=NULL)
+    if (is.null(where_found)) {
+      # async::gen(... yield() ...) should find "yield" even if
+      # async is not attached.
+      where_found <- locate_(original_name,
+                             getNamespace("async"),
+                             ifnotfound=NULL)
+      if (is.null(where_found)) {
+        stop("Function `", as.character(original_name), "` was not found.")
+      }
+    }
+    obj <- get(as.character(original_name), envir=where_found, mode="function")
+    if (   is.primitive(obj)
+        || identical(where_found, baseenv())
+        || identical(environment(obj), getNamespace("base"))) {
+      # look in async's exported namespace.
+      if (exists(as.character(potential_name),
+                 getNamespace("async"), inherit=FALSE)) {
+        list(expr = call(":::", quote(async), potential_name),
+             cps = TRUE)
+      } else {
+        list(expr=original_name, cps=FALSE)
+      }
+    } else {
+      # look alongside found function
+      lookin <- environment(obj)
+      if (exists(as.character(potential_name),
+                 lookin, inherit=FALSE)) {
+        if(isNamespace(lookin)) {
+          list(expr = call(":::",
+                           as.symbol(getNamespaceName(lookin)),
+                           as.symbol(potential_name)),
+               cps = TRUE)
+        } else {
+          # ugh just include the literal function
+          list(expr = get(as.character(potential_name), environment(obj)),
+               cps = TRUE)
+        }
+      } else {
+        #guess it's an ordinary function
+        list(expr = original_name, cps = FALSE)
+      }
+    }
+  }
+}
+
+promote_qualified_head <- function(l) {
+  if (l$cps) {
+    l
+  } else {
+    package <- l$expr[[2]]
+    name <- l$expr[[3]]
+    if (as.character(package) == "base") package <- quote(async)
+    new_name <- as.symbol(paste0(as.character(name), "_cps"))
+    loadNamespace(package)
+    if (exists(new_name, .getNamespace(package))) {
+      list(expr=call(":::", package, new_name),cps=TRUE)
+    } else list(expr=l$expr, cps=FALSE)
+  }
+}
+
+
+#' List pausable functions.
+#'
+#' `async` and `gen()` rely on "pausable" workalikes for R functions
+#' like `if`, `while`, and so on. `pausables()` scans for and returns
+#' a list of all known pausable functions.
+#'
+#' It is possible for a third party package to define pausable
+#' functions. To do this:
+#
+#' 1. Define and export a function `yourname` and an ordinary R implementation
+#' (the pausable version is only used when there is an `await` or
+#' `yield` in the arguments.)
+#' 2. Also define a function `yourname_cps` in your package namespace. (It
+#' does not need to be exported.)
+#'
+#' The `yourname_cps` should have the pausable (callback based)
+#' implementation. The API for how pausable functions work is not yet
+#' fixed, but it is outlined in source file `cps.r` along with
+#' examples for core R functions.
+#'
+#' @param envir The environment to search (defaulting to the calling environment).
+#' @param packages Which packages to search; defaults to currently loaded packages. You can scan all packages with `pausables(packages=base::.packages(all.available=TRUE))`
+#' @return A list of expressions (either names or `:::` calls)
+pausables <- function(envir=caller(),
+                      packages=base::.packages(...), ...) {
+  ls(envir, all.names=TRUE)
+
+  visible_pausables <- visible_names() |>
+  lapply(function(name) {
+    name <- as.symbol(name)
+    tryCatch(c(list(orig=name), try_promote_function_name_(name, envir)),
+             error=function(e) list(orig=name,err=e, expr=name, cps=FALSE))
+  })   |>
+  Filter(f=function(x) x$cps) |>
+  lapply(function(x) x$orig)
+
+  qualified_names <- packages |>
+  lapply(function(p) tryCatch(
+    lapply(getNamespaceExports(p),
+           function(x) {
+             call("::", as.name(p), as.name(x))
+           }),
+    error=function(err) {print(err); list()})) |>
+  unlist() |>
+  unique()
+
+  qualified_pausables <- qualified_names |>
+  lapply(function(x)
+    c(list(orig=x), promote_qualified_head(list(expr=x, cps=FALSE)))) |>
+  Filter(f=function(x)x$cps) |>
+  Map(f=function(x)x$orig)
+
+  c(visible_pausables, qualified_pausables)
+}
+
+visible_names <- function(envir=caller()) {
+  if (is.null(envir) || identical(envir, emptyenv()))
+    c()
+  else
+    union(ls(envir), visible_names(parent.env(envir)))
 }

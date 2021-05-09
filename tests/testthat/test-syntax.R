@@ -231,3 +231,11 @@ test_that("weird calls", {
                "found")
 })
 
+test_that("find pausables", {
+  dummy <- function() {1}
+  dummy_cps <- function() {2}
+
+  x <- pausables(packages="async")
+  # test that x contains....
+  length(unique(c(alist(dummy, async::`yield`), x))) %is% length(x)
+})
