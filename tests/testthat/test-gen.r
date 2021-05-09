@@ -146,7 +146,7 @@ test_that("tailcalls", {
 })
 
 test_that("tracing", {
-  g <- gen({j <- 0; for (i in 1:10) yield(j <- j + i)},
+  g <- gen({{j <- 0; i <- 0}; for (i in 1:10) yield(j <- j + i)},
            trace=with_prefix("triangle"))
-  expect_output(nextElem(g), ".*triangle: R: j <- j \\+ i.*triangle: yield.*")
+  expect_output(nextElem(g), "triangle: R: + i <- 0.*triangle: R: j <- j \\+ i.*triangle: generator: yield.*")
 })

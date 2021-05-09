@@ -75,12 +75,12 @@ await_cps <- function(prom) { force(prom)
 
     and_then <- function(branch, val) {
       # will receive either a branch to continue or a branch to error
-      trace("await: taking promise branch\n")
+      if(verbose) trace("await: taking promise branch\n")
       branch(val)
     }
     got_prom <- function(val) {
       tryCatch(prom <- as.promise(val), on.error=stop)
-      trace("await: got promise\n")
+      if(verbose) trace("await: got promise\n")
       pause(and_then)
       await(prom, cont, stop) # return either "cont" or "stop" to and_then
     }
@@ -144,9 +144,6 @@ make_async <- function(expr, orig=arg(expr), ..., trace=trace_) {
 
 #' @export
 print.async <- function(x, ...) {
-  code <- substitute(expr, environment(x$nextElem))
-  # pending nseval 0.4.1
-  # scope <- nseval::caller(environment(delay$nextElem), ifnotfound="original scope not available")
   cat(format(x, ...), sep="\n")
 }
 

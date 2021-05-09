@@ -63,7 +63,7 @@ yield_cps <- function(expr) { force(expr)
     list(cont, ret, pause, yield, trace)
     got_val <- function(val) {
       force(val)
-      trace("yield\n")
+      if(verbose) trace("yield\n")
       pause(function() cont(val))
       yield(val)
     }

@@ -20,13 +20,13 @@ with_prefix(prefix)
 \item{prom}{A promise, or something that can be converted to such
 by [promises::as.promise()].}
 
-\item{trace}{Enable verbose logging by passing a function to
-`trace`, as in `async(trace=cat, {...})`. `trace` needs to take a
-character argument. `trace` should take a character argument.
+\item{trace}{Enable verbose logging on this async, by passing a
+function to `trace`, as in `async(trace=cat, {...})`. `trace`
+should take a character argument.
 `async(trace=with_prefix("myAsync"), {...})` will trace the async
-to console with the given prefix.  For debugging, you can also do
-things like `trace=browser` for "single stepping" through an
-async.}
+operations to console with the given prefix.  For debugging, you
+can also say something like `trace=browser` for "single stepping"
+through an async.}
 }
 \value{
 `async` constructs and returns a [promises::promise]

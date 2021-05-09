@@ -90,8 +90,8 @@ catch_cps_ <- function(expr, error) {
                     windup=windup, unwind=unwind, return=return_, trace=trace)
     do_windup <- function(f, ...) {
       list(f, ...)
-      trace("catch: windup\n")
-      on.exit(trace("catch: unwind\n"))
+      if (verbose) trace("catch: windup\n")
+      on.exit(if (verbose) trace("catch: unwind\n"))
       tryCatch(f(...), error=function(e) {
         trace("catch: catch in windup\n")
         stop_(e)
@@ -99,6 +99,7 @@ catch_cps_ <- function(expr, error) {
     }
     windup_ <- function() {
       result <<- NULL
+      trace("catch: begin\n")
       windup(do_windup, do_expr)
     }
     windup_
@@ -142,6 +143,7 @@ finally_cps_ <- function(expr, finally) {
     finally_then <- function(val) {
       result <<- val
       after <<- "success"
+      trace("finally: success\n")
       do_finally() # val should be saved, discard it
     }
     stop_ <- function(err) {
@@ -171,8 +173,8 @@ finally_cps_ <- function(expr, finally) {
                     windup=windup, unwind=unwind, return=return_, trace=trace)
     do_windup <- function(f, ...) {
       list(f, ...)
-      trace("finally: windup\n")
-      on.exit(trace("finally: unwind\n"))
+      if (verbose) trace("finally: windup\n")
+      on.exit(if(verbose) trace("finally: unwind\n"))
       tryCatch(f(...), error=function(err) {
         trace("finally: catch in windup\n")
         stop_(err)
@@ -181,23 +183,22 @@ finally_cps_ <- function(expr, finally) {
     windup_ <- function() {
       after <<- NULL
       result <<- NULL
+      trace("finally: begin\n")
       windup(do_windup, do_expr)
     }
     windup_
   }
 }
 
-
 try_cps <- function(expr, silent=arg_cps(FALSE),
                     outfile=arg_cps(getOption("try.outFile", default = stderr()))) {
   list(expr, silent, outfile)
-  function(cont, ..., ret, trace=trace_) {
+  function(cont, ..., ret) {
 
     outfile_ <- NULL
     silent_ <- NULL
 
-    tc <- tryCatch_cps(expr, error=arg_cps(function(err) {
-      trace("try: caught\n")
+    try_handler <- function(err) {
       # (copied from base::try) {{{
       call <- conditionCall(err)
       if (!is.null(call)) {
@@ -217,7 +218,6 @@ try_cps <- function(expr, silent=arg_cps(FALSE),
       }
       else prefix <- "Error : "
       msg <- paste0(prefix, conditionMessage(err), "\n")
-      trace("try formatted err msg\n")
       .Internal(seterrmessage(msg[1L]))
       if (!silent_ && isTRUE(getOption("show.error.messages"))) {
         cat(msg, file = outFile_)
@@ -226,11 +226,13 @@ try_cps <- function(expr, silent=arg_cps(FALSE),
       retval <- invisible(structure(msg, class = "try-error", condition = err))
       # }}} (copied)
       ret(cont, retval)
-    }))(cont, ..., ret=ret, trace=trace)
+    }
+
+    tc <- tryCatch_cps(expr, error=arg_cps(try_handler))(cont, ..., ret=ret)
 
     gotSilent <- function(val) {silent_ <<- val; tc()}
-    getSilent <- silent(gotSilent, ..., ret=ret, trace=trace)
+    getSilent <- silent(gotSilent, ..., ret=ret)
     gotOutfile <- function(val) {outfile_ <<- val; getSilent()}
-    getOutfile <- outfile(gotOutfile, ..., ret=ret, trace=trace)
+    getOutfile <- outfile(gotOutfile, ..., ret=ret)
   }
 }

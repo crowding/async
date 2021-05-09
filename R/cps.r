@@ -63,7 +63,7 @@ make_store <- function(sym) { force(sym)
       dest <- NULL
       gotVal <- function(val) {
         val <- arg(val) # lazy
-        trace(paste0(deparse(expr(dest)), " ", deparse(sym), "\n"))
+        trace(paste0(deparse(expr(dest)), " ", deparse(sym), " .\n"))
         v <- do_(quo_(sym, env(dest)),
                  dest,
                  val)
@@ -89,14 +89,14 @@ make_store <- function(sym) { force(sym)
     leftVal <- NULL
     gotRight <- function(val) {
       test <- leftVal && val
-      trace(paste0("&& ", as.character(test), "\n"))
+      trace(paste0("&&: ", deparse(test), "\n"))
       leftVal <<- NULL
       cont(test)
     }
     getRight <- right(gotRight, ..., ret=ret, trace=trace)
     gotLeft <- function(val) {
       if (isFALSE(val)) {
-        trace("&&: false (skip)\n")
+        trace("&&: FALSE (skip)\n")
         cont(FALSE)
       } else {
         leftVal <<- val
@@ -120,7 +120,7 @@ make_store <- function(sym) { force(sym)
     getRight <- right(gotRight, ..., ret=ret, trace=trace)
     gotLeft <- function(val) {
       if (isTRUE(val)) {
-        trace("||: true (skip)\n")
+        trace("||: TRUE (skip)\n")
         cont(TRUE)
       } else {
         leftVal <<- val
@@ -144,11 +144,11 @@ if_cps <- function(cond, cons.expr, alt.expr) {
     ifTrue <- cons.expr(cont, ..., ret=ret, stop=stop, trace=trace)
     gotCond <- function(val) {
       if(isTRUE(val)) {
-        trace("if: true\n")
+        trace("if: TRUE\n")
         ifTrue()
       }
       else if(isFALSE(val)) {
-        trace("if: false\n")
+        trace("if: FALSE\n")
         ifFalse()
       }
       else stop("if: Invalid condition")
@@ -239,8 +239,8 @@ next_cps <- function()
     if (missing(nxt)) stop("call to next is not in a loop")
     list(ret, nxt, trace)
     function() {
-      trace("next\n")
-      ret(nxt)
+      if(verbose) trace("next\n")
+      nxt()
     }
   }
 
@@ -249,8 +249,8 @@ break_cps <- function()
     if (is_missing(brk)) stop("call to break is not in a loop")
     list(ret, brk, trace)
     function() {
-      trace("break\n")
-      ret(brk)
+      if (verbose) trace("break\n")
+      brk()
     }
   }
 
@@ -329,9 +329,9 @@ for_cps <- function(var, seq, expr) {
       ret(iterate)
     }
     iterate <- function() {
-      trace(paste0("for ", var_, ": next\n"))
       stopping <- FALSE
       reason <- NULL
+      if(verbose) trace(paste0("for ", var_, ": do\n"))
       val <- tryCatch(iterators::nextElem(seq_),
                       error = function(e) {
                         #trace(paste0("for ", var_, ": caught ", conditionMessage(e), "\n"))
@@ -343,12 +343,12 @@ for_cps <- function(var, seq, expr) {
           trace(paste0("for ", var_, ": finished\n"))
           cont(invisible(NULL))
         } else {
-          trace(paste0("for ", var_, ": throwing: ", conditionMessage(reason), "\n"))
+          trace(paste0("for ", var_, ": stop: ", conditionMessage(reason), "\n"))
           stop(reason)
         }
       } else {
+        trace(paste0("for ", var_, ": do\n"))
         assign(var_, val, envir=env_)
-        trace(paste0("for ", var_, ": = ", deparse(val), "\n"))
         doBody()
       }
     }

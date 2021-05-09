@@ -12,19 +12,17 @@ assert <- function(condition, msg) {
 # assign("verbose", TRUE, envir=getNamespace("async"))
 verbose <- FALSE
 trace_ <- function(x) if(verbose) cat(x)
-#async({...}, trace=with_prefix("myGen"))
 
-#' @param trace Enable verbose logging by passing a function to
-#'   `trace`, as in `async(trace=cat, {...})`. `trace` needs to take a
-#'   character argument. `trace` should take a character argument.
+#' @param trace Enable verbose logging on this async, by passing a
+#'   function to `trace`, as in `async(trace=cat, {...})`. `trace`
+#'   should take a character argument.
 #'   `async(trace=with_prefix("myAsync"), {...})` will trace the async
-#'   to console with the given prefix.  For debugging, you can also do
-#'   things like `trace=browser` for "single stepping" through an
-#'   async.
+#'   operations to console with the given prefix.  For debugging, you
+#'   can also say something like `trace=browser` for "single stepping"
+#'   through an async.
 #' @rdname async
 #' @export
-with_prefix <- function(prefix) function(...) cat(prefix, ": ", ...,  sep="")
-
+with_prefix <- function(prefix) function(...) cat(paste0(prefix, ": ", ...), sep="")
 
 reset <- function(...) list(...)[[1]] #evaluates all args then returns first.
 
@@ -56,7 +54,7 @@ make_pump <- function(expr, ...,
   err <- nonce
 
   pause_ <- function(cont) {
-    trace("pump: set unpause\n")
+    if(verbose) trace("pump: set unpause\n")
     list(cont)
     cont <<- function(...) cont(...)
     action <<- "pause"
@@ -65,7 +63,7 @@ make_pump <- function(expr, ...,
   if (eliminate.tailcalls) {
     ret_ <- function(cont, ...) {
       list(cont, ...) #force
-      trace("pump: set continue\n")
+      if(verbose) trace("pump: set continue\n")
       cont <<- function() {
         cont(...)
       }
@@ -73,14 +71,14 @@ make_pump <- function(expr, ...,
     }
   } else {
     ret_ <- function(cont, ...) {
-      trace("pump: fake ret\n")
+      if(verbose) trace("pump: fake ret\n")
       list(cont, ...) #force
       cont(...)
     }
   }
 
   stop_ <- function(err) {
-    trace(paste0("pump: stop: ", as.character(err), "\n"))
+    trace(paste0("pump: stop: ", conditionMessage(err), "\n"))
     err <<- err
     action <<- "stop"
     stop(err)
@@ -100,34 +98,34 @@ make_pump <- function(expr, ...,
   # f(cont) that establishes a context,
   # and returning from f(cont), unwinds that context.
   base_winding <- function(cont, ...) {
-    trace("pump: windup\n")
+    if(verbose) trace("pump: windup\n")
     tryCatch(cont(...), error=function(err){
       trace("pump: caught error by windup\n")
       stop_(err)
-    }, finally=trace("pump: unwind\n"))
+    }, finally=if(verbose) trace("pump: unwind\n"))
   }
   windings <- list(base_winding)
 
   windup_ <- function(f, cont, ...) {
     list(f, cont, ...)
-    trace("pump: Adding to windup list\n")
+    if(verbose) trace("pump: Adding to windup list\n")
     outerWinding <- windings[[1]]
     g <- function(...) {
       outerWinding(f, ...)
     }
     windings <<- c(list(g), windings)
     cont <<- function() {
-      trace("pump: continuing after windup\n")
+      if(verbose) trace("pump: continuing after windup\n")
       cont(...)
     }
     action <<- "rewind"
   }
 
   unwind_ <- function(cont, ...) {
-    trace("pump: removing from windup list\n")
+    if(verbose) trace("pump: removing from windup list\n")
     windings[[1]] <<- NULL
     cont <<- function() {
-      trace("pump: continuing after unwind\n")
+      if(verbose) trace("pump: continuing after unwind\n")
       cont(...)
     }
     action <<- "rewind"
@@ -145,24 +143,24 @@ make_pump <- function(expr, ...,
   cont <- entry
 
   pump <- function(...) {
+    trace("pump: run\n")
     doWindup(runPump, ...)
     while(action == "rewind") {
       action <<- "pause"
       doWindup(runPump)
     }
+    trace(paste0("pump: ", action, "\n"))
     if (!identical(value, nonce)) value
   }
 
   runPump <- function(...) {
     assert(action == "pause",
            paste0("pump asked to continue, but last action was ", action))
-    trace("pump: run\n")
     cont(...) # here's where you inject a return value into an await
     while(action == "continue") {
-      trace("pump: continue\n")
+      if(verbose) trace("pump: continue\n")
       action <<- "pause"; reset(cont, cont <<- NULL)()
     }
-    trace(paste0("pump: ", action, "\n"))
   }
 
   pump
