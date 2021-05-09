@@ -2,16 +2,16 @@
 
 `%is%` <- expect_equal
 
-test_that("arg_cps captures lazy arg", {
+test_that("R captures lazy arg", {
   f <- function(x) {arg_expr(x)}
-  cp <- arg_cps(x+y)(f)
+  cp <- R(x+y)(f)
   cp() %is% quote(x+y)
 })
 
-test_that("arg_cps causes scoped effects,", {
+test_that("R causes scoped effects,", {
   x <- 10
   f <- function(x) {
-    arg_cps(x <- x + 1)
+    R(x <- x + 1)
   }
   arg <- f(5)
   arg(function(val) val %is% 6)() %is% 6
@@ -19,171 +19,171 @@ test_that("arg_cps causes scoped effects,", {
   x %is% 10
 })
 
-test_that("arg_cps propagates errors", {
-  arg_cps(10)(function(val) force(val))() %is% 10
-  expect_error(arg_cps(stop("yes"))(function(val) force(val))(), "yes")
-  arg_cps(10+20)(function(val) val)() %is% 30
-  expect_error(arg_cps(stop("yes"))(function(val) val)(), "yes")
+test_that("R propagates errors", {
+  R(10)(function(val) force(val))() %is% 10
+  expect_error(R(stop("yes"))(function(val) force(val))(), "yes")
+  R(10+20)(function(val) val)() %is% 30
+  expect_error(R(stop("yes"))(function(val) val)(), "yes")
   # there is a quirk here where "stop()" is given as the argument to
-  # an arg_cps(), and options(error=recover) is also set.
+  # an R(), and options(error=recover) is also set.
   # The promise caontining "stop()" is evaluated again, during the stack
   # readout?
   # This also happens when testthat is trying to gather stack trace from a failure
-  # Perhaps I should stick a browser() statement inside of the arg to arg_cps.
+  # Perhaps I should stick a browser() statement inside of the arg to R.
   # Or, I should catch and rethrow in pump(). But that removes all
   # inspectability from the process.
 })
 
 test_that("()", {
-  pump(`(_cps`(arg_cps(12+12))) %is% 24
-  expect_error(pump(`(_cps`(arg_cps(stop("yes")))), "yes")
-  expect_error(pump(`(_cps`(arg_cps({stop("yes")}))), "yes")
+  pump(`(_cps`(R(12+12))) %is% 24
+  expect_error(pump(`(_cps`(R(stop("yes")))), "yes")
+  expect_error(pump(`(_cps`(R({stop("yes")}))), "yes")
 })
 
 test_that("||", {
-  pump(`||_cps`(arg_cps(FALSE), arg_cps(0))) %is% FALSE
-  pump(`||_cps`(arg_cps(NA), arg_cps(0))) %is% NA
-  pump(`||_cps`(arg_cps(TRUE), arg_cps(stop("no")))) %is% TRUE
-  pump(`||_cps`(arg_cps(0), arg_cps(1))) %is% TRUE
-  pump(`||_cps`(arg_cps(FALSE), arg_cps(NA))) %is% NA
-  expect_error(pump(`||_cps`(arg_cps(FALSE), arg_cps(stop("yes")))), "yes")
+  pump(`||_cps`(R(FALSE), R(0))) %is% FALSE
+  pump(`||_cps`(R(NA), R(0))) %is% NA
+  pump(`||_cps`(R(TRUE), R(stop("no")))) %is% TRUE
+  pump(`||_cps`(R(0), R(1))) %is% TRUE
+  pump(`||_cps`(R(FALSE), R(NA))) %is% NA
+  expect_error(pump(`||_cps`(R(FALSE), R(stop("yes")))), "yes")
 })
 
 test_that("&&", {
-  pump(`&&_cps`(arg_cps(FALSE), arg_cps(stop("no")))) %is% FALSE
-  pump(`&&_cps`(arg_cps(TRUE), arg_cps(FALSE))) %is% FALSE
-  pump(`&&_cps`(arg_cps(NA), arg_cps(TRUE))) %is% NA
-  pump(`&&_cps`(arg_cps(1), arg_cps(1))) %is% TRUE
-  pump(`&&_cps`(arg_cps(FALSE), arg_cps(stop("yes")))) %is% FALSE
-  expect_error(pump(`&&_cps`(arg_cps(TRUE), arg_cps(stop("yes")))), "yes")
-  expect_error(pump(`&&_cps`(arg_cps(stop("yes")), arg_cps(FALSE))), "yes")
+  pump(`&&_cps`(R(FALSE), R(stop("no")))) %is% FALSE
+  pump(`&&_cps`(R(TRUE), R(FALSE))) %is% FALSE
+  pump(`&&_cps`(R(NA), R(TRUE))) %is% NA
+  pump(`&&_cps`(R(1), R(1))) %is% TRUE
+  pump(`&&_cps`(R(FALSE), R(stop("yes")))) %is% FALSE
+  expect_error(pump(`&&_cps`(R(TRUE), R(stop("yes")))), "yes")
+  expect_error(pump(`&&_cps`(R(stop("yes")), R(FALSE))), "yes")
 })
 
 test_that("if", {
-  pump(if_cps(arg_cps(3 > 2), arg_cps("left"), arg_cps("right"))) %is% "left"  
-  pump(if_cps(arg_cps(2 > 3), arg_cps("left"), arg_cps("right"))) %is% "right"
-  pump(if_cps(arg_cps(2 > 3), arg_cps("left"))) %is% NULL
-  #pump(if_cps(arg_cps(2 > 3), arg_cps("left"), arg_cps())) %is% NULL
-  expect_error(pump(if_cps(arg_cps("notalogical"), arg_cps(1), arg_cps(2))))
-  expect_error(pump(if_cps(arg_cps(2 < 3), arg_cps(stop("no")))), "no")
-  expect_error(pump(if_cps(arg_cps(stop("no")), arg_cps(2 < 3))), "no")
+  pump(if_cps(R(3 > 2), R("left"), R("right"))) %is% "left"  
+  pump(if_cps(R(2 > 3), R("left"), R("right"))) %is% "right"
+  pump(if_cps(R(2 > 3), R("left"))) %is% NULL
+  #pump(if_cps(R(2 > 3), R("left"), R())) %is% NULL
+  expect_error(pump(if_cps(R("notalogical"), R(1), R(2))))
+  expect_error(pump(if_cps(R(2 < 3), R(stop("no")))), "no")
+  expect_error(pump(if_cps(R(stop("no")), R(2 < 3))), "no")
 })
 
 test_that("<-", {
-  pump(`<-_cps`(arg_cps(x), arg_cps(5))) %is% 5
+  pump(`<-_cps`(R(x), R(5))) %is% 5
   x %is% 5
-  pump(`<-_cps`(arg_cps(x), arg_cps(x + 1))) %is% 6
+  pump(`<-_cps`(R(x), R(x + 1))) %is% 6
   x %is% 6
   (function(x) {
-    pump(`<<-_cps`(arg_cps(x), arg_cps(x+1)))
+    pump(`<<-_cps`(R(x), R(x+1)))
   })(12) %is% 13
   x %is% 13
 })
 
 test_that("{}", {
   pump(`{_cps`()) %is% NULL
-  expect_output(pump(`{_cps`(arg_cps(cat("hello\n")))), "hello") %is% NULL
-  pump(`{_cps`(arg_cps(x <- 10))) %is% 10
+  expect_output(pump(`{_cps`(R(cat("hello\n")))), "hello") %is% NULL
+  pump(`{_cps`(R(x <- 10))) %is% 10
   x %is% 10
-  pump(`{_cps`(arg_cps(5))) %is% 5
-  pump(`{_cps`(arg_cps(x <- 5), arg_cps({x <- x+4}))) %is% 9
+  pump(`{_cps`(R(5))) %is% 5
+  pump(`{_cps`(R(x <- 5), R({x <- x+4}))) %is% 9
   x %is% 9
-  expect_error(pump(`{_cps`(arg_cps(5), )), "missing")
-  expect_error(pump(`{_cps`(arg_cps())), "missing")
-  expect_error(pump(`{_cps`(arg_cps(5), arg_cps())), "missing")
+  expect_error(pump(`{_cps`(R(5), )), "missing")
+  expect_error(pump(`{_cps`(R())), "missing")
+  expect_error(pump(`{_cps`(R(5), R())), "missing")
 })
 
 test_that("repeat", {
   pump(repeat_cps(break_cps())) %is% NULL
   x <- 0
-  cps <- repeat_cps(`{_cps`(arg_cps(x <- x + 1),
-                            if_cps(arg_cps(x > 5), break_cps())))
+  cps <- repeat_cps(`{_cps`(R(x <- x + 1),
+                            if_cps(R(x > 5), break_cps())))
   pump(cps)
   x %is% 6
   out <- c()
-  cps <- repeat_cps(`{_cps`(arg_cps(x <- x - 1),
-                            if_cps(arg_cps(x %% 2 == 0),
+  cps <- repeat_cps(`{_cps`(R(x <- x - 1),
+                            if_cps(R(x %% 2 == 0),
                                    next_cps(),
-                                   arg_cps(out <- c(out, x))),
-                            if_cps(arg_cps(x <= 0), break_cps())))
+                                   R(out <- c(out, x))),
+                            if_cps(R(x <= 0), break_cps())))
   pump(cps)
   out %is% c(5, 3, 1, -1)
 
-  expect_error(pump(if_cps(arg_cps(TRUE), break_cps(), arg_cps(2))), "break")
-  expect_error(pump(if_cps(arg_cps(TRUE), next_cps(), arg_cps(2))), "next")
+  expect_error(pump(if_cps(R(TRUE), break_cps(), R(2))), "break")
+  expect_error(pump(if_cps(R(TRUE), next_cps(), R(2))), "next")
 })
 
 test_that("while", {
-  pump(while_cps(arg_cps(TRUE), break_cps())) %is% NULL
-  pump(while_cps(break_cps(), arg_cps(TRUE))) %is% NULL
+  pump(while_cps(R(TRUE), break_cps())) %is% NULL
+  pump(while_cps(break_cps(), R(TRUE))) %is% NULL
 
   x <- 0
-  cps <- while_cps(arg_cps(x < 5), arg_cps(x <- x + 1))
+  cps <- while_cps(R(x < 5), R(x <- x + 1))
   pump(cps)
   x %is% 5
 
   out <- c()
   x <- 6
   cps <- while_cps(
-    arg_cps(x > 0),
-    `{_cps`(arg_cps(x <- x - 1),
-            if_cps(arg_cps(x %% 2 == 0),
+    R(x > 0),
+    `{_cps`(R(x <- x - 1),
+            if_cps(R(x %% 2 == 0),
                    next_cps(),
-                   arg_cps(out <- c(out, x)))))
+                   R(out <- c(out, x)))))
   pump(cps)
   out %is% c(5, 3, 1)
 })
 
 test_that("for", {
   x <- 0
-  pump(for_cps(arg_cps(i), arg_cps(1:10), arg_cps({x <- x + i})))
+  pump(for_cps(R(i), R(1:10), R({x <- x + i})))
   x %is% 55
   #
   x <- 0
-  pump(for_cps(arg_cps(i),
-               arg_cps(1:10),
+  pump(for_cps(R(i),
+               R(1:10),
                `{_cps`(
-                 arg_cps(force(i)),
-                 if_cps(arg_cps(i %% 3 == 0), next_cps()),
-                 if_cps(arg_cps(i %% 8 == 0), break_cps()),
-                 arg_cps({x <- x + i}))))
+                 R(force(i)),
+                 if_cps(R(i %% 3 == 0), next_cps()),
+                 if_cps(R(i %% 8 == 0), break_cps()),
+                 R({x <- x + i}))))
   x %is% 19 # 1 + 2 + 4 + 5 + 7
   i %is% 8
   #
   out <- c()
   x <- 6
   cps <- for_cps(
-    arg_cps(x),
-    arg_cps(1:10),
-    if_cps(arg_cps(x %% 2 == 0),
+    R(x),
+    R(1:10),
+    if_cps(R(x %% 2 == 0),
            next_cps(),
-           arg_cps(out <- c(out, x))))
+           R(out <- c(out, x))))
   pump(cps)
   out %is% c(1, 3, 5, 7, 9)
 })
 
 test_that("for over iterator", {
   x <- 0
-  pump(for_cps(arg_cps(i), arg_cps(icount(10)), arg_cps(x <- x + i)))
+  pump(for_cps(R(i), R(icount(10)), R(x <- x + i)))
   x %is% 55
 })
 
 test_that("pump forces value or error", {
-  pump(arg_cps(12+12)) %is% 24
-  expect_error(pump(arg_cps(stop("yes"))), "yes")
-  expect_error(pump(arg_cps()), "missing")
+  pump(R(12+12)) %is% 24
+  expect_error(pump(R(stop("yes"))), "yes")
+  expect_error(pump(R()), "missing")
 })
 
 test_that("switch", {
-  expect_null(pump(switch_cps(arg_cps("three"), four=arg_cps("wrong"))))
-  pump(switch_cps(arg_cps("three"), four=arg_cps("wrong"), three=arg_cps("right"))) %is% "right"
+  expect_null(pump(switch_cps(R("three"), four=R("wrong"))))
+  pump(switch_cps(R("three"), four=R("wrong"), three=R("right"))) %is% "right"
   expect_error(
-    pump(switch_cps(arg_cps("C"), arg_cps(0), arg_cps(0), three=arg_cps(0))),
+    pump(switch_cps(R("C"), R(0), R(0), three=R(0))),
     "default")
-  pump(switch_cps(arg_cps(3),
-                  ignored=arg_cps(stop()),
-                  arg_cps(stop()),
-                  arg_cps(5),
-                  arg_cps(stop()))) %is% 5
-  pump(switch_cps(arg_cps("default"), special=arg_cps(22), arg_cps(33))) %is% 33
+  pump(switch_cps(R(3),
+                  ignored=R(stop()),
+                  R(stop()),
+                  R(5),
+                  R(stop()))) %is% 5
+  pump(switch_cps(R("default"), special=R(22), R(33))) %is% 33
 })

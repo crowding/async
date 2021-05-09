@@ -28,7 +28,7 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks,
     }
   }
 
-  arg_wrapper <- qualify("arg_cps")
+  arg_wrapper <- quote(async:::R)
 
   # The following functions deal in this datatype: list(expr=quote(...),
   #  cps=logical) with field cps being TRUE if CPS translation has been done
@@ -41,7 +41,7 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks,
   #   trans(expr) only does translation and returns cps=TRUE it it found
   #   an endpoint (i.e. "yield")
   # The "promote" functions try harder to put things into CPS style, wrapping
-  #   direct R code in "arg_cps" if there's no other translation available.
+  #   direct R code in "R" if there's no other translation available.
   #   They only return a result with cps=FALSE if the argument could not be
   #   translated.
   #
@@ -88,7 +88,7 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks,
             } else {
               # split out arg 1
               preamble <- as.call(list(qualify("<-_cps"),
-                                       as.call(list(qualify("arg_cps"),
+                                       as.call(list(arg_wrapper,
                                                     quote(..async.tmp))),
                                        t_rest[[1]]$expr))
               t_rest[[1]]$expr <- quote(..async.tmp)
@@ -98,7 +98,7 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks,
                                        function(x)x$expr))
             list(expr=as.call(list(qualify("{_cps"),
                                    preamble,
-                                   as.call(list(qualify("arg_cps"),
+                                   as.call(list(arg_wrapper,
                                                 new_call)))),
                  cps=TRUE,
                  preamble=preamble,

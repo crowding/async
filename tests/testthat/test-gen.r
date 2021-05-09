@@ -3,20 +3,20 @@
 `%is%` <- expect_equal
 
 test_that("generators", {
-  x <- make_generator(`{_cps`(yield_cps(arg_cps("one")),
-                              yield_cps(arg_cps("two"))))
+  x <- make_generator(`{_cps`(yield_cps(R("one")),
+                              yield_cps(R("two"))))
   as.list(x) %is% list("one", "two")
 
-  x <- make_generator(`{_cps`(yield_cps(arg_cps("one")),
-                              yield_cps(arg_cps("two")),
-                              arg_cps(print("threeeee"))))
+  x <- make_generator(`{_cps`(yield_cps(R("one")),
+                              yield_cps(R("two")),
+                              R(print("threeeee"))))
   expect_output(as.list(x) %is% list("one", "two"), "threee")
 })
 
 test_that("generator loop", {
-  ii <- function(n) make_generator(for_cps(arg_cps(i),
-                                           arg_cps(1:n),
-                                           yield_cps(arg_cps(i))))
+  ii <- function(n) make_generator(for_cps(R(i),
+                                           R(1:n),
+                                           yield_cps(R(i))))
   i <- ii(10)
   for (j in 1:10) {
     nextElem(i) %is% j
@@ -141,7 +141,7 @@ test_that("tailcalls", {
   s2 <- nextElem(x)
 
   # this test doesn't work, sys.nframe() is getting me "0"?
-  # maybe related to arg_cps's "do..."
+  # maybe related to R's "do..."
   expect_true(s2 >= s1)
 })
 

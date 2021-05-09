@@ -1,7 +1,5 @@
-# arg_cps interfaces between normal R evaluation and the CPS interpreter.
-#
-# It saves its arg, unevaluated, and feeds it to the continuation function.
-arg_cps <- function(x) {
+# R() wraps an R argument into an execution node
+R <- function(x) {
   x <- arg(x)
 
   function(cont, ..., stop=base::stop, trace=trace_) {
@@ -190,8 +188,8 @@ finally_cps_ <- function(expr, finally) {
   }
 }
 
-try_cps <- function(expr, silent=arg_cps(FALSE),
-                    outfile=arg_cps(getOption("try.outFile", default = stderr()))) {
+try_cps <- function(expr, silent=R(FALSE),
+                    outfile=R(getOption("try.outFile", default = stderr()))) {
   list(expr, silent, outfile)
   function(cont, ..., ret) {
 
@@ -228,7 +226,7 @@ try_cps <- function(expr, silent=arg_cps(FALSE),
       ret(cont, retval)
     }
 
-    tc <- tryCatch_cps(expr, error=arg_cps(try_handler))(cont, ..., ret=ret)
+    tc <- tryCatch_cps(expr, error=R(try_handler))(cont, ..., ret=ret)
 
     gotSilent <- function(val) {silent_ <<- val; tc()}
     getSilent <- silent(gotSilent, ..., ret=ret)

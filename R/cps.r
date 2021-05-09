@@ -9,7 +9,7 @@
 ## gen( for( i in 1:10 ) yield(i) )
 #
 # results in a constructor call tree like this:
-## make_gen(for_cps(arg_cps(i), arg_cps(1:10), yield_cps(i)))
+## make_gen(for_cps(R(i), R(1:10), yield_cps(i)))
 #
 # Each _cps constructor returns a "context" constructor.  This second
 # constructor takes a list of callback argument -- one argument "cont"
@@ -366,4 +366,21 @@ for_cps <- function(var, seq, expr) {
     getSeq <- seq(gotSeq, ..., ret=ret, nxt=nxt, brk=brk, stop=stop, trace=trace) #not our brk
     begin <- var(gotVar, ..., ret=ret, nxt=nxt, brk=brk, stop=stop, trace=trace) #not our brk
   }
+}
+
+
+#' "delay" returns a promise which resolves only after the specified
+#' number of seconds. This uses the R event loop via [later].
+#'
+#' @import later later
+#' @param delay The promise will resolve after at least this many seconds.
+#' @param expr The value to resolve with; will be forced after the delay.
+#' @export
+#' @examples
+#' # print a message after a few seconds
+#' async({await(delay(10)); cat("Time's up!\n")})
+delay <- function(delay, expr=NULL) {
+  promise(function(resolve, reject) {
+    later(function() resolve(expr), delay=delay)
+  })
 }

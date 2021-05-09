@@ -3,18 +3,18 @@
 all.equal.quotation <- all.equal.function
 
 test_that("basic translations", {
-  expect_warning(cps_translate(quo(x), local=FALSE) %is% quo(arg_cps(x)), "keywords")
+  expect_warning(cps_translate(quo(x), local=FALSE) %is% quo(async:::R(x)), "keywords")
   cps_translate(quo(break), local=FALSE) %is% quo(break_cps())
-  expect_warning(cps_translate(quo(`break`), local=FALSE) %is% quo(arg_cps(`break`)), "keywords")
+  expect_warning(cps_translate(quo(`break`), local=FALSE) %is% quo(async:::R(`break`)), "keywords")
   bonk_cps <- function()function() NULL
   cps_translate(quo(bonk()), endpoints=c("bonk"), local=FALSE) %is% quo(bonk_cps())
   cps_translate(quo(next), local=FALSE) %is% quo(next_cps())
   expect_error(cps_translate(quo(break())), "break")
-  expect_warning(cps_translate(quo(2+2), local=FALSE) %is% quo(arg_cps(2+2)), "keywords")
+  expect_warning(cps_translate(quo(2+2), local=FALSE) %is% quo(async:::R(2+2)), "keywords")
   expect_error(cps_translate(quo(list(`break`(4)))), "pausable")
   cps_translate(endpoints="yield",
                 quo(if(TRUE) yield(2+2) else yield(4)), local=FALSE) %is%
-    quo(if_cps(arg_cps(TRUE), yield_cps(arg_cps(2 + 2)), yield_cps(arg_cps(4))))
+    quo(if_cps(async:::R(TRUE), yield_cps(async:::R(2 + 2)), yield_cps(async:::R(4))))
 
   expect_error(cps_translate(quo(flibbert(yield(5))), endpoints="yield"), "flibbert")
   expect_error(cps_translate(quo(rbind(yield(5))), endpoints="yield"), "rbind")
@@ -22,35 +22,35 @@ test_that("basic translations", {
 
 test_that("Namespace qualification", {
   cps_translate(quo(repeat async::yield(4)), gen_endpoints) %is%
-    quo((function() repeat_cps(async:::yield_cps(arg_cps(4))))())
+    quo((function() repeat_cps(async:::yield_cps(async:::R(4))))())
 
   cps_translate(quo(base::`repeat`(async::yield(4))), gen_endpoints) %is%
-    quo((function() async:::repeat_cps(async:::yield_cps(arg_cps(4))))())
+    quo((function() async:::repeat_cps(async:::yield_cps(async:::R(4))))())
 
   cps_translate(quo({nseval::yield(1); base::yield(1); async::yield(1)}),
                 gen_endpoints, local=FALSE) %is%
-    quo(`{_cps`(arg_cps(nseval::yield(1)), async:::yield_cps(arg_cps(1)),
-                async:::yield_cps(arg_cps(1))))
+    quo(`{_cps`(async:::R(nseval::yield(1)), async:::yield_cps(async:::R(1)),
+                async:::yield_cps(async:::R(1))))
 
   expect_equal(
     expr(cps_translate(quo(for (i in 1:10) {yield(i); base::`break`()}),
                        gen_endpoints, local=FALSE)),
-    quote(for_cps(arg_cps(i), arg_cps(1:10), `{_cps`(
-      yield_cps(arg_cps(i)),
+    quote(for_cps(async:::R(i), async:::R(1:10), `{_cps`(
+      yield_cps(async:::R(i)),
       async:::break_cps()))))
 
   cps_translate(quo(async::`if`(2 %% 5 == 0, yield(TRUE), yield(FALSE))),
                 gen_endpoints, local=FALSE) %is%
-    quo(async:::if_cps(arg_cps(2%%5 == 0), yield_cps(arg_cps(TRUE)),
-                             yield_cps(arg_cps(FALSE))))
+    quo(async:::if_cps(async:::R(2%%5 == 0), yield_cps(async:::R(TRUE)),
+                             yield_cps(async:::R(FALSE))))
 })
 
 test_that("leave functions and nested generators alone", {
   cps_translate(quo(for (i in gen(for (j in 1:10) yield(j))) yield(i)),
                     endpoints = gen_endpoints, local=FALSE) %is%
-    quo(for_cps(arg_cps(i),
-                arg_cps(gen(for (j in 1:10) yield(j))),
-                yield_cps(arg_cps(i))))
+    quo(for_cps(async:::R(i),
+                async:::R(gen(for (j in 1:10) yield(j))),
+                yield_cps(async:::R(i))))
 })
 
 test_that("Translating expressions", {
@@ -66,15 +66,15 @@ test_that("Translating expressions", {
 
   xout <- quote(
     `{_cps`(
-      arg_cps(i <- 0),
+      async:::R(i <- 0),
       repeat_cps(
         `{_cps`(
-          arg_cps(i <- i + 1),
-          if_cps(arg_cps(i %% skip == 0),
+          async:::R(i <- i + 1),
+          if_cps(async:::R(i %% skip == 0),
                  next_cps()),
-          if_cps(arg_cps(i > max),
+          if_cps(async:::R(i > max),
                  break_cps()),
-          yield_cps(arg_cps(i))
+          yield_cps(async:::R(i))
           ))))
 
   expect_equal(expr(cps_translate(xin,
@@ -106,19 +106,19 @@ test_that("Makes fully qualified names when async package not attached", {
   target <- quote(
     (function()
     async:::`{_cps`(
-      async:::arg_cps(max <- 10),
-      async:::arg_cps(skip <- 4),
-      async:::arg_cps(i <- 0),
+      async:::R(max <- 10),
+      async:::R(skip <- 4),
+      async:::R(i <- 0),
       async:::repeat_cps(
         async:::`{_cps`(
-        async:::arg_cps(i <- i + 1),
+        async:::R(i <- i + 1),
         async:::if_cps(
-          async:::arg_cps(i %% skip == 0),
+          async:::R(i %% skip == 0),
           async:::next_cps()),
         async:::if_cps(
-          async:::arg_cps(i > max),
+          async:::R(i > max),
           async:::break_cps()),
-        async:::yield_cps(async:::arg_cps(i)))))
+        async:::yield_cps(async:::R(i)))))
     )())
 
   xout <- async:::cps_translate(xin, endpoints=c("yield", "next", "break"))
@@ -195,14 +195,14 @@ test_that("Split pipe vs namespaces", {
 
   locate("{_cps")
   x <- nseval::quo( await(x)+2 , baseenv() )
-  t <- expr(async:::cps_translate(x, endpoints=async:::async_endpoints,
+  t <- expr(async:::cps_translate(x, endpoints=async_endpoints,
                                   split_pipes=TRUE, local=FALSE))
 
   expect_equal(t, quote(
     async:::`{_cps`(
-      async:::`<-_cps`(async:::arg_cps(..async.tmp), 
-                       async:::await_cps(async:::arg_cps(x))),
-      async:::arg_cps(..async.tmp + 2))))
+      async:::`<-_cps`(async:::R(..async.tmp), 
+                       async:::await_cps(async:::R(x))),
+      async:::R(..async.tmp + 2))))
 })
 
 test_that("Call in call head", {
@@ -210,7 +210,7 @@ test_that("Call in call head", {
   yield <- function(x) x+5
   cps_translate(quo( yield((yield)(5))),
                 endpoints=gen_endpoints, local=FALSE) %is%
-    quo( yield_cps(arg_cps((yield)(5))) )
+    quo( yield_cps(async:::R((yield)(5))) )
   expect_error(
     cps_translate(quo( (yield)(yield(5))),
                   endpoints=gen_endpoints, local=FALSE),
