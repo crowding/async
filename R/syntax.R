@@ -9,7 +9,8 @@ gen_endpoints <- c(base_endpoints, "yield")
 
 # function names which block further translation of
 # their arguments
-base_blocks <- c("gen", "function", "async", "quote", "quo")
+base_blocks <- c("gen", "function", "async", "quote", "quo", "~", "alist",
+                 "future", "future_promise")
 
 # Translating an argument into CPS
 cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks,
