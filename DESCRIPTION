@@ -18,7 +18,7 @@ License: GPL-2
 Encoding: UTF-8
 LazyData: true
 Imports:
-        nseval (>= 0.4.2),
+        nseval (>= 0.4),
         iterators,
         itertools,
         later,
@@ -28,7 +28,8 @@ Suggests:
     testthat (>= 2.1.0),
     knitr,
     audio,
-    profvis
+    profvis,
+    covr
 Roxygen: list(markdown=TRUE)
 RoxygenNote: 7.1.1
 VignetteBuilder: knitr

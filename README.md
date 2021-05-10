@@ -2,6 +2,8 @@
 
 This is an R package implementing *generators* and *async* blocks.
 
+[![R-CMD-check](https://github.com/crowding/async/workflows/R-CMD-check/badge.svg)](https://github.com/crowding/async/actions) [![](https://www.r-pkg.org/badges/version/async?color=purple)](https://cran.r-project.org/package=async) [![Codecov test coverage](https://codecov.io/gh/crowding/async/branch/main/graph/badge.svg)](https://codecov.io/gh/crowding/async?branch=main)
+
 ## Generators
 
 `g <- gen({...})` allow you to write a block of sequential code that
@@ -14,7 +16,7 @@ where it left off and runs until the next `yield`.
 From the "outside" a generator implements the `iterator` interface as
 defined by the [iterators] package You extract each yielded value with
 `nextElem(g)`, and you can use generators anywhere you can use an
-iterator.  or using the [iterators] or [itertools] packages.
+iterator, and with tools from the [iterators] or [itertools] packages.
 
 ### Example: Collatz sequence
 
@@ -24,12 +26,12 @@ each subsequent element is produced by applying the rule:
 * If `x[i]` is even, then the next value will be `x[i+1] = x[i]/2`.
 * if `x[i]` is odd,  the next value will be `x[i+1] = 3*x[i]+1`.
 
+[conjectured]: https://en.wikipedia.org/wiki/Collatz_conjecture
 An infinite sequence of numbers will continue form each staring point
-`x[1]`, but it is [conjectured][conjecture] that all sequences will
+`x[1]`, but it is [conjectured] that all sequences will
 eventually reach the loop 1, 4, 2, 1, 4, 2, .... The following
 generator produces the Collatz sequence, starting from `x`, and
 terminating when (or if?) the sequence reaches 1.
-[conjecture]: https://en.wikipedia.org/wiki/Collatz_conjecture
 
 ```R
 collatz <- function(x) { force(x)
