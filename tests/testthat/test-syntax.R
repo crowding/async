@@ -1,6 +1,20 @@
 #' @import nseval
 `%is%` <- expect_equal
-all.equal.quotation <- all.equal.function
+all.equal.quotation <- function (target, current, check.environment = TRUE, ...)
+{
+  msg <- all.equal.language(target, current, ...)
+  if (check.environment) {
+    ee <- identical(environment(target), environment(current),
+                    ignore.environment = FALSE)
+    if (!ee)
+      ee <- all.equal.environment(environment(target),
+                                  environment(current), ...)
+    if (isTRUE(msg))
+      ee
+    else c(msg, if (!isTRUE(ee)) ee)
+  }
+  else msg
+}
 
 test_that("basic translations", {
   expect_warning(cps_translate(quo(x), local=FALSE) %is% quo(async:::R(x)), "keywords")
@@ -160,29 +174,29 @@ test_that("Nested split pipes", {
       sort(..async.tmp)
     }), endpoints=async_endpoints, split_pipes=FALSE))
 
-  expect_identical(
-    #actually should be identical to the prev test, but written
-    #all-left-to-right style which may be easier to follow.
-    expr(cps_translate(quo(
-      directory |>
-      await() |>
-      with(findRecord(idCol)) |>
-      open() |>
-      await() |>
-      sort()
-    ), endpoints=async_endpoints, split_pipes=TRUE)),
-    # the placement of braces winds up like this, but this aspect is
-    # not important as braces disappear when constructing the graph.
-    # Also note that if you only do this "splitting" to one
-    # argument, you should only need one temp var.
-    expr(cps_translate(quo(
-    {{directory |>
-      await() -> ..async.tmp; ..async.tmp |>
-      with(findRecord(idCol)) |>
-      open() } |>
-      await() -> ..async.tmp; ..async.tmp |>
-      sort() }
-    ), endpoints=async_endpoints, split_pipes=FALSE)))
+  ## expect_identical(
+  ##   #actually should be identical to the prev test, but written
+  ##   #all-left-to-right style which may be easier to follow.
+  ##   expr(cps_translate(quo(
+  ##     directory |>
+  ##     await() |>
+  ##     with(findRecord(idCol)) |>
+  ##     open() |>
+  ##     await() |>
+  ##     sort()
+  ##   ), endpoints=async_endpoints, split_pipes=TRUE)),
+  ##   # the placement of braces winds up like this, but this aspect is
+  ##   # not important as braces disappear when constructing the graph.
+  ##   # Also note that if you only do this "splitting" to one
+  ##   # argument, you should only need one temp var.
+  ##   expr(cps_translate(quo(
+  ##   {{directory |>
+  ##     await() -> ..async.tmp; ..async.tmp |>
+  ##     with(findRecord(idCol)) |>
+  ##     open() } |>
+  ##     await() -> ..async.tmp; ..async.tmp |>
+  ##     sort() }
+  ##   ), endpoints=async_endpoints, split_pipes=FALSE)))
 })
 
 test_that("Split pipe vs namespaces", {

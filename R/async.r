@@ -90,7 +90,7 @@ await <- function(prom) {
 
 await_cps <- function(prom) { force(prom)
   function(cont, ..., await, pause, stop, trace) {
-    if (is_missing(await)) base::stop("await used, but this is not an async")
+    if (missing_(arg(await))) base::stop("await used, but this is not an async")
     list(cont, ..., await, pause, stop, trace)
 
     and_then <- function(branch, val) {
@@ -177,3 +177,4 @@ format.async <- function(x, ...) {
   c <- NextMethod(x)
   c(a, b, c)
 }
+

@@ -312,7 +312,7 @@ promote_qualified_head <- function(l) {
     if (as.character(package) == "base") package <- quote(async)
     new_name <- as.symbol(paste0(as.character(name), "_cps"))
     loadNamespace(package)
-    if (exists(new_name, .getNamespace(package))) {
+    if (exists(as.character(new_name), .getNamespace(package))) {
       list(expr=call(":::", package, new_name),cps=TRUE)
     } else list(expr=l$expr, cps=FALSE)
   }
@@ -349,30 +349,48 @@ promote_qualified_head <- function(l) {
 #' @export
 pausables <- function(envir=caller(),
                       packages=base::.packages()) {
-  visible_pausables <- visible_names(envir) |>
-  lapply(function(name) {
-    name <- as.symbol(name)
-    tryCatch(c(list(orig=name), try_promote_function_name_(name, envir)),
-             error=function(e) list(orig=name,err=e, expr=name, cps=FALSE))
-  })   |>
-  Filter(f=function(x) x$cps) |>
-  lapply(function(x) x$orig)
+  visible_pausables <-
+    lapply(
+      Filter(
+        lapply(
+          visible_names(envir),
+          function(name) {
+            name <- as.symbol(name)
+            tryCatch(c(list(orig=name), try_promote_function_name_(name, envir)),
+                     error=function(e) list(orig=name,err=e, expr=name, cps=FALSE))
+          }),
+        f=function(x) x$cps),
+      FUN=function(x) x$orig)
 
-  qualified_names <- packages |>
-  lapply(function(p) tryCatch(
-    lapply(getNamespaceExports(p),
-           function(x) {
-             call("::", as.name(p), as.name(x))
-           }),
-    error=function(err) {warning(err); list()})) |>
-  unlist() |>
-  unique()
+  qualified_names <-
+    unique(
+      unlist(
+        lapply(
+          packages,
+          function(p) tryCatch(
+            lapply(
+              getNamespaceExports(p),
+              function(x) {
+                call("::", as.name(p), as.name(x))
+              }), error = function(err) {
+                warning(err)
+                list()
+              }
+          )
+        )
+      )
+    )
 
-  qualified_pausables <- qualified_names |>
-  lapply(function(x)
-    c(list(orig=x), promote_qualified_head(list(expr=x, cps=FALSE)))) |>
-  Filter(f=function(x)x$cps) |>
-  Map(f=function(x)x$orig)
+  qualified_pausables <-
+    Map(
+      Filter(
+        lapply(
+          qualified_names,
+          function(x) c(list(orig = x),
+                        promote_qualified_head(
+                          list(expr = x, cps = FALSE)))),
+        f = function(x) x$cps),
+      f = function(x) x$orig)
 
   c(visible_pausables, qualified_pausables)
 }

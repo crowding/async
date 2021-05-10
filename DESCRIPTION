@@ -17,6 +17,7 @@ Description: Write sequential-looking code that pauses and resumes.
 License: GPL-2
 Encoding: UTF-8
 LazyData: true
+Depends: R (>= 3.5.0)
 Imports:
         nseval (>= 0.4),
         iterators,
@@ -27,6 +28,7 @@ Suggests:
     rmarkdown,
     testthat (>= 2.1.0),
     knitr,
+    magrittr,
     audio,
     profvis,
     covr

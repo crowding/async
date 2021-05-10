@@ -136,7 +136,7 @@ if_cps <- function(cond, cons.expr, alt.expr) {
   list(cond, cons.expr, maybe(alt.expr))
   function(cont, ..., ret, stop, trace=trace_) {
     list(cont, ret, stop, trace)
-    if (is_missing(alt.expr)) {
+    if (missing_(arg(alt.expr))) {
       ifFalse <- function() cont(invisible(NULL))
     } else {
       ifFalse <- alt.expr(cont, ..., ret=ret, stop=stop, trace=trace)
@@ -206,6 +206,7 @@ switch_cps <- function(EXPR, ...) {
 
 `{_cps` <- function(...) {
   args <- list(...)
+  #args <- args[!(missing_(args))]
   function(cont, ...) {
     force(cont)
     if (length(args) == 0) {
@@ -236,7 +237,7 @@ switch_cps <- function(EXPR, ...) {
 
 next_cps <- function()
   function(cont, ..., ret, nxt, trace=trace_) {
-    if (missing(nxt)) stop("call to next is not in a loop")
+    if (missing_(arg(nxt))) stop("call to next is not in a loop")
     list(ret, nxt, trace)
     function() {
       if(verbose) trace("next\n")
@@ -246,7 +247,7 @@ next_cps <- function()
 
 break_cps <- function()
   function(cont, ..., ret, brk, trace=trace_) {
-    if (is_missing(brk)) stop("call to break is not in a loop")
+    if (missing_(arg(brk))) stop("call to break is not in a loop")
     list(ret, brk, trace)
     function() {
       if (verbose) trace("break\n")

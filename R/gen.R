@@ -63,7 +63,7 @@ yield <- function(expr) {
 
 yield_cps <- function(expr) { force(expr)
   function(cont, ..., ret, pause, yield, trace) {
-    if (is_missing(yield)) base::stop("yield used but this is not a generator")
+    if (missing_(arg(yield))) base::stop("yield used but this is not a generator")
     list(cont, ret, pause, yield, trace)
     got_val <- function(val) {
       force(val)

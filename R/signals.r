@@ -19,7 +19,7 @@ return_cps <- function(x) {
   maybe(x)
   function(cont, ..., ret, return, trace=trace_) {
     list(cont, ret, return, trace)
-    if (is_missing(x)) {
+    if (missing_(arg(x))) {
       function() return(NULL) # this is our "return" callback not base::return
     } else {
       x(return, ..., ret=ret, return=return, trace=trace)
@@ -29,14 +29,14 @@ return_cps <- function(x) {
 
 tryCatch_cps <- function(expr, ..., error, finally) {
   assert(length(list(...)) == 0, "Unsupported arguments to tryCatch_cps")
-  if (is_missing(finally)) {
-    if (is_missing(error)) {
+  if (missing_(arg(finally))) {
+    if (missing_(arg(error))) {
       expr
     } else {
       catch_cps_(expr, error)
     }
   } else {
-    if (is_missing(error)) {
+    if (missing_(arg(error))) {
       finally_cps_(expr, finally)
     } else {
       finally_cps_(catch_cps_(expr, error), finally)

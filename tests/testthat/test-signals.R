@@ -399,7 +399,7 @@ test_that("break/next/return in trycatch", {
       yield("<>\n")
     }
   })
-  (g |> as.list() |> paste0(collapse="") |> strsplit("\n") |> unlist()) %is%
+  (unlist(strsplit(paste0(as.list(g), collapse = ""), "\n"))) %is%
     c("1", "Razz", "Fizz", "Razz", "Buzz",
     "RazzFizz", "7", "Razz", "Fizz", "RazzBuzz", "---",
     "11", "RazzFizz", "13", "Razz", "FizzBuzz", "<>",

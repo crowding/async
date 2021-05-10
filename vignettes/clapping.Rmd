@@ -100,8 +100,9 @@ which means you can apply iterator methods to it. For instance you can collect
 just the first 24 items with `ilimit()`:
 
 ```{R}
+library(magrittr)
 show_head <- function(x, n=24) {
-  x |> itertools::ilimit(n) |> as.list() |> deparse() |> cat(sep="\n")
+  x %>% itertools::ilimit(n) %>% as.list() %>% deparse() %>% cat(sep="\n")
 }
 show_head(gen_pattern(), 24)
 ```
@@ -165,7 +166,7 @@ iplay <- function(g, samples, bpm) {
 So we should hear our pattern now:
 
 ```{R, eval=FALSE}
-gen_pattern() |> itertools::ilimit(36) |> iplay(claps, 360)
+gen_pattern() %>% itertools::ilimit(36) %>% iplay(claps, 360)
 ```
 
 ### Some iterator functions
@@ -211,7 +212,7 @@ isink <- function(it, then=NULL) {
   gen({
     for (i in it) next
     yield(then)
-  }) |> nextElem() |> invisible()
+  }) %>% nextElem() %>% invisible()
 }
 ```
 
@@ -225,10 +226,9 @@ g <- gen_pattern() |> itertools::ilimit(24) |> iapply(cat) |> isink(cat("\n"))
 
 "Clapping Music" is a piece for two performers, who both play the same
 pattern, but after every 12 loops, one of the performers skips forward
-by one step. Over over the course of the piece, the two parts move out
-and back into in phase with each other. We can write a generator
-function that does this "skip," by consuming a value without yielding
-it:
+by one step. Over the course of the piece, the two parts move out and
+back into in phase with each other. We can write a generator function
+that does this "skip," by consuming a value without yielding it:
 
 ```{R}
 drop_one_after <- function(g, n, sep=character(0)) {  list(g, n, sep)
@@ -245,10 +245,10 @@ drop_one_after <- function(g, n, sep=character(0)) {  list(g, n, sep)
 Here's a count from one to 12, skipping after three (i.e. skipping every fourth):
 
 ```r
-iterators::icount() |>
-itertools::ilimit(12) |>
-drop_one_after(3, "\n") |>
-iapply(cat, "") |>
+iterators::icount() %>%
+itertools::ilimit(12) %>%
+drop_one_after(3, "\n") %>%
+iapply(cat, "") %>%
 isink()
 ```
 
@@ -264,7 +264,7 @@ Then, all together:
 clapping_music <- function(n=12, counts=c(3,2,1,2), sep=" ") {
   cell <- sum(counts+1) # how long?
   a <- gen_pattern(counts)
-  b <- gen_pattern(counts) |> drop_one_after(n*cell, sep)
+  b <- gen_pattern(counts) %>% drop_one_after(n*cell, sep)
   # add them together and limit the output
   gen(for (i in 1:(n*(cell+1)*cell)) {
     yield(nextElem(a) + nextElem(b))
@@ -277,12 +277,12 @@ To narrate this: we are constructing two independent instances of our
 bars. Then we create a third generator that adds together the two.
 
 ```r
-clapping_music(4, sep="\n") |> iapply(cat) |> isink(cat("\n"))
+clapping_music(4, sep="\n") %>% iapply(cat) %>% isink(cat("\n"))
 ```
 
 ## A performance
 
-Now we should be able to give a performance
+Now we should be able to hear our performance
 
 ```{r, eval=FALSE}
 iplay(clapping_music(n=4, sep="\n"), claps, 480)
@@ -290,6 +290,6 @@ iplay(clapping_music(n=4, sep="\n"), claps, 480)
 
 R is definitely not a multimedia environment, plus the `audio` package
 is using the OS alert sound facility, which is not really meant for
-precise timing, so you may hear some glitches and pauses. Nevertheless,
+precise timing, so you may hear some glitches and hiccups. Nevertheless,
 I hope this has illustrated how generators allows control to be
 _interleaved_ among different sequential processes.
