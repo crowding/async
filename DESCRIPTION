@@ -21,7 +21,6 @@ Imports:
         nseval (>= 0.4.2),
         iterators,
         itertools,
-        future,
         later,
         promises
 Suggests:
@@ -29,7 +28,7 @@ Suggests:
     testthat (>= 2.1.0),
     knitr,
     audio,
-    profvis,
-    later
+    profvis
+Roxygen: list(markdown=TRUE)
 RoxygenNote: 7.1.1
 VignetteBuilder: knitr

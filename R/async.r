@@ -5,6 +5,9 @@
 #' manner. `async` returns an object with class `c("async", "promise")` which
 #' implements the [promises::promise] interface.
 #'
+#' An example Shiny app using `async/await` is on Github:
+#' [`http://github.com/crowding/cranwhales-await`](http://github.com/crowding/cranwhales-await)
+#'
 #' When an `async` object is activated, it will evaluate its expression
 #' until it reaches the keyword `await`. The delay object will return
 #' to its caller and preserve the partial state of its evaluation.
@@ -30,7 +33,7 @@
 #' it receives the value, then continues.
 #'
 #' When `split_pipes=FALSE`, `await()` can only appear in the
-#' arguments of [pausable] functions and not ordinary R functions.
+#' arguments of [pausables] and not ordinary R functions.
 #' This is a inconvenience as it prevents using `await()` in a
 #' pipeline. `async` by default has `split_pipes=TRUE` which enables
 #' some syntactic sugar: if an `await()` appears in the leftmost,
@@ -45,15 +48,32 @@
 #' defeats the purpose.
 #'
 #' @param expr An expression, to be executed asynchronously.
-#' @param split_pipes Silently rewrite chained calls that use `await` (see below)
+#' @param trace Enable verbose logging by passing a function to
+#'   `trace`, like `async(trace=cat, {...})`. `trace` should take a
+#'   character argument. Helper `with_prefix` makes a function that
+#'   prints a message with the given prefix. You can also say something
+#'   like `trace=browser` for "single stepping" through an async.
+#' @param split_pipes Silently rewrite chained calls that use `await`
+#'   (see below)
 #'
+#' @param ... Undocumented.
+#' @param prefix `async(trace=with_prefix("myAsync"), {...})` will trace the async
+#'   goings-on to console with the given prefix.
 #' @return `async` constructs and returns a [promises::promise]
 #'   object.
+#'
+#' @examples
+#' async(for (i in 1:4) {
+#'   await(delay(5))
+#'   cat(i, "\n")
+#' }, trace=with_prefix("Log"))
+#'
 #' @export
-async <- function(expr, ..., split_pipes=TRUE) { expr <- arg(expr)
+async <- function(expr, ..., split_pipes=TRUE, trace=trace_) { expr <- arg(expr)
   do(make_async,
      cps_translate(expr, async_endpoints, split_pipes=split_pipes),
      orig=forced_quo(expr),
+     trace=quo(trace),
      dots(...))
 }
 
@@ -62,7 +82,7 @@ async <- function(expr, ..., split_pipes=TRUE) { expr <- arg(expr)
 #'
 #' @param prom A promise, or something that can be converted to such
 #'   by [promises::as.promise()].
-#' @return In the context of an `async`, `await` returns the resolved of
+#' @return In the context of an `async`, `await` returns the resolved value of
 #'   a promise, or stops with an error.
 await <- function(prom) {
   stop("Await called outside of async")

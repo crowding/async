@@ -9,10 +9,10 @@
 #' a generator behaves like an iterator over an indefinite collection.
 #'
 #' When `nextElem` is called on a generator, the generator executes
-#' its given expression until it reaches a call to `yield(...).` The
-#' value passed to `yield` is returned. The generator's execution
-#' state is preserved and will continue from where if left off on the
-#' next call to `nextElem.`
+#' its given expression until it reaches a call to `yield(...).`
+#' `nextElem` returns argument to `yield` is returne, and the
+#' generator's execution state is preserved. The generator will resume
+#' on the next call to `nextElem()`.
 #'
 #' The generator expression is evaluated in a local environment.
 #'
@@ -21,33 +21,37 @@
 #' generator is interleaved with that of the R code which queries it.
 #'
 #' A generator expression can use any R functions, but a call to
-#' "yield" may only appear in some positions. This package contains
-#' "pausable" equivalents to R's base control flow functions, such as
-#' `if`, `while`, `tryCatch`, `<-`, `{}`, `||` and so on.  A call to
-#' `yield` may only appear in an argument of one of these pausable
-#' functions. So this random walk generator:
-#' ```
+#' `yield` may only appear in some positions. This package has several
+#' built-in (pausables), equivalents to R's base control flow
+#' functions, such as `if`, `while`, `tryCatch`, `<-`, `{}`, `||` and
+#' so on.  A call to `yield` may only appear in an argument of one of
+#' these pausable functions. So this random walk generator:
+#'
+#' ```r
 #' rwalk <- gen({x <- 0; repeat {x <- yield(x + rnorm(1))}})
 #' ```
 #' is legal, because `yield` appears within arguments to `{}`,
 #' `repeat`, and `<-`, for which this package has pausable
 #' definitions. However, this:
-#' ```
+#' ```r
 #' rwalk <- gen({x <- rnorm(1); repeat {x <- rnorm(1) + yield(x)}})
 #' ```
 #' is not legal, because `yield` appears in an argument to `+`, which
-#' does not have a restartable definition.
+#' does not have a pausable definition.
 #'
 #' @param expr An expression, to be turned into an iterator.
+#' @param ... Undocumented.
 #' @param split_pipes Silently rewrite expressions where "yield"
-#'   appears in chained calls. See `?async` for more details
+#'   appears in chained calls. See [async].
+#' @param trace Optional tracing function for debugging. See [async].
 #' @export
-gen <- function(expr, ..., split_pipes=FALSE) { expr <- arg(expr)
+gen <- function(expr, ..., split_pipes=FALSE, trace=trace_) { expr <- arg(expr)
   do(make_generator,
      cps_translate(expr,
                    endpoints=gen_endpoints,
                    split_pipes=split_pipes),
      orig=forced_quo(expr),
+     trace=arg(trace),
      dots(...))
 }
 

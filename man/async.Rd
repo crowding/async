@@ -6,7 +6,7 @@
 \alias{with_prefix}
 \title{Create an asynchronous task from sequential code.}
 \usage{
-async(expr, ..., split_pipes = TRUE)
+async(expr, ..., split_pipes = TRUE, trace = trace_)
 
 await(prom)
 
@@ -15,48 +15,54 @@ with_prefix(prefix)
 \arguments{
 \item{expr}{An expression, to be executed asynchronously.}
 
-\item{split_pipes}{Silently rewrite chained calls that use `await` (see below)}
+\item{...}{Undocumented.}
+
+\item{split_pipes}{Silently rewrite chained calls that use \code{await}
+(see below)}
+
+\item{trace}{Enable verbose logging by passing a function to
+\code{trace}, like \code{async(trace=cat, {...})}. \code{trace} should take a
+character argument. Helper \code{with_prefix} makes a function that
+prints a message with the given prefix. You can also say something
+like \code{trace=browser} for "single stepping" through an async.}
 
 \item{prom}{A promise, or something that can be converted to such
-by [promises::as.promise()].}
+by \code{\link[promises:is.promise]{promises::as.promise()}}.}
 
-\item{trace}{Enable verbose logging on this async, by passing a
-function to `trace`, as in `async(trace=cat, {...})`. `trace`
-should take a character argument.
-`async(trace=with_prefix("myAsync"), {...})` will trace the async
-operations to console with the given prefix.  For debugging, you
-can also say something like `trace=browser` for "single stepping"
-through an async.}
+\item{prefix}{Character prefix to print before the trace.}
 }
 \value{
-`async` constructs and returns a [promises::promise]
-  object.
+\code{async} constructs and returns a \link[promises:promise]{promises::promise}
+object.
 
-In the context of an `async`, `await` returns the resolved of
-  a promise, or stops with an error.
+In the context of an \code{async}, \code{await} returns the resolved value of
+a promise, or stops with an error.
 }
 \description{
-`async({...})`, with an expression written in its argument, allows
+\code{async({...})}, with an expression written in its argument, allows
 that expression to be evaluated in an asynchronous, or non-blocking
-manner. `async` returns an object with class `c("async", "promise")` which
-implements the [promises::promise] interface.
+manner. \code{async} returns an object with class \code{c("async", "promise")} which
+implements the \link[promises:promise]{promises::promise} interface.
 }
 \details{
-When an `async` object is activated, it will evaluate its expression
-until it reaches the keyword `await`. The delay object will return
+An example Shiny app using \code{async/await} is on Github:
+\url{http://github.com/crowding/cranwhales-await}
+
+When an \code{async} object is activated, it will evaluate its expression
+until it reaches the keyword \code{await}. The delay object will return
 to its caller and preserve the partial state of its evaluation.
 When the awaited value is resolved, evaluation continues from where
-the `async` left off.
+the \code{async} left off.
 
 When an async block finishes (either by reaching the end, or using
-`return()`), the promise resolves with the resulting value. If the
+\code{return()}), the promise resolves with the resulting value. If the
 async block stops with an error, the promise is rejected with
 that error.
 
-The syntax rules for an `async` are analogous to those for [gen()];
-`await` must appear only within the arguments of functions for
-which there is a pausable implementation (See `?[pausable]`). By
-default `split_pipes` is enabled and this will reorder some
+The syntax rules for an \code{async} are analogous to those for \code{\link[=gen]{gen()}};
+\code{await} must appear only within the arguments of functions for
+which there is a pausable implementation (See \verb{?[pausable]}). By
+default \code{split_pipes} is enabled and this will reorder some
 expressions to satisfy this requirement.
 
 Async blocks and generators are conceptually related and share much
@@ -66,18 +72,24 @@ requested, runs until it has a value to output, then pauses again.
 An async runs until it requires an external value, pauses until
 it receives the value, then continues.
 
-When `split_pipes=FALSE`, `await()` can only appear in the
-arguments of [pausable] functions and not ordinary R functions.
-This is a inconvenience as it prevents using `await()` in a
-pipeline. `async` by default has `split_pipes=TRUE` which enables
-some syntactic sugar: if an `await()` appears in the leftmost,
+When \code{split_pipes=FALSE}, \code{await()} can only appear in the
+arguments of \link{pausables} and not ordinary R functions.
+This is a inconvenience as it prevents using \code{await()} in a
+pipeline. \code{async} by default has \code{split_pipes=TRUE} which enables
+some syntactic sugar: if an \code{await()} appears in the leftmost,
 unnamed, argument of an R function, the pipe will be "split" at
-that call using a temporary variable. For instance `sort(await(x))`
-will be silently rewritten as `{..async.tmp <- await(x);
-sort(..async.tmp)}`. This works only so long as `await` appears in
+that call using a temporary variable. For instance \code{sort(await(x))}
+will be silently rewritten as \code{{..async.tmp <- await(x); sort(..async.tmp)}}. This works only so long as \code{await} appears in
 calls that evaluate their leftmost arguments
-normally. `split_pipes` can backfire if the outer call has other
-side effects; for instance `suppressWarnings(await(x))` will be
-rewritten as `{.tmp <- await(x); suppressWarnings(x)}`, which
+normally. \code{split_pipes} can backfire if the outer call has other
+side effects; for instance \code{suppressWarnings(await(x))} will be
+rewritten as \code{{.tmp <- await(x); suppressWarnings(x)}}, which
 defeats the purpose.
+}
+\examples{
+async(for (i in 1:4) {
+  await(delay(5))
+  cat(i, "\n")
+}, trace=with_prefix("Log"))
+
 }

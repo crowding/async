@@ -2,8 +2,7 @@
 % Please edit documentation in R/cps.r
 \name{delay}
 \alias{delay}
-\title{"delay" returns a promise which resolves only after the specified
-number of seconds. This uses the R event loop via [later].}
+\title{Asynchronous pause.}
 \usage{
 delay(delay, expr = NULL)
 }
@@ -14,7 +13,9 @@ delay(delay, expr = NULL)
 }
 \description{
 "delay" returns a promise which resolves only after the specified
-number of seconds. This uses the R event loop via [later].
+number of seconds. This uses the R event loop via \link{later}.
+In an \verb{[async]} construct you can use \code{await(delay(secs))} to yield
+control, for example if you need to poll in a loop
 }
 \examples{
 # print a message after a few seconds

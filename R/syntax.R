@@ -29,7 +29,7 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks,
     }
   }
 
-  arg_wrapper <- quote(async:::R)
+  arg_wrapper <- call(":::", quote(async), quote(R))
 
   # The following functions deal in this datatype: list(expr=quote(...),
   #  cps=logical) with field cps being TRUE if CPS translation has been done
@@ -274,7 +274,7 @@ try_promote_function_name_ <- function(name, target_env) {
         || identical(environment(obj), getNamespace("base"))) {
       # look in async's exported namespace.
       if (exists(as.character(potential_name),
-                 getNamespace("async"), inherit=FALSE)) {
+                 getNamespace("async"), inherits=FALSE)) {
         list(expr = call(":::", quote(async), potential_name),
              cps = TRUE)
       } else {
@@ -284,7 +284,7 @@ try_promote_function_name_ <- function(name, target_env) {
       # look alongside found function
       lookin <- environment(obj)
       if (exists(as.character(potential_name),
-                 lookin, inherit=FALSE)) {
+                 lookin, inherits=FALSE)) {
         if(isNamespace(lookin)) {
           list(expr = call(":::",
                            as.symbol(getNamespaceName(lookin)),
@@ -319,11 +319,12 @@ promote_qualified_head <- function(l) {
 }
 
 
-#' List pausable functions.
+#' Pausable functions.
 #'
-#' `async` and `gen()` rely on "pausable" workalikes for R functions
+#' [`async`] and [`gen`] rely on "pausable" workalikes for R functions
 #' like `if`, `while`, and so on. `pausables()` scans for and returns
-#' a list of all known pausable functions.
+#' a list of all pausable functions visible in the present environment
+#' and in attached packages.
 #'
 #' It is possible for a third party package to define pausable
 #' functions. To do this:
@@ -332,21 +333,23 @@ promote_qualified_head <- function(l) {
 #' (the pausable version is only used when there is an `await` or
 #' `yield` in the arguments.)
 #' 2. Also define a function `yourname_cps` in your package namespace. (It
-#' does not need to be exported.)
+#' does not need to be exported.) `yourname_cps` should have the pausable
+#' (callback based)
+#' implementation.
 #'
-#' The `yourname_cps` should have the pausable (callback based)
-#' implementation. The API for how pausable functions work is not yet
-#' fixed, but it is outlined in source file `cps.r` along with
-#' examples for core R functions.
+#' The API for pausable functions is not yet fixed, but it is described
+#' in source file `cps.r` along with implementataions for core R functions.
 #'
-#' @param envir The environment to search (defaulting to the calling environment).
-#' @param packages Which packages to search; defaults to currently loaded packages. You can scan all packages with `pausables(packages=base::.packages(all.available=TRUE))`
+#' @param envir The environment to search (defaulting to the calling
+#'   environment).
+#' @param packages Which packages to search; defaults to currently
+#'   loaded packages. You can scan all packages with
+#'   `pausables(packages=base::.packages(all.available=TRUE))`
 #' @return A list of expressions (either names or `:::` calls)
+#' @export
 pausables <- function(envir=caller(),
-                      packages=base::.packages(...), ...) {
-  ls(envir, all.names=TRUE)
-
-  visible_pausables <- visible_names() |>
+                      packages=base::.packages()) {
+  visible_pausables <- visible_names(envir) |>
   lapply(function(name) {
     name <- as.symbol(name)
     tryCatch(c(list(orig=name), try_promote_function_name_(name, envir)),
@@ -361,7 +364,7 @@ pausables <- function(envir=caller(),
            function(x) {
              call("::", as.name(p), as.name(x))
            }),
-    error=function(err) {print(err); list()})) |>
+    error=function(err) {warning(err); list()})) |>
   unlist() |>
   unique()
 

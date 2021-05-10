@@ -13,13 +13,7 @@ assert <- function(condition, msg) {
 verbose <- FALSE
 trace_ <- function(x) if(verbose) cat(x)
 
-#' @param trace Enable verbose logging on this async, by passing a
-#'   function to `trace`, as in `async(trace=cat, {...})`. `trace`
-#'   should take a character argument.
-#'   `async(trace=with_prefix("myAsync"), {...})` will trace the async
-#'   operations to console with the given prefix.  For debugging, you
-#'   can also say something like `trace=browser` for "single stepping"
-#'   through an async.
+#' @param prefix Character prefix to print before the trace.
 #' @rdname async
 #' @export
 with_prefix <- function(prefix) function(...) cat(paste0(prefix, ": ", ...), sep="")

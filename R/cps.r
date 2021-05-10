@@ -369,8 +369,12 @@ for_cps <- function(var, seq, expr) {
 }
 
 
+#' Asynchronous pause.
+#'
 #' "delay" returns a promise which resolves only after the specified
 #' number of seconds. This uses the R event loop via [later].
+#' In an `[async]` construct you can use `await(delay(secs))` to yield
+#' control, for example if you need to poll in a loop
 #'
 #' @import later later
 #' @param delay The promise will resolve after at least this many seconds.

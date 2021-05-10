@@ -5,11 +5,11 @@
 continuation <- function(obj, ...) UseMethod("continuation")
 
 continuation.generator <- function(obj, ...) {
-  environment(environment(x$nextElem)$pump)$cont
+  environment(environment(obj$nextElem)$pump)$cont
 }
 
 continuation.async <- function(obj, ...) {
-  environment(x$state$pump)$cont
+  environment(obj$state$pump)$cont
 }
 
 # things to notice as we are walking a function:
@@ -31,5 +31,7 @@ find_tailcalls <- function(func) {
   # return a list of the functions called that are called in tail position.
   # they have to actually exist and be bound...
 }
+
+make_walker <- function(...) {}
 
 walk_tree <- function(cps) {}

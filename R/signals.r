@@ -216,10 +216,8 @@ try_cps <- function(expr, silent=R(FALSE),
       }
       else prefix <- "Error : "
       msg <- paste0(prefix, conditionMessage(err), "\n")
-      .Internal(seterrmessage(msg[1L]))
       if (!silent_ && isTRUE(getOption("show.error.messages"))) {
-        cat(msg, file = outFile_)
-        .Internal(printDeferredWarnings())
+        cat(msg, file = outfile_)
       }
       retval <- invisible(structure(msg, class = "try-error", condition = err))
       # }}} (copied)

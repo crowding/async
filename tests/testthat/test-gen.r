@@ -105,7 +105,7 @@ test_that("generator format", {
   expect_error(as.list(g), "oops")
   expect_output(print(g), "stopped:.*oops")
 
-  g <- gen(yield(capture.output(print(g))))
+  g <- gen(yield(utils::capture.output(print(g))))
   expect_output(cat(nextElem(g)), "running")
 })
 
