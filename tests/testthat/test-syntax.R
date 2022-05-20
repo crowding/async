@@ -1,22 +1,33 @@
 #' @import nseval
 `%is%` <- expect_equal
-all.equal.quotation <- function (target, current, check.environment = TRUE, ...)
-{
-  msg <- all.equal.language(target, current, ...)
-  if (check.environment) {
-    ee <- identical(environment(target), environment(current),
-                    ignore.environment = FALSE)
-    if (!ee)
-      ee <- all.equal.environment(environment(target),
-                                  environment(current), ...)
-    if (isTRUE(msg))
-      ee
-    else c(msg, if (!isTRUE(ee)) ee)
-  }
-  else msg
-}
+
+# so, a problem here is that when I devtools-load a package, the
+# private functions are loaded into the search path, which means that
+# cps_translate finds them. But when I'm running in R CMD CHECK the
+# private namespace is not exposed.
+#
+# But cps_translate, by design, builds an expression with names
+# qualified depending on what is visible from the calling environment.
+# This makes tests in R CMD check different from testing in devools.
+# workaround is to assign them all here:
+break_cps <- async:::break_cps
+next_cps <- async:::next_cps
+cps_translate <- async:::cps_translate
+if_cps <- async:::if_cps
+repeat_cps <- async:::repeat_cps
+for_cps <- async:::for_cps
+yield_cps <- async:::yield_cps
+`{_cps`  <-  async:::`{_cps`
+`<-_cps`  <-  async:::`<-_cps`
+
+ancestors <- function(env) c(
+  list(env),
+  if({p <- parent.env(env); !identical(p, emptyenv())})
+    ancestors(p) else list())
 
 test_that("basic translations", {
+  # For the sake of this test, then,
+  # make sure these functions are visible:
   expect_warning(cps_translate(quo(x), local=FALSE) %is% quo(async:::R(x)), "keywords")
   cps_translate(quo(break), local=FALSE) %is% quo(break_cps())
   expect_warning(cps_translate(quo(`break`), local=FALSE) %is% quo(async:::R(`break`)), "keywords")
@@ -56,12 +67,12 @@ test_that("Namespace qualification", {
   cps_translate(quo(async::`if`(2 %% 5 == 0, yield(TRUE), yield(FALSE))),
                 gen_endpoints, local=FALSE) %is%
     quo(async:::if_cps(async:::R(2%%5 == 0), yield_cps(async:::R(TRUE)),
-                             yield_cps(async:::R(FALSE))))
+                       yield_cps(async:::R(FALSE))))
 })
 
 test_that("leave functions and nested generators alone", {
   cps_translate(quo(for (i in gen(for (j in 1:10) yield(j))) yield(i)),
-                    endpoints = gen_endpoints, local=FALSE) %is%
+                endpoints = gen_endpoints, local=FALSE) %is%
     quo(for_cps(async:::R(i),
                 async:::R(gen(for (j in 1:10) yield(j))),
                 yield_cps(async:::R(i))))
@@ -91,10 +102,10 @@ test_that("Translating expressions", {
           yield_cps(async:::R(i))
           ))))
 
-  expect_equal(expr(cps_translate(xin,
-                                  endpoints=c(base_endpoints, "yield"),
-                                  local=FALSE)),
-               xout)
+  expect_equal(expr(
+    cps_translate(
+      xin, endpoints=c(base_endpoints, "yield"), local=FALSE)),
+    xout)
 })
 
 test_that("Makes fully qualified names when async package not attached", {
@@ -104,7 +115,6 @@ test_that("Makes fully qualified names when async package not attached", {
     }, add=TRUE)
     detach("package:async")
   }
-
   xin <- nseval::quo({
     max <- 10
     skip <- 4
@@ -221,17 +231,25 @@ test_that("Split pipe vs namespaces", {
 
 test_that("Call in call head", {
   # wrapping a keyword call in parens makes us ignore it
-  yield <- function(x) x+5
-  cps_translate(quo( yield((yield)(5))),
-                endpoints=gen_endpoints, local=FALSE) %is%
-    quo( yield_cps(async:::R((yield)(5))) )
-  expect_error(
-    cps_translate(quo( (yield)(yield(5))),
-                  endpoints=gen_endpoints, local=FALSE),
-    "pausable")
+  with(list(yield=function(x) x+5,
+            yield_cps = async:::yield_cps),
+  {
+    cps_translate(quo( yield((yield)(5))),
+                  endpoints=gen_endpoints, local=FALSE) %is%
+      quo( yield_cps(async:::R((yield)(5))) )
+    expect_error(
+      cps_translate(quo( (yield)(yield(5))),
+                    endpoints=gen_endpoints, local=FALSE),
+      "pausable")
 
-  # do we want to allow (await(getCallback()))(moreArgs) via pipe splitting?
-  # I think you can always await(getCallback) |> do(moreArgs)
+    # do we want to allow (await(getCallback()))(moreArgs) via pipe splitting?
+    # I think you can instead await(getCallback()) |> callback(moreArgs), where
+    # callback <- function(...) do_(get_dots())
+    expect_error(
+      cps_translate(quo( await(getCallback())(moreArgs) ),
+                    endpoints=async_endpoints),
+      "head")
+  })
 })
 
 test_that("weird calls", {

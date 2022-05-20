@@ -60,7 +60,7 @@ test_that("&&", {
 })
 
 test_that("if", {
-  pump(if_cps(R(3 > 2), R("left"), R("right"))) %is% "left"  
+  pump(if_cps(R(3 > 2), R("left"), R("right"))) %is% "left"
   pump(if_cps(R(2 > 3), R("left"), R("right"))) %is% "right"
   pump(if_cps(R(2 > 3), R("left"))) %is% NULL
   #pump(if_cps(R(2 > 3), R("left"), R())) %is% NULL
@@ -78,6 +78,8 @@ test_that("<-", {
     pump(`<<-_cps`(R(x), R(x+1)))
   })(12) %is% 13
   x %is% 13
+  pump(`<-_cps`(R(x[2]), R(5))) %is% 5
+  x %is% c(13, 5)
 })
 
 test_that("{}", {
@@ -89,8 +91,8 @@ test_that("{}", {
   pump(`{_cps`(R(x <- 5), R({x <- x+4}))) %is% 9
   x %is% 9
   expect_error(pump(`{_cps`(R(5), )), "missing")
-  expect_error(pump(`{_cps`(R())), "found")
-  expect_error(pump(`{_cps`(R(5), R())), "found")
+  expect_error(pump(`{_cps`(R())), "(missing|found)")
+  expect_error(pump(`{_cps`(R(5), R())), "(missing|found)")
 })
 
 test_that("repeat", {
@@ -171,7 +173,7 @@ test_that("for over iterator", {
 test_that("pump forces value or error", {
   pump(R(12+12)) %is% 24
   expect_error(pump(R(stop("yes"))), "yes")
-  expect_error(pump(R()), "found")
+  expect_error(pump(R()), "(missing|found)")
 })
 
 test_that("switch", {

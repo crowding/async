@@ -84,12 +84,12 @@ calls that evaluate their leftmost arguments
 normally. \code{split_pipes} can backfire if the outer call has other
 side effects; for instance \code{suppressWarnings(await(x))} will be
 rewritten as \code{{.tmp <- await(x); suppressWarnings(x)}}, which
-defeats the purpose.
+would defeat the purpose.
 }
 \examples{
-async(for (i in 1:4) {
+myAsync <- async(for (i in 1:4) {
   await(delay(5))
   cat(i, "\n")
-}, trace=with_prefix("Log"))
+}, trace=with_prefix("myAsync"))
 
 }

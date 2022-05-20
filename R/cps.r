@@ -62,11 +62,10 @@ make_store <- function(sym) { force(sym)
       list(cont, ret, trace)
       dest <- NULL
       gotVal <- function(val) {
-        val <- arg(val) # lazy
-        trace(paste0(deparse(expr(dest)), " ", deparse(sym), " .\n"))
-        v <- do_(quo_(sym, env(dest)),
-                 dest,
-                 val)
+        if (is.language(val)) {
+          val <- as.call(list(quote, val))
+        }
+        v <- do.call(sym, list(expr(dest), val), envir=env(dest))
         ret(cont, v)
       }
       getVal <- value(gotVal, ..., ret=ret, trace=trace)
@@ -80,8 +79,8 @@ make_store <- function(sym) { force(sym)
   }
 }
 
-`<-_cps` <- make_store(quote(`<-`))
-`<<-_cps` <- make_store(quote(`<<-`))
+`<-_cps` <- make_store(`<-`)
+`<<-_cps` <- make_store(`<<-`)
 
 `&&_cps` <- function(left, right) { list(left, right)
   function(cont, ..., ret, trace=trace_) {

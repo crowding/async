@@ -234,7 +234,7 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks,
     out <- promote_arg(out)
   }
   if(local) {
-    out$expr <- as.call(list(as.call(list(quote(`function`), NULL, out$expr))))
+    out$expr <- substitute((function() x)(), list(x=out$expr))
   }
   quo_(out$expr, target_env)
 }

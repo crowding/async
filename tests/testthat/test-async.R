@@ -134,8 +134,7 @@ test_that("async format", {
   pr <- mock_promise()
   as <- async({x <- await(pr); x + 5})
   then(pr, onFulfilled=function(val) NULL, onRejected=function(err) {NULL})
-  pr$reject("oops")
-  wait_for_it()
+  capture.output({pr$reject("oops"); wait_for_it()}, type="message")
   expect_output(print(as), "rejected")
 })
 

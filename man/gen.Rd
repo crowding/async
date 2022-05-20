@@ -45,12 +45,12 @@ A generator expression can use any R functions, but a call to
 built-in (pausables), equivalents to R's base control flow
 functions, such as \code{if}, \code{while}, \code{tryCatch}, \verb{<-}, \code{{}}, \code{||} and
 so on.  A call to \code{yield} may only appear in an argument of one of
-these pausable functions. So this random walk generator:\if{html}{\out{<div class="r">}}\preformatted{rwalk <- gen(\{x <- 0; repeat \{x <- yield(x + rnorm(1))\}\})
+these pausable functions. So this random walk generator:\if{html}{\out{<div class="sourceCode r">}}\preformatted{rwalk <- gen(\{x <- 0; repeat \{x <- yield(x + rnorm(1))\}\})
 }\if{html}{\out{</div>}}
 
 is legal, because \code{yield} appears within arguments to \code{{}},
 \code{repeat}, and \verb{<-}, for which this package has pausable
-definitions. However, this:\if{html}{\out{<div class="r">}}\preformatted{rwalk <- gen(\{x <- rnorm(1); repeat \{x <- rnorm(1) + yield(x)\}\})
+definitions. However, this:\if{html}{\out{<div class="sourceCode r">}}\preformatted{rwalk <- gen(\{x <- rnorm(1); repeat \{x <- rnorm(1) + yield(x)\}\})
 }\if{html}{\out{</div>}}
 
 is not legal, because \code{yield} appears in an argument to \code{+}, which

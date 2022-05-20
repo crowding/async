@@ -1,10 +1,10 @@
 # debugging constants....
 
-browseOnAssert <- FALSE
-# assign("browseOnAssert", TRUE, envir=getNamespace("async"))
+browseOnError <- FALSE
+# assign("browseOnError", TRUE, envir=getNamespace("async"))
 assert <- function(condition, msg) {
   if (!isTRUE(condition)) {
-    if(browseOnAssert) browser()
+    if(browseOnError) recover()
     stop(msg)
   }
 }
@@ -95,6 +95,7 @@ make_pump <- function(expr, ...,
     if(verbose) trace("pump: windup\n")
     tryCatch(cont(...), error=function(err){
       trace("pump: caught error by windup\n")
+      if(browseOnError) recover()
       stop_(err)
     }, finally=if(verbose) trace("pump: unwind\n"))
   }

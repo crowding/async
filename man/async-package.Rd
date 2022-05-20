@@ -5,8 +5,8 @@
 \title{Asynchronous code constructs.}
 \description{
 \itemize{
-\item{\code{\link{gen}} \code{\link{yield}} create generators -- iterators based on sequential code}
-\item{\code{\link{async}} and \code{\link{await}} create asynchronously computed values (promises) based on sequential code}
+\item{\code{\link{gen}} and \code{\link{yield}} create generators (iterators) based on sequential code}
+\item{\code{\link{async}} and \code{\link{await}} create asynchronously computed values (promises) based on sequential code.}
 }
 }
 \author{

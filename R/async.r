@@ -45,7 +45,7 @@
 #' normally. `split_pipes` can backfire if the outer call has other
 #' side effects; for instance `suppressWarnings(await(x))` will be
 #' rewritten as `{.tmp <- await(x); suppressWarnings(x)}`, which
-#' defeats the purpose.
+#' would defeat the purpose.
 #'
 #' @param expr An expression, to be executed asynchronously.
 #' @param trace Enable verbose logging by passing a function to
@@ -57,22 +57,25 @@
 #'   (see below)
 #'
 #' @param ... Undocumented.
-#' @param prefix `async(trace=with_prefix("myAsync"), {...})` will trace the async
-#'   goings-on to console with the given prefix.
+#' @param prefix A function to print debugging messages. `trace=cat`
+#'   will print async actions to the console;
 #' @return `async` constructs and returns a [promises::promise]
 #'   object.
 #'
 #' @examples
-#' async(for (i in 1:4) {
+#' myAsync <- async(for (i in 1:4) {
 #'   await(delay(5))
 #'   cat(i, "\n")
-#' }, trace=with_prefix("Log"))
+#' }, trace=with_prefix("myAsync"))
 #'
 #' @export
-async <- function(expr, ..., split_pipes=TRUE, trace=trace_) { expr <- arg(expr)
+async <- function(expr, ..., split_pipes=TRUE, trace=trace_) {
+  expr_ <- arg(expr)
+  force(trace)
+  # the "do" is here because... why isn't make_async normally evaluating
   do(make_async,
-     cps_translate(expr, async_endpoints, split_pipes=split_pipes),
-     orig=forced_quo(expr),
+     cps_translate(expr_, async_endpoints, split_pipes=split_pipes),
+     orig=forced_quo(expr_),
      trace=quo(trace),
      dots(...))
 }
