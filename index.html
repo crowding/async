@@ -5,20 +5,20 @@
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Asyncronous programming with async/await and generators/yield • async</title>
+<title>Asynchronous Code Constructs: Generators, Yield, Async, Await • async</title>
 <!-- jquery --><script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js" integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo=" crossorigin="anonymous"></script><!-- Bootstrap --><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.4.1/css/bootstrap.min.css" integrity="sha256-bZLfwXAP04zRMK2BjiO8iu9pf4FbLqX6zitd+tIvLhE=" crossorigin="anonymous">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.4.1/js/bootstrap.min.js" integrity="sha256-nuL8/2cJ5NDSSwnKD8VqreErSWHtnEP9E7AySL+1ev4=" crossorigin="anonymous"></script><!-- bootstrap-toc --><link rel="stylesheet" href="bootstrap-toc.css">
 <script src="bootstrap-toc.js"></script><!-- Font Awesome icons --><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.12.1/css/all.min.css" integrity="sha256-mmgLkCYLUQbXn0B1SRqzHar6dCnv9oZFPEC1g1cwlkk=" crossorigin="anonymous">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.12.1/css/v4-shims.min.css" integrity="sha256-wZjR52fzng1pJHwx4aV2AO3yyTOXrcDW7jBpJtTwVxw=" crossorigin="anonymous">
 <!-- clipboard.js --><script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.6/clipboard.min.js" integrity="sha256-inc5kl9MA1hkeYUt+EC3BhlIgyp/2jDIyBLS6k3UxPI=" crossorigin="anonymous"></script><!-- headroom.js --><script src="https://cdnjs.cloudflare.com/ajax/libs/headroom/0.11.0/headroom.min.js" integrity="sha256-AsUX4SJE1+yuDu5+mAVzJbuYNPHj/WroHuZ8Ir/CkE0=" crossorigin="anonymous"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/headroom/0.11.0/jQuery.headroom.min.js" integrity="sha256-ZX/yNShbjqsohH1k95liqY9Gd8uOiE1S4vZc+9KQ1K4=" crossorigin="anonymous"></script><!-- pkgdown --><link href="pkgdown.css" rel="stylesheet">
-<script src="pkgdown.js"></script><meta property="og:title" content="Asyncronous programming with async/await and generators/yield">
+<script src="pkgdown.js"></script><meta property="og:title" content="Asynchronous Code Constructs: Generators, Yield, Async, Await">
 <meta property="og:description" content="Write sequential-looking code that pauses and resumes.
              `gen()` creates a generator, an iterator that returns a
              value and pauses each time it reaches a `yield()` call.
-             `async()` creates a promise, within which an `await()`
-             pauses, then resumes when information is available.
+             `async()` creates a promise, which runs until it reaches
+             `await()` call then resumes when information is available.
              These work similarly to generator and async constructs
-             from Python or Javascript. Objects produced are
+             from Python or JavaScript. Objects produced are
              compatible with the iterators and promises packages.">
 <!-- mathjax --><script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js" integrity="sha256-nvJJv9wWKEm88qvoQl9ekL2J+k/RWIsaSScxxlsrv8k=" crossorigin="anonymous"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/config/TeX-AMS-MML_HTMLorMML.js" integrity="sha256-84DKXVJXs0/F8OTMzX4UR909+jtl4G7SPypPavF+GfA=" crossorigin="anonymous"></script><!--[if lt IE 9]>
 <script src="https://oss.maxcdn.com/html5shiv/3.7.3/html5shiv.min.js"></script>
@@ -65,7 +65,14 @@
   <a href="news/index.html">Changelog</a>
 </li>
       </ul>
-<ul class="nav navbar-nav navbar-right"></ul>
+<ul class="nav navbar-nav navbar-right">
+<li>
+  <a href="https://github.com/crowding/async/" class="external-link">
+    <span class="fab fa-github fa-lg"></span>
+     
+  </a>
+</li>
+      </ul>
 </div>
 <!--/.nav-collapse -->
   </div>
@@ -78,7 +85,7 @@
       </header><div class="row">
   <div class="contents col-md-9">
 <div class="section level1">
-<div class="page-header"><h1 id="asynchronous-r">Asynchronous R<a class="anchor" aria-label="anchor" href="#asynchronous-r"></a>
+<div class="page-header"><h1 id="the-async-package-generators-and-asyncawait-for-r">The <code>async</code> package: Generators and async/await for R<a class="anchor" aria-label="anchor" href="#the-async-package-generators-and-asyncawait-for-r"></a>
 </h1></div>
 <p>This is an R package implementing <em>generators</em> and <em>async</em> blocks.</p>
 <p><a href="https://github.com/crowding/async/actions" class="external-link"><img src="https://github.com/crowding/async/workflows/R-CMD-check/badge.svg" alt="R-CMD-check"></a> <a href="https://cran.r-project.org/package=async" class="external-link"><img src="https://www.r-pkg.org/badges/version/async?color=purple"></a> <a href="https://codecov.io/gh/crowding/async?branch=main" class="external-link"><img src="https://codecov.io/gh/crowding/async/branch/main/graph/badge.svg" alt="Codecov test coverage"></a></p>
@@ -130,8 +137,8 @@
 <span id="cb3-7"><a href="#cb3-7"></a><span class="co">#  [76] 3077 9232 4616 2308 1154  577 1732  866  433 1300  650  325  976  488  244</span></span>
 <span id="cb3-8"><a href="#cb3-8"></a><span class="co">#  [91]  122   61  184   92   46   23   70   35  106   53  160   80   40   20   10</span></span>
 <span id="cb3-9"><a href="#cb3-9"></a><span class="co"># [106]    5   16    8    4    2    1</span></span>
-<span id="cb3-10"><a href="#cb3-10"></a><span class="kw">collatz</span>(63728127L) <span class="op">|</span><span class="er">&gt;</span><span class="st"> </span>as.list <span class="op">%&gt;%</span><span class="st"> </span>as.numeric</span></code></pre></div>
-<p>For more examples, see the “Clapping Music” vignette:</p>
+<span id="cb3-10"><a href="#cb3-10"></a><span class="kw">collatz</span>(63728127L) <span class="op">|</span><span class="er">&gt;</span><span class="st"> </span>as.list <span class="op">|</span><span class="er">&gt;</span><span class="st"> </span>as.numeric</span></code></pre></div>
+<p>For more examples, see the <a href="https://crowding.github.io/async/articles/clapping.html" class="external-link">“Clapping Music” vignette.</a></p>
 </div>
 </div>
 <div class="section level2">
@@ -155,7 +162,7 @@
 <div class="section level4">
 <h4 id="shiny-apps">Shiny apps<a class="anchor" aria-label="anchor" href="#shiny-apps"></a>
 </h4>
-<p><code><a href="reference/async.html">async()</a></code> can be used in Shiny apps! A version of the “Cranwhales” demo app using async/await is <a href="https://github.com/crowding/cranwhales-await" class="external-link">here</a>.</p>
+<p><code><a href="reference/async.html">async()</a></code> can be used in Shiny apps! For an example, here is a version of the <a href="https://github.com/crowding/cranwhales-await" class="external-link">“Cranwhales” demo app using async/await.</a>.</p>
 </div>
 <div class="section level4">
 <h4 id="background-processing">Background processing<a class="anchor" aria-label="anchor" href="#background-processing"></a>
@@ -198,7 +205,15 @@
   </div>
 
   <div class="col-md-3 hidden-xs hidden-sm" id="pkgdown-sidebar">
-    <div class="license">
+    <div class="links">
+<h2 data-toc-skip>Links</h2>
+<ul class="list-unstyled">
+<li><a href="https://github.com/crowding/async/" class="external-link">Browse source code</a></li>
+<li><a href="https://github.com/crowding/async/issues" class="external-link">Report a bug</a></li>
+</ul>
+</div>
+
+<div class="license">
 <h2 data-toc-skip>License</h2>
 <ul class="list-unstyled">
 <li><a href="https://www.r-project.org/Licenses/GPL-2" class="external-link">GPL-2</a></li>

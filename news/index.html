@@ -38,7 +38,13 @@
 <li>
   <a href="../news/index.html">Changelog</a>
 </li>
-      </ul><ul class="nav navbar-nav navbar-right"></ul></div><!--/.nav-collapse -->
+      </ul><ul class="nav navbar-nav navbar-right"><li>
+  <a href="https://github.com/crowding/async/" class="external-link">
+    <span class="fab fa-github fa-lg"></span>
+     
+  </a>
+</li>
+      </ul></div><!--/.nav-collapse -->
   </div><!--/.container -->
 </div><!--/.navbar -->
 
@@ -48,16 +54,20 @@
   <div class="col-md-9 contents">
     <div class="page-header">
       <h1 data-toc-skip>Changelog <small></small></h1>
-      
+      <small>Source: <a href="https://github.com/crowding/async/blob/HEAD/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
     <div class="section level2">
 <h2 class="page-header" data-toc-text="0.2.1" id="async-021">async 0.2.1<a class="anchor" aria-label="anchor" href="#async-021"></a></h2>
-<p>Fixes: * Namespacing issue in test vs check *</p>
+<p>Fixes: * Namespacing issue in test vs check</p>
 </div>
     <div class="section level2">
 <h2 class="page-header" data-toc-text="0.2" id="async-02">async 0.2<a class="anchor" aria-label="anchor" href="#async-02"></a></h2>
-<p>Changes: * First version with “async” * Package name change</p>
+<p>Changes: * Generators and asyncs work in a localy created scope. * <code>tryCatch</code> for error handling * <code>split_pipes</code> helps use <code>await</code> in pipelines * Cranwhales Shiny app demo * <code>trace</code> option for logging of async operations * <code>pausables</code> lists all pausable functions * <code>delay</code> for sleeping an <code>async</code></p>
+</div>
+    <div class="section level2">
+<h2 class="page-header" data-toc-text="0.1" id="async-01">async 0.1<a class="anchor" aria-label="anchor" href="#async-01"></a></h2>
+<p>Changes: * Rename from “generators” to “async” * Async/await blocks implementing the promise interface * Performance improvements from building the call graph ahead of time</p>
 </div>
   </div>
 

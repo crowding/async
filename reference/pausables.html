@@ -41,7 +41,13 @@ and in attached packages.'><!-- mathjax --><script src="https://cdnjs.cloudflare
 <li>
   <a href="../news/index.html">Changelog</a>
 </li>
-      </ul><ul class="nav navbar-nav navbar-right"></ul></div><!--/.nav-collapse -->
+      </ul><ul class="nav navbar-nav navbar-right"><li>
+  <a href="https://github.com/crowding/async/" class="external-link">
+    <span class="fab fa-github fa-lg"></span>
+     
+  </a>
+</li>
+      </ul></div><!--/.nav-collapse -->
   </div><!--/.container -->
 </div><!--/.navbar -->
 
@@ -51,7 +57,7 @@ and in attached packages.'><!-- mathjax --><script src="https://cdnjs.cloudflare
   <div class="col-md-9 contents">
     <div class="page-header">
     <h1>Pausable functions.</h1>
-    
+    <small class="dont-index">Source: <a href="https://github.com/crowding/async/blob/HEAD/R/syntax.R" class="external-link"><code>R/syntax.R</code></a></small>
     <div class="hidden name"><code>pausables.Rd</code></div>
     </div>
 
@@ -88,10 +94,9 @@ functions. To do this:</p><ol><li><p>Define and export a function <code>yourname
 <code>yield</code> in the arguments.)</p></li>
 <li><p>Also define a function <code>yourname_cps</code> in your package namespace. (It
 does not need to be exported.) <code>yourname_cps</code> should have the pausable
-(callback based)
-implementation.</p></li>
+(callback based) implementation.</p></li>
 </ol><p>The API for pausable functions is not yet fixed, but it is described
-in source file <code>cps.r</code> along with implementataions for core R functions.</p>
+in source file <code>cps.r</code> along with implementations for R builtins.</p>
     </div>
 
   </div>
