@@ -6,7 +6,7 @@
 #' implements the [promises::promise] interface.
 #'
 #' An example Shiny app using `async/await` is on Github:
-#' [`http://github.com/crowding/cranwhales-await`](http://github.com/crowding/cranwhales-await)
+#' [`https://github.com/crowding/cranwhales-await`](https://github.com/crowding/cranwhales-await)
 #'
 #' When an `async` object is activated, it will evaluate its expression
 #' until it reaches the keyword `await`. The delay object will return

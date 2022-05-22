@@ -73,7 +73,7 @@ gen_pattern <- function(counts = c(3, 2, 1, 2)) { force(counts)
 
 Adding `force(counts)` is a good idea because of R's lazy evaluation +
 mutable bindings.  A generator captures its environment like an inner
-function, so it's a good idea to fix the value of "counts" before the
+function, so it's a good idea to fix the value of `counts` before the
 outer function returns; this is the same as if you return an inner
 function that uses arguments to an outer function. Meanwhile, fixing
 the number of `repeats` ahead of time is no longer necessary; a
@@ -82,7 +82,7 @@ as long as you keep requesting more.
 
 The code inside `gen(...)` does not run, yet. The call to `gen`
 constructs an
-[iterator]([iterator](https://cran.r-project.org/web/packages/iterators/index.html)),
+[iterator](https://cran.r-project.org/web/packages/iterators/index.html),
 which supports the method `nextElem`. When `nextElem()` is called on a
 generator, the generator runs its code only up to the point where
 `yield` is called. The generator returns this value, and pauses state

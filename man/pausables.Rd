@@ -32,10 +32,9 @@ functions. To do this:
 \code{yield} in the arguments.)
 \item Also define a function \code{yourname_cps} in your package namespace. (It
 does not need to be exported.) \code{yourname_cps} should have the pausable
-(callback based)
-implementation.
+(callback based) implementation.
 }
 
 The API for pausable functions is not yet fixed, but it is described
-in source file \code{cps.r} along with implementataions for core R functions.
+in source file \code{cps.r} along with implementations for R builtins.
 }

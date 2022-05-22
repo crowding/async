@@ -334,11 +334,10 @@ promote_qualified_head <- function(l) {
 #' `yield` in the arguments.)
 #' 2. Also define a function `yourname_cps` in your package namespace. (It
 #' does not need to be exported.) `yourname_cps` should have the pausable
-#' (callback based)
-#' implementation.
+#' (callback based) implementation.
 #'
 #' The API for pausable functions is not yet fixed, but it is described
-#' in source file `cps.r` along with implementataions for core R functions.
+#' in source file `cps.r` along with implementations for R builtins.
 #'
 #' @param envir The environment to search (defaulting to the calling
 #'   environment).

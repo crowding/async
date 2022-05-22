@@ -1,4 +1,13 @@
-# Asynchronous R
+---
+title: "The `async` package: Generators and async/await for R"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteIndexEntry{The `async` package: Generators and async/await for R}
+  %\VignetteEncoding{UTF-8}
+---
+
+# The `async` package: Generators and async/await for R
 
 This is an R package implementing *generators* and *async* blocks.
 
@@ -75,11 +84,10 @@ collatz(27L) |> as.list |> as.numeric
 #  [76] 3077 9232 4616 2308 1154  577 1732  866  433 1300  650  325  976  488  244
 #  [91]  122   61  184   92   46   23   70   35  106   53  160   80   40   20   10
 # [106]    5   16    8    4    2    1
-collatz(63728127L) |> as.list %>% as.numeric
+collatz(63728127L) |> as.list |> as.numeric
 ```
 
-For more examples, see the "Clapping Music" vignette:
-
+For more examples, see the ["Clapping Music" vignette.](https://crowding.github.io/async/articles/clapping.html)
 
 ## Async/await
 
@@ -116,8 +124,9 @@ async({
 
 #### Shiny apps
 
-`async()` can be used in Shiny apps! A version of the "Cranwhales" demo
-app using async/await is [here](https://github.com/crowding/cranwhales-await).
+`async()` can be used in Shiny apps! For an example, here is a version
+of the ["Cranwhales" demo app using
+async/await.](https://github.com/crowding/cranwhales-await).
 
 #### Background processing
 

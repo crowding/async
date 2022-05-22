@@ -1,5 +1,5 @@
 Package: async
-Title: Asyncronous programming with async/await and generators/yield
+Title: Asynchronous Code Constructs: Generators, Yield, Async, Await
 Version: 0.2.1
 Date: 2022-05-15
 Authors@R: 
@@ -7,13 +7,15 @@ Authors@R:
            family = "Meilstrup",
            role = c("aut", "cre"),
            email = "peter.meilstrup@gmail.com")
+URL: https://crowding.github.io/async/, https://github.com/crowding/async/
+BugReports: https://github.com/crowding/async/issues
 Description: Write sequential-looking code that pauses and resumes.
              `gen()` creates a generator, an iterator that returns a
              value and pauses each time it reaches a `yield()` call.
-             `async()` creates a promise, within which an `await()`
-             pauses, then resumes when information is available.
+             `async()` creates a promise, which runs until it reaches
+             `await()` call then resumes when information is available.
              These work similarly to generator and async constructs
-             from Python or Javascript. Objects produced are
+             from Python or JavaScript. Objects produced are
              compatible with the 'iterators' and 'promises' packages.
 License: GPL-2
 Encoding: UTF-8
@@ -27,7 +29,7 @@ Imports:
         promises
 Suggests:
     rmarkdown,
-    testthat (>= 2.1.0),
+    testthat (>= 3.0.0),
     knitr,
     magrittr,
     audio,

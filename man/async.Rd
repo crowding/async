@@ -46,7 +46,7 @@ implements the \link[promises:promise]{promises::promise} interface.
 }
 \details{
 An example Shiny app using \code{async/await} is on Github:
-\url{http://github.com/crowding/cranwhales-await}
+\url{https://github.com/crowding/cranwhales-await}
 
 When an \code{async} object is activated, it will evaluate its expression
 until it reaches the keyword \code{await}. The delay object will return
