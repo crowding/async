@@ -72,12 +72,10 @@
 async <- function(expr, ..., split_pipes=TRUE, trace=trace_) {
   expr_ <- arg(expr)
   force(trace)
-  # the "do" is here because... why isn't make_async normally evaluating
-  do(make_async,
-     cps_translate(expr_, async_endpoints, split_pipes=split_pipes),
-     orig=forced_quo(expr_),
-     trace=quo(trace),
-     dots(...))
+  translated_ <- cps_translate(expr_, async_endpoints, split_pipes=split_pipes)
+  args <- c(translated_, orig=forced_quo(expr_), trace=quo(trace), dots(...))
+  set_dots(environment(), args)
+  make_async(...)
 }
 
 #' @export

@@ -22,7 +22,7 @@
 #'
 #' A generator expression can use any R functions, but a call to
 #' `yield` may only appear in some positions. This package has several
-#' built-in (pausables), equivalents to R's base control flow
+#' built-in [pausables], equivalents to R's base control flow
 #' functions, such as `if`, `while`, `tryCatch`, `<-`, `{}`, `||` and
 #' so on.  A call to `yield` may only appear in an argument of one of
 #' these pausable functions. So this random walk generator:
@@ -46,13 +46,14 @@
 #' @param trace Optional tracing function for debugging. See [async].
 #' @export
 gen <- function(expr, ..., split_pipes=FALSE, trace=trace_) { expr <- arg(expr)
-  do(make_generator,
-     cps_translate(expr,
-                   endpoints=gen_endpoints,
-                   split_pipes=split_pipes),
-     orig=forced_quo(expr),
-     trace=arg(trace),
-     dots(...))
+  args_ <- c(cps_translate(expr,
+                           endpoints=gen_endpoints,
+                           split_pipes=split_pipes),
+             orig=forced_quo(expr),
+             trace=arg(trace),
+             dots(...))
+  set_dots(environment(), args_)
+  make_generator(...)
 }
 
 #' @export
