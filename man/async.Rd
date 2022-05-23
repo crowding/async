@@ -17,7 +17,7 @@ with_prefix(prefix)
 
 \item{...}{Undocumented.}
 
-\item{split_pipes}{Silently rewrite chained calls that use \code{await}
+\item{split_pipes}{Rewrite chained calls that use \code{await}
 (see below)}
 
 \item{trace}{Enable verbose logging by passing a function to
@@ -42,14 +42,14 @@ a promise, or stops with an error.
 \code{async({...})}, with an expression written in its argument, allows
 that expression to be evaluated in an asynchronous, or non-blocking
 manner. \code{async} returns an object with class \code{c("async", "promise")} which
-implements the \link[promises:promise]{promises::promise} interface.
+implements the \link[promises:promise]{promise} interface.
 }
 \details{
 An example Shiny app using \code{async/await} is on Github:
 \url{https://github.com/crowding/cranwhales-await}
 
 When an \code{async} object is activated, it will evaluate its expression
-until it reaches the keyword \code{await}. The delay object will return
+until it reaches the keyword \code{await}. The \code{async} object will return
 to its caller and preserve the partial state of its evaluation.
 When the awaited value is resolved, evaluation continues from where
 the \code{async} left off.
@@ -61,8 +61,8 @@ that error.
 
 The syntax rules for an \code{async} are analogous to those for \code{\link[=gen]{gen()}};
 \code{await} must appear only within the arguments of functions for
-which there is a pausable implementation (See \verb{?[pausable]}). By
-default \code{split_pipes} is enabled and this will reorder some
+which there is a pausable implementation (See \verb{[pausables()]}). By
+default \code{split_pipes=TRUE} is enabled and this will reorder some
 expressions to satisfy this requirement.
 
 Async blocks and generators are conceptually related and share much
@@ -78,8 +78,13 @@ This is a inconvenience as it prevents using \code{await()} in a
 pipeline. \code{async} by default has \code{split_pipes=TRUE} which enables
 some syntactic sugar: if an \code{await()} appears in the leftmost,
 unnamed, argument of an R function, the pipe will be "split" at
-that call using a temporary variable. For instance \code{sort(await(x))}
-will be silently rewritten as \code{{..async.tmp <- await(x); sort(..async.tmp)}}. This works only so long as \code{await} appears in
+that call using a temporary variable. For instance,\preformatted{async(makeRequest() |> await() |> sort())
+}
+
+will be effectively rewritten to something like\preformatted{async(\{.tmp <- await(makeRequest()); sort(.tmp)\})
+}
+
+This works only so long as \code{await} appears in
 calls that evaluate their leftmost arguments
 normally. \code{split_pipes} can backfire if the outer call has other
 side effects; for instance \code{suppressWarnings(await(x))} will be

@@ -3,13 +3,13 @@
 #' `async({...})`, with an expression written in its argument, allows
 #' that expression to be evaluated in an asynchronous, or non-blocking
 #' manner. `async` returns an object with class `c("async", "promise")` which
-#' implements the [promises::promise] interface.
+#' implements the [promise][promises::promise] interface.
 #'
 #' An example Shiny app using `async/await` is on Github:
 #' [`https://github.com/crowding/cranwhales-await`](https://github.com/crowding/cranwhales-await)
 #'
 #' When an `async` object is activated, it will evaluate its expression
-#' until it reaches the keyword `await`. The delay object will return
+#' until it reaches the keyword `await`. The `async` object will return
 #' to its caller and preserve the partial state of its evaluation.
 #' When the awaited value is resolved, evaluation continues from where
 #' the `async` left off.
@@ -21,8 +21,8 @@
 #'
 #' The syntax rules for an `async` are analogous to those for [gen()];
 #' `await` must appear only within the arguments of functions for
-#' which there is a pausable implementation (See `?[pausable]`). By
-#' default `split_pipes` is enabled and this will reorder some
+#' which there is a pausable implementation (See `[pausables()]`). By
+#' default `split_pipes=TRUE` is enabled and this will reorder some
 #' expressions to satisfy this requirement.
 #'
 #' Async blocks and generators are conceptually related and share much
@@ -38,9 +38,15 @@
 #' pipeline. `async` by default has `split_pipes=TRUE` which enables
 #' some syntactic sugar: if an `await()` appears in the leftmost,
 #' unnamed, argument of an R function, the pipe will be "split" at
-#' that call using a temporary variable. For instance `sort(await(x))`
-#' will be silently rewritten as `{..async.tmp <- await(x);
-#' sort(..async.tmp)}`. This works only so long as `await` appears in
+#' that call using a temporary variable. For instance,
+#'
+#'     async(makeRequest() |> await() |> sort())
+#'
+#' will be effectively rewritten to something like
+#'
+#'     async({.tmp <- await(makeRequest()); sort(.tmp)})
+#'
+#' This works only so long as `await` appears in
 #' calls that evaluate their leftmost arguments
 #' normally. `split_pipes` can backfire if the outer call has other
 #' side effects; for instance `suppressWarnings(await(x))` will be
@@ -53,7 +59,7 @@
 #'   character argument. Helper `with_prefix` makes a function that
 #'   prints a message with the given prefix. You can also say something
 #'   like `trace=browser` for "single stepping" through an async.
-#' @param split_pipes Silently rewrite chained calls that use `await`
+#' @param split_pipes Rewrite chained calls that use `await`
 #'   (see below)
 #'
 #' @param ... Undocumented.

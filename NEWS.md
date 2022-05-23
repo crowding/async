@@ -1,11 +1,13 @@
 # async 0.2.1
 
 Fixes:
-* Namespacing issue in test vs check
+
+  * Namespacing issue in test vs check
 
 # async 0.2
 
 Changes:
+
   * Generators and asyncs work in a localy created scope.
   * `tryCatch` for error handling
   * `split_pipes` helps use `await` in pipelines
@@ -17,6 +19,7 @@ Changes:
 # async 0.1
 
 Changes:
+
   * Rename from "generators" to "async"
   * Async/await blocks implementing the promise interface 
   * Performance improvements from building the call graph ahead of time

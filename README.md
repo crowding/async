@@ -11,7 +11,7 @@ vignette: >
 
 This is an R package implementing *generators* and *async* blocks.
 
-[![R-CMD-check](https://github.com/crowding/async/workflows/R-CMD-check/badge.svg)](https://github.com/crowding/async/actions) [![](https://www.r-pkg.org/badges/version/async?color=purple)](https://cran.r-project.org/package=async) [![Codecov test coverage](https://codecov.io/gh/crowding/async/branch/main/graph/badge.svg)](https://codecov.io/gh/crowding/async?branch=main)
+[![R-CMD-check](https://github.com/crowding/async/workflows/R-CMD-check/badge.svg)](https://github.com/crowding/async/actions) [![](https://www.r-pkg.org/badges/version/async?color=purple)](https://cran.r-project.org/package=async) [![Codecov test coverage](https://codecov.io/gh/crowding/async/branch/main/graph/badge.svg)](https://app.codecov.io/gh/crowding/async?branch=main)
 
 ## Generators
 

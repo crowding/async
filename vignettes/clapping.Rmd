@@ -82,7 +82,7 @@ as long as you keep requesting more.
 
 The code inside `gen(...)` does not run, yet. The call to `gen`
 constructs an
-[iterator](https://cran.r-project.org/web/packages/iterators/index.html),
+[iterator][iterators::iterators-package],
 which supports the method `nextElem`. When `nextElem()` is called on a
 generator, the generator runs its code only up to the point where
 `yield` is called. The generator returns this value, and pauses state
