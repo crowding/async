@@ -72,12 +72,12 @@ Async constructs include generators and async/await blocks.</p>
     <p>A generator runs until it yields a value and then stops, returning
 control to R until another value is requested. An async block can
 pause and return control to R until some data is available, then
-resume. Generators implement the <a href="https://rdrr.io/pkg/iterators/man/iterators-package.html" class="external-link">iterators::iterators-package</a>
-interface, while async blocks implement the <a href="https://rstudio.github.io/promises//reference/promise.html" class="external-link">promises::promise</a>
-interface.</p><ul><li><p>gen(...) creates a generator (an iterator); within a generator use
-yield(x) to return a value.</p></li>
-<li><p>async(...) greates an async block (a promise); within the <code>async</code>
-write await(x) to pause on <code>x</code> (another promise).</p></li>
+resume. Generators implement the <a href="https://rdrr.io/pkg/iterators/man/iterators-package.html" class="external-link">iterator</a>
+interface, while async blocks implement the <a href="https://rstudio.github.io/promises//reference/promise.html" class="external-link">promise</a>
+interface.</p><ul><li><p><code><a href="gen.html">gen(...)</a></code> creates a generator (an iterator); within a generator use
+<code><a href="gen.html">yield(x)</a></code> to return a value.</p></li>
+<li><p><code><a href="async.html">async(...)</a></code> creates an async block (a promise); within the <code>async</code>
+write <code><a href="async.html">await(x)</a></code> to pause on <code>x</code> (another promise).</p></li>
 </ul></div>
     <div id="author">
     <h2>Author</h2>
