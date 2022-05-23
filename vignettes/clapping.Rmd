@@ -95,7 +95,7 @@ for (i in 1:23) { cat(nextElem(p)) }; cat("\n")
 ```
 
 `gen(...)` constructs and returns an
-[iterator](https://cran.r-project.org/web/packages/iterators/index.html),
+[iterator](https://CRAN.R-project.org/package=iterators),
 which means you can apply iterator methods to it. For instance you can collect
 just the first 24 items with `ilimit()`:
 

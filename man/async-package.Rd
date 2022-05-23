@@ -16,9 +16,9 @@ resume. Generators implement the \link[iterators:iterators-package]{iterator}
 interface, while async blocks implement the \link[promises:promise]{promise}
 interface.
 \itemize{
-\item \code{\link[=gen]{gen({...})}} creates a generator (an iterator); within a generator use
+\item \code{\link[=gen]{gen(...)}} creates a generator (an iterator); within a generator use
 \code{\link[=yield]{yield(x)}} to return a value.
-\item \code{\link[=async]{async({...})}} creates an async block (a promise); within the \code{async}
+\item \code{\link[=async]{async(...)}} creates an async block (a promise); within the \code{async}
 write \code{\link[=await]{await(x)}} to pause on \code{x} (another promise).
 }
 }

@@ -11,9 +11,9 @@
 #' interface, while async blocks implement the [promise][promises::promise]
 #' interface.
 #'
-#'  * [`gen({...})`][gen] creates a generator (an iterator); within a generator use
+#'  * [`gen(...)`][gen] creates a generator (an iterator); within a generator use
 #'    [`yield(x)`][yield] to return a value.
-#'  * [`async({...})`][async] creates an async block (a promise); within the `async`
+#'  * [`async(...)`][async] creates an async block (a promise); within the `async`
 #'    write [`await(x)`][await] to pause on `x` (another promise).
 #'
 #' @name async-package
