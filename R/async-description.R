@@ -7,14 +7,14 @@
 #' A generator runs until it yields a value and then stops, returning
 #' control to R until another value is requested. An async block can
 #' pause and return control to R until some data is available, then
-#' resume. Generators implement the [iterators::iterators-package]
-#' interface, while async blocks implement the [promises::promise]
+#' resume. Generators implement the [iterator][iterators::iterators-package]
+#' interface, while async blocks implement the [promise][promises::promise]
 #' interface.
 #'
-#'  * [gen(...)] creates a generator (an iterator); within a generator use
-#'    [yield(x)] to return a value.
-#'  * [async(...)] greates an async block (a promise); within the `async`
-#'    write [await(x)] to pause on `x` (another promise).
+#'  * [`gen({...})`][gen] creates a generator (an iterator); within a generator use
+#'    [`yield(x)`][yield] to return a value.
+#'  * [`async({...})`][async] creates an async block (a promise); within the `async`
+#'    write [`await(x)`][await] to pause on `x` (another promise).
 #'
 #' @name async-package
 #' @import utils

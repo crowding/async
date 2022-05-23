@@ -12,14 +12,14 @@ Async constructs include generators and async/await blocks.
 A generator runs until it yields a value and then stops, returning
 control to R until another value is requested. An async block can
 pause and return control to R until some data is available, then
-resume. Generators implement the \link[iterators:iterators-package]{iterators::iterators-package}
-interface, while async blocks implement the \link[promises:promise]{promises::promise}
+resume. Generators implement the \link[iterators:iterators-package]{iterator}
+interface, while async blocks implement the \link[promises:promise]{promise}
 interface.
 \itemize{
-\item \link{gen(...)} creates a generator (an iterator); within a generator use
-\link{yield(x)} to return a value.
-\item \link{async(...)} greates an async block (a promise); within the \code{async}
-write \link{await(x)} to pause on \code{x} (another promise).
+\item \code{\link[=gen]{gen({...})}} creates a generator (an iterator); within a generator use
+\code{\link[=yield]{yield(x)}} to return a value.
+\item \code{\link[=async]{async({...})}} creates an async block (a promise); within the \code{async}
+write \code{\link[=await]{await(x)}} to pause on \code{x} (another promise).
 }
 }
 \author{
