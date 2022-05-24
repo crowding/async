@@ -20,7 +20,7 @@ This is an R package implementing *generators* and *async* blocks.
 returns the value. The next time you call the generator it picks up
 where it left off and runs until the next `yield`.
 
-[iterators]: https://cran.r-project.org/web/packages/iterators/index.html
+[iterators]: https://CRAN.R-project.org/package=pkgname,
 [itertools]: https://itertools.r-forge.r-project.org/
 From the "outside" a generator implements the `iterator` interface as
 defined by the [iterators] package You extract each yielded value with
