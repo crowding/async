@@ -4,12 +4,15 @@
 \alias{delay}
 \title{Asynchronous pause.}
 \usage{
-delay(delay, expr = NULL)
+delay(secs, expr = NULL)
 }
 \arguments{
-\item{delay}{The promise will resolve after at least this many seconds.}
+\item{secs}{The promise will resolve after at least this many seconds.}
 
 \item{expr}{The value to resolve with; will be forced after the delay.}
+}
+\value{
+An object with class \link[promises:promise]{"promise"}.
 }
 \description{
 "delay" returns a promise which resolves only after the specified

@@ -19,6 +19,9 @@ appears in chained calls. See \link{async}.}
 
 \item{trace}{Optional tracing function for debugging. See \link{async}.}
 }
+\value{
+An object with class "\link[=iterators-package]{iterator}".
+}
 \description{
 \code{gen({...})} with an expression written in its argument, creates a
 generator, which acts like a block of code whose execution can

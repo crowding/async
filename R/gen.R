@@ -44,6 +44,7 @@
 #' @param split_pipes Silently rewrite expressions where "yield"
 #'   appears in chained calls. See [async].
 #' @param trace Optional tracing function for debugging. See [async].
+#' @return An object with class "[iterator][iterators-package]".
 #' @export
 gen <- function(expr, ..., split_pipes=FALSE, trace=trace_) { expr <- arg(expr)
   args_ <- c(cps_translate(expr,

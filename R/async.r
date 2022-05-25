@@ -64,9 +64,11 @@
 #'
 #' @param ... Undocumented.
 #' @param prefix A function to print debugging messages. `trace=cat`
-#'   will print async actions to the console;
-#' @return `async` constructs and returns a [promises::promise]
-#'   object.
+#'   will log async actions to the console; `trace=with_prefix("myPrefix")`
+#'   adds a prefix if you have more than one async to debug.
+#' @return `async()` returns an object with class "promise" as
+#'   described by the [promises] package (i.e. not the promises used
+#'   in R's lazy evaluation.)
 #'
 #' @examples
 #' myAsync <- async(for (i in 1:4) {
@@ -89,8 +91,8 @@ async <- function(expr, ..., split_pipes=TRUE, trace=trace_) {
 #'
 #' @param prom A promise, or something that can be converted to such
 #'   by [promises::as.promise()].
-#' @return In the context of an `async`, `await` returns the resolved value of
-#'   a promise, or stops with an error.
+#' @return In the context of an `async`, `await(x)` returns the resolved value of
+#'   a promise `x`, or stops with an error.
 await <- function(prom) {
   stop("Await called outside of async")
 }

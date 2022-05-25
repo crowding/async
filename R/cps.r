@@ -377,14 +377,15 @@ for_cps <- function(var, seq, expr) {
 #' control, for example if you need to poll in a loop
 #'
 #' @import later later
-#' @param delay The promise will resolve after at least this many seconds.
+#' @param secs The promise will resolve after at least this many seconds.
 #' @param expr The value to resolve with; will be forced after the delay.
+#' @return An object with class ["promise"][promises::promise].
 #' @export
 #' @examples
 #' # print a message after a few seconds
 #' async({await(delay(10)); cat("Time's up!\n")})
-delay <- function(delay, expr=NULL) {
+delay <- function(secs, expr=NULL) {
   promise(function(resolve, reject) {
-    later(function() resolve(expr), delay=delay)
+    later(function() resolve(expr), delay=secs)
   })
 }

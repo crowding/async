@@ -32,11 +32,12 @@ by \code{\link[promises:is.promise]{promises::as.promise()}}.}
 \item{prefix}{Character prefix to print before the trace.}
 }
 \value{
-\code{async} constructs and returns a \link[promises:promise]{promises::promise}
-object.
+\code{async()} returns an object with class "promise" as
+described by the \link{promises} package (i.e. not the promises used
+in R's lazy evaluation.)
 
-In the context of an \code{async}, \code{await} returns the resolved value of
-a promise, or stops with an error.
+In the context of an \code{async}, \code{await(x)} returns the resolved value of
+a promise \code{x}, or stops with an error.
 }
 \description{
 \code{async({...})}, with an expression written in its argument, allows

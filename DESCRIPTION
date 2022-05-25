@@ -10,12 +10,12 @@ Authors@R:
 URL: https://crowding.github.io/async/, https://github.com/crowding/async/
 BugReports: https://github.com/crowding/async/issues
 Description: Write sequential-looking code that pauses and resumes.
-             `gen()` creates a generator, an iterator that returns a
-             value and pauses each time it reaches a `yield()` call.
-             `async()` creates a promise, which runs until it reaches
-             `await()` call then resumes when information is available.
+             gen() creates a generator, an iterator that returns a
+             value and pauses each time it reaches a yield() call.
+             async() creates a promise, which runs until it reaches
+             a call to await(), then resumes when information is available.
              These work similarly to generator and async constructs
-             from Python or JavaScript. Objects produced are
+             from 'Python' or 'JavaScript'. Objects produced are
              compatible with the 'iterators' and 'promises' packages.
 License: GPL-2
 Encoding: UTF-8
