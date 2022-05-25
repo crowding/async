@@ -13,10 +13,10 @@
 <!-- clipboard.js --><script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.6/clipboard.min.js" integrity="sha256-inc5kl9MA1hkeYUt+EC3BhlIgyp/2jDIyBLS6k3UxPI=" crossorigin="anonymous"></script><!-- headroom.js --><script src="https://cdnjs.cloudflare.com/ajax/libs/headroom/0.11.0/headroom.min.js" integrity="sha256-AsUX4SJE1+yuDu5+mAVzJbuYNPHj/WroHuZ8Ir/CkE0=" crossorigin="anonymous"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/headroom/0.11.0/jQuery.headroom.min.js" integrity="sha256-ZX/yNShbjqsohH1k95liqY9Gd8uOiE1S4vZc+9KQ1K4=" crossorigin="anonymous"></script><!-- pkgdown --><link href="pkgdown.css" rel="stylesheet">
 <script src="pkgdown.js"></script><meta property="og:title" content="Asynchronous Code Constructs: Generators, Yield, Async, Await">
 <meta property="og:description" content="Write sequential-looking code that pauses and resumes.
-             `gen()` creates a generator, an iterator that returns a
-             value and pauses each time it reaches a `yield()` call.
-             `async()` creates a promise, which runs until it reaches
-             `await()` call then resumes when information is available.
+             gen() creates a generator, an iterator that returns a
+             value and pauses each time it reaches a yield() call.
+             async() creates a promise, which runs until it reaches
+             a call to await(), then resumes when information is available.
              These work similarly to generator and async constructs
              from Python or JavaScript. Objects produced are
              compatible with the iterators and promises packages.">
@@ -93,7 +93,7 @@
 <h2 id="generators">Generators<a class="anchor" aria-label="anchor" href="#generators"></a>
 </h2>
 <p><code>g &lt;- gen({...})</code> allow you to write a block of sequential code that “pauses”. A generator runs until it hits a <code><a href="reference/gen.html">yield()</a></code> call, then returns the value. The next time you call the generator it picks up where it left off and runs until the next <code>yield</code>.</p>
-<p>From the “outside” a generator implements the <code>iterator</code> interface as defined by the <a href="https://CRAN.R-project.org/package=pkgname," class="external-link">iterators</a> package You extract each yielded value with <code>nextElem(g)</code>, and you can use generators anywhere you can use an iterator, and with tools from the <a href="https://CRAN.R-project.org/package=pkgname," class="external-link">iterators</a> or <a href="https://itertools.r-forge.r-project.org/" class="external-link">itertools</a> packages.</p>
+<p>From the “outside” a generator implements the <code>iterator</code> interface as defined by the <a href="https://CRAN.R-project.org/package=iterators" class="external-link">iterators</a> package You extract each yielded value with <code>nextElem(g)</code>, and you can use generators anywhere you can use an iterator, and with tools from the <a href="https://CRAN.R-project.org/package=iterators" class="external-link">iterators</a> or <a href="https://itertools.r-forge.r-project.org/" class="external-link">itertools</a> packages.</p>
 <div class="section level3">
 <h3 id="example-collatz-sequence">Example: Collatz sequence<a class="anchor" aria-label="anchor" href="#example-collatz-sequence"></a>
 </h3>

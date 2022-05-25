@@ -99,9 +99,11 @@ by <code><a href="https://rstudio.github.io/promises//reference/is.promise.html"
 </dl></div>
     <div id="value">
     <h2>Value</h2>
-    <p><code>async</code> constructs and returns a <a href="https://rstudio.github.io/promises//reference/promise.html" class="external-link">promises::promise</a>object.
-In the context of an <code>async</code>, <code>await</code> returns the resolved value of
-a promise, or stops with an error.</p>
+    <p><code>async()</code> returns an object with class "promise" as
+described by the <a href="https://rdrr.io/r/base/delayedAssign.html" class="external-link">promises</a> package (i.e. not the promises used
+in R's lazy evaluation.)
+In the context of an <code>async</code>, <code>await(x)</code> returns the resolved value of
+a promise <code>x</code>, or stops with an error.</p>
     </div>
     <div id="details">
     <h2>Details</h2>

@@ -69,16 +69,20 @@ control, for example if you need to poll in a loop</p>
     </div>
 
     <div id="ref-usage">
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="fu">delay</span><span class="op">(</span><span class="va">delay</span>, expr <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="fu">delay</span><span class="op">(</span><span class="va">secs</span>, expr <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></code></pre></div>
     </div>
 
     <div id="arguments">
     <h2>Arguments</h2>
-    <dl><dt>delay</dt>
+    <dl><dt>secs</dt>
 <dd><p>The promise will resolve after at least this many seconds.</p></dd>
 <dt>expr</dt>
 <dd><p>The value to resolve with; will be forced after the delay.</p></dd>
 </dl></div>
+    <div id="value">
+    <h2>Value</h2>
+    <p>An object with class <a href="https://rstudio.github.io/promises//reference/promise.html" class="external-link">"promise"</a>.</p>
+    </div>
 
     <div id="ref-examples">
     <h2>Examples</h2>
@@ -88,7 +92,7 @@ control, for example if you need to poll in a loop</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span>     await(delay(10))</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>     cat("Time's up!\n")</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> })</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55d576dcb540&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55a1ca79d210&gt;</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> &lt;Promise [pending]&gt;</span>
 </code></pre></div>
     </div>
