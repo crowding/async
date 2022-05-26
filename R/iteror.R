@@ -1,0 +1,237 @@
+# The "iterators" package uses stop("StopIteration") and tryCatch to
+# signal end of iteration, but tryCatch has a lot of overhead. In the
+# context of a generator, when you are in a "for" loop oever an
+# iterator, you have to be setting up and tearing down the trycatch on
+# each iteration. so that you can return control from the generator.
+#
+# Instead of exceptions, "nextElemOr" uses a lazily evaluated "or"
+# argument to signal stop of iteration.  The main method for "iteror"
+# is "nextElemOr" instead of "nextElem". The "or" argument is lazily
+# evaluated; this means the consumer can provide a "break" or "return"
+# to control
+#
+# sum <- 0
+# it <- iteror(in)
+# repeat {
+#   val <- nextElemOr(iter, break)
+#   sum <- sum + val;
+# }
+#
+# Compare with the usual technique of consuming an iterator with `nextElem()`
+#
+# sum <- 0
+# tryCatch(
+#    while(val <- nextElem(iter)) {
+#     doStuff(val)
+#   },
+#     error=function(x) if (!iteration_has_ended(e)) stop(e))
+#
+# Another way to use the "or" argument is to give it a sigil value.
+# Then check if nextElemOr is `identical()` to the sigil; if it is,
+# then you know the iterator has ended. In R it is commonplace to use
+# `NULL` in this kind of sigil role, but you do sometimes want to have
+# an iterator return literal `NULL`s. A safer way to generate a one-time
+# sigil value; the function `sigil()` will do just that.
+#
+# stopped <- sigil()
+# sum <- 0
+# while(!identical(i <- nextElemOr(iter, stopped), stopped)) {
+#   sum <- sum + i
+# }
+
+iteror <- function(it, ...) {
+  UseMethod("iteror")
+}
+
+iteror.iteror <- identity
+iteror.iter <- identity
+
+#' @exportS3Method iteror "function"
+iteror.function <- function(obj, ...) {
+  if (!("or" %in% names(formals(obj)))) stop("iteror: must have 'or' argument")
+  formals(obj)$or <- quote(stop("stopIteration", call.=FALSE))
+  structure(obj, class=c("funiteror", "iteror", "iter"))
+}
+
+#' @exportS3Method
+iteror.default <- function(obj, ...) {
+  i <- 0
+  n <- length(obj)
+  iteror.function(function(or, ...) {
+    if (i < n) {
+      i <<- i + 1
+      obj[[i]]
+    } else or
+  }, ...)
+}
+
+
+nextElemOr <- function(obj, or, ...) {
+  UseMethod("nextElemOr")
+}
+
+#' @exportS3Method
+nextElemOr.funiteror <- function(obj, or=stop("StopIteration"), ...) {
+  obj(or, ...)
+}
+
+#' @exportS3Method
+nextElem.iteror <- function(obj, ...) {
+  nextElemOr(obj, stop("StopIteration"), ...)
+}
+
+# `sigil()` creates a unique value, with an optional name attached.
+# An object created with `sigil()` with compare [`identical()] to
+# itself and to no other object in the R session.
+# @return a closure; you can call it to return its name.
+sigil <- function(name=NULL) (function(name) function() name)(name)
+
+`%then%` <- function(a, b) { force(a); force(b); a }
+
+
+ihasNextOr <- function(obj, ...) {
+  UseMethod("ihasNextOr")
+}
+
+#' @exportS3Method
+ihasNextOr.ihasNextOr <- identity
+
+#' @exportS3Method
+ihasNextOr.default <- function(obj) ihasNextOr(iteror(obj))
+
+#' @exportS3Method
+ihasNextOr.iteror <- function(obj, ...) {
+  noValue <- sigil("noValue")
+  endIter <- sigil("endIter")
+  last <- noValue
+  structure(function(or=stop("stopIteration"), query="next", ...) {
+    switch(query,
+           "next"={
+             if (identical(last, noValue))
+               last <<- nextElemOr(obj, endIter)
+             if (identical(last, endIter))
+               or
+             else
+               last %then% (last <<- noValue)
+           },
+           "has"={
+             if (identical(last, noValue))
+               last <<- nextElemOr(obj, endIter)
+             !identical(last, endIter)
+           },
+           stop("unknown query: ", mode)
+           )
+  }, class=c("ihasNextOr", "iteror", "ihasNext", "iter"))
+}
+
+#' @exportS3Method
+nextElem.ihasNextOr <- function(obj, ...) {
+  obj(stop("stopIteration", call.=FALSE), query="next", ...)
+}
+
+#' @exportS3Method
+nextElemOr.ihasNextOr <- function(obj, or=stop("StopIteration"), ...) {
+  obj(or, query="next", ...)
+}
+
+hasNext.iHasNextOr <- function(obj, ...) {
+  obj(query="has", ...)
+}
+
+# :( this means that if you use nextElemOr over a regular iter, you
+# are setting up and tearing down a tryCatch in each iteration...
+
+#' @exportS3Method
+nextElemOr.iter <- function(iter, or=stop("StopIteration")) {
+  if (is_default(or))
+    nextElem(iter) # skip the tryCatch...
+  else tryCatch(
+    nextElem(iter),
+    error=function(e)
+      if (!identical(conditionMessage(e), 'StopIteration')) stop(e))
+}
+
+#' @exportS3Method as.list iteror
+as.list.iteror <- function(x, n=as.integer(2^31-1), ...) {
+  size <- 64
+  a <- vector('list', length=size)
+  i <- 0
+  repeat {
+    item <- nextElemOr(x, break)
+    i <- i + 1
+    if (i >= size) {
+      size <- min(2 * size, n)
+      length(a) <- size
+    }
+    a[i] <- item
+  }
+  length(a) <- i
+  a
+}
+
+icountor <- function(count) {
+  i <- 0L
+  if(missing(count)) {
+    iteror(function(or) {
+      i <<- i + 1L
+    })
+  } else {
+    iteror(function(or) {
+      if (i >= count) or else i <<- i + 1L
+    })
+  }
+}
+
+ilimitor <- function(iterable, n) {
+  it <- iteror(iterable)
+  n <- as.integer(n)
+  i <- 0L
+  iteror(function(or, ...) {
+    if (i >= n) or else {
+      i <<- i + 1L
+      nextElemOr(it, or)
+    }
+  })
+}
+
+chainor <- function(...) {
+  iterors <- iteror(lapply(list(...), iteror))
+  done <- sigil("done")
+  thisIterator <- nextElemOr(iterors, done)
+  iteror(function(or) {
+    while(!identical(thisIterator, done)) {
+      e <- nextElemOr(thisIterator, done)
+      if (identical(e, done)) {
+        thisIterator <<- nextElemOr(iterors, done)
+      } else return(e)
+    }
+  })
+}
+
+bench_iterators <- function() {
+  # holy hell what the heck is iter() DOING??? 10x overhead!?
+  # ah, it is switching depending on whether it's a function(n) or not.
+  # and recycle() and that all takes some time.
+  # they should specialize at construction time and return a closure.
+  microbenchmark(
+    as.list(iter(1:500)),
+    as.list(iter(local({
+      x <- 0;
+      function() if (x < 500) x <<- x + 1 else stop("StopIteration")
+    }))),
+    as.list(new_iterator(local({
+      x <- 0;
+      function() if (x < 500) x <<- x + 1 else stop("StopIteration")
+    }))),
+    as.list(iteror(local({
+      x <- 0;
+      function(or) if (x < 500) x <<- x + 1 else or
+    }))),
+    as.list(iteror(1:500)),
+    as.list(ihasNext(icount(500))),
+    as.list(ihasNextOr(icountor(500))),
+    as.list(icount(500)),
+    as.list(icountor(500)),
+    as.list(ilimit(icount(), 500)),
+    as.list(ilimitor(icountor(), 500)))
+}
