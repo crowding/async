@@ -47,10 +47,10 @@ make_pump <- function(expr, ...,
   value <- nonce
   err <- nonce
 
-  pause_ <- function(cont) {
+  pause_ <- function(cont, ...) {
     if(verbose) trace("pump: set unpause\n")
     list(cont)
-    cont <<- function(...) cont(...)
+    cont <<- function() cont(...)
     action <<- "pause"
   }
 

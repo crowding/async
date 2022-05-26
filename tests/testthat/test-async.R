@@ -125,15 +125,16 @@ test_that("async grammar", {
 test_that("async format", {
   pr <- mock_promise()
   as <- suppressMessages(async({x <- await(pr); x + 5}))
-
   expect_output(print(as), "pending")
   expect_output(print(as), "x \\+ 5")
   pr$resolve(5)
   wait_for_it()
   expect_output(print(as), "fulfilled: numeric")
+
   pr <- mock_promise()
   as <- async({x <- await(pr); x + 5})
-  then(pr, onFulfilled=function(val) NULL, onRejected=function(err) {NULL})
+  then(pr, onFulfilled=function(val) {NULL},
+       onRejected=function(err) {NULL})
   capture.output({pr$reject("oops"); wait_for_it()}, type="message")
   expect_output(print(as), "rejected")
 })

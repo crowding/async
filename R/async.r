@@ -101,17 +101,21 @@ await_cps <- function(prom) { force(prom)
   function(cont, ..., await, pause, stop, trace) {
     if (missing_(arg(await))) base::stop("await used, but this is not an async")
     list(cont, ..., await, pause, stop, trace)
-
-    and_then <- function(branch, val) {
-      # will receive either a branch to continue or a branch to error
-      if(verbose) trace("await: taking promise branch\n")
-      branch(val)
+    prom <- NULL
+    success <- NULL
+    value <- NULL
+    resolve <- function() {
+      trace("await: resolve\n")
+      if(success) cont(value) else stop(value)
     }
     got_prom <- function(val) {
-      tryCatch(prom <- as.promise(val), on.error=stop)
+      tryCatch(prom <<- as.promise(val), on.error=stop)
       if(verbose) trace("await: got promise\n")
-      pause(and_then)
-      await(prom, cont, stop) # return either "cont" or "stop" to and_then
+      success <<- NULL
+      await(prom,
+            function(val) {success <<- TRUE; prom <<- NULL; value <<- val},
+            function(err) {success <<- FALSE; prom <<- NULL; value <<- err})
+      pause(resolve)
     }
     prom(got_prom, ..., pause=pause, await=await, stop=stop, trace=trace)
   }
@@ -143,15 +147,17 @@ make_async <- function(expr, orig=arg(expr), ..., trace=trace_) {
 
   await_ <- function(promise, success, failure) {
     list(promise, success, failure)
-    awaiting <<- promise
     succ <- function(val) {
       trace("await: success\n")
-      pump(success, val)
+      success(val)
+      pump()
     }
     fail <- function(err) {
       trace("await: fail\n")
-      pump(failure, err)
+      failure(err)
+      pump()
     }
+    awaiting <<- promise
     then(promise, succ, fail)
     trace("await: registered\n")
   }
@@ -186,4 +192,3 @@ format.async <- function(x, ...) {
   c <- NextMethod(x)
   c(a, b, c)
 }
-

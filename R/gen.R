@@ -70,8 +70,9 @@ yield_cps <- function(expr) { force(expr)
     got_val <- function(val) {
       force(val)
       if(verbose) trace("yield\n")
-      pause(function() cont(val))
-      yield(val)
+      yield(val) # these are different calls because make_async
+                 # wraps around make_pump and we affect state in both...
+      pause(cont, val)
     }
     expr(got_val, ..., ret=ret, pause=pause, yield=yield, trace=trace)
   }
@@ -79,7 +80,7 @@ yield_cps <- function(expr) { force(expr)
 
 make_generator <- function(expr, orig=NULL, ..., trace=trace_) { list(expr, ...)
 
-  nonce <- (function () function() NULL)()
+  nonce <- sigil()
   yielded <- nonce
   err <- nonce
   state <- "paused"
