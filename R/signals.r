@@ -1,5 +1,6 @@
 # R() wraps an R argument into an execution node
 R <- function(x) {
+  `_context` <- "R"
   x <- arg(x)
 
   function(cont, ..., stop=base::stop, trace=trace_) {

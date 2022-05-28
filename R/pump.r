@@ -2,8 +2,15 @@
 
 browseOnError <- FALSE
 # assign("browseOnError", TRUE, envir=getNamespace("async"))
-assert <- function(condition, msg) {
+assert <- function(condition,
+                   msg=c(
+                     "assertion failed: ",
+                     deparse(src),
+                     if(!is.null(getSrcref(src))) c(
+                       "at ", getSrcDirectory(src), "/", getSrcFilename(src),
+                       ":", getSrcLocation(src, "line")))) {
   if (!isTRUE(condition)) {
+    src <- arg_expr(condition)
     if(browseOnError) recover()
     stop(msg)
   }

@@ -83,8 +83,8 @@ nextElem.iteror <- function(obj, ...) {
 # `sigil()` creates a unique value, with an optional name attached.
 # An object created with `sigil()` with compare [`identical()] to
 # itself and to no other object in the R session.
-# @return a closure; you can call it to return its name.
-sigil <- function(name=NULL) (function(name) function() name)(name)
+# @return a closure; calling the closure returns the name.
+sigil <- function(name=NULL) function()name
 
 `%then%` <- function(a, b) { force(a); force(b); a }
 
