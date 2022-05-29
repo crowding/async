@@ -195,11 +195,10 @@ switch_cps <- function(EXPR, ...) {
 `;_ctor` <- function(cont, ..., ret, trace=trace_) {
   # a semicolon forces its input but discards it
   list(cont, ret, trace)
-  function(val) {
+  `;` <- function(val) {
     force(val)
     val <- NULL #force, then discard
     cont()
-    #ret(cont)
   }
 }
 
@@ -238,7 +237,7 @@ next_cps <- function()
   function(cont, ..., ret, nxt, trace=trace_) {
     if (missing_(arg(nxt))) stop("call to next is not in a loop")
     list(ret, nxt, trace)
-    function() {
+    "next_" <- function() {
       if(verbose) trace("next\n")
       nxt()
     }

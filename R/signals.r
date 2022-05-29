@@ -1,11 +1,12 @@
 # R() wraps an R argument into an execution node
 R <- function(x) {
-  `_context` <- "R"
   x <- arg(x)
 
   function(cont, ..., stop=base::stop, trace=trace_) {
     list_missing(cont, stop)
-    function(...) {
+    x <- x
+    #give it a name so that the graph drawer can detect it
+    R_ <- function(...) {
       trace(paste0("R: ", deparse(expr(x)), "\n"))
       #there's presently a slight issue with nseval here when x stops
       #do(cont, x)
@@ -21,7 +22,7 @@ return_cps <- function(x) {
   function(cont, ..., ret, return, trace=trace_) {
     list(cont, ret, return, trace)
     if (missing_(arg(x))) {
-      function() return(NULL) # this is our "return" callback not base::return
+      return_ <- function() return(NULL) # this is our "return" callback not base::return
     } else {
       x(return, ..., ret=ret, return=return, trace=trace)
     }

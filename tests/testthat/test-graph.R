@@ -2,8 +2,31 @@
 
 `%is%` <- expect_equal
 
-test_that("Can extract graph of generator", {
+if(FALSE) {"can you always break from down the stack?"
+  # really, what about if you're in the middle of a C call?
+  thunk3 <- function(a, b) {
+    on.exit(print("exit3"))
+    do(thunk2, dots(a, b))
+  }
+  thunk2 <- function(a, b) {
+    on.exit(print("exit2"))
+    do.call("thunk", alist(a, b))
+  }
+  thunk <- function(a, b) {
+    on.exit(print("exit"))
+    if(a) b
+  }
+  i <- 0
+  repeat {
+    print(i <- i + 1)
+    thunk3(i>5, break)
+  }
+}
 
+
+
+test_that("Can extract graph of generator", {
+  
   genprimes <- gen({
     yield(2)
     yield(3)
@@ -15,7 +38,7 @@ test_that("Can extract graph of generator", {
         if ( i %% j == 0 ) {
           break
         }
-        if (j >= sqrt(i)) {
+        if (i/j < j) {
           yield(i)
           break
         }
@@ -23,10 +46,15 @@ test_that("Can extract graph of generator", {
       }
     }
   })
+  # can gather and write a graph (and render it, if dot is installed.)
+  nodeGraph <- walk(genprimes)
+  fname <- "temp.dot" # tempfile(fileext=".dot")
+  cat(make_dot(nodeGraph), sep="\n", file=fname)
+  oname <- paste0(fname, ".pdf")
+  status <- system(
+    paste("command -v dot >/dev/null 2>&1 || { echo >&2 'dot is not installed'; exit 0; } && { dot", "-Tpdf", fname, ">", oname, "; }")
+  )
+  expect_equal(status, 0)
 
-  nodeGraph <- walk(getEntry(genprimes))
-  #cat(make_dot(nodeGraph),sep="\n", file = "temp.dot")
-  #g <- Rgraphviz::agread("temp.dot")
-  #plot(g)
-
+  #g <- Rgraphviz::agread("temp.dot -Tsvg")
 })
