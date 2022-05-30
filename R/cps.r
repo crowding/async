@@ -86,14 +86,14 @@ make_store <- function(sym) { force(sym)
   function(cont, ..., ret, trace=trace_) {
     list(cont, ret, trace)
     leftVal <- NULL
-    gotRight <- function(val) {
+    andRight <- function(val) {
       test <- leftVal && val
       trace(paste0("&&: ", deparse(test), "\n"))
       leftVal <<- NULL
       cont(test)
     }
-    getRight <- right(gotRight, ..., ret=ret, trace=trace)
-    gotLeft <- function(val) {
+    getRight <- right(andRight, ..., ret=ret, trace=trace)
+    andLeft <- function(val) {
       if (isFALSE(val)) {
         trace("&&: FALSE (skip)\n")
         cont(FALSE)
@@ -102,7 +102,7 @@ make_store <- function(sym) { force(sym)
         getRight()
       }
     }
-    getLeft <- left(gotLeft, ..., ret=ret, trace=trace)
+    getLeft <- left(andLeft, ..., ret=ret, trace=trace)
     getLeft
   }
 }
@@ -111,13 +111,13 @@ make_store <- function(sym) { force(sym)
   function(cont, ..., ret, trace=trace_) {
     list(cont, ret, trace)
     leftVal <- NULL
-    gotRight <- function(val) {
+    orRight <- function(val) {
       test <- leftVal || val
       trace(paste0("||: ", deparse(test), "\n"))
       cont(test)
     }
-    getRight <- right(gotRight, ..., ret=ret, trace=trace)
-    gotLeft <- function(val) {
+    getRight <- right(orRight, ..., ret=ret, trace=trace)
+    orLeft <- function(val) {
       if (isTRUE(val)) {
         trace("||: TRUE (skip)\n")
         cont(TRUE)
@@ -126,7 +126,7 @@ make_store <- function(sym) { force(sym)
         getRight()
       }
     }
-    getLeft <- left(gotLeft, ..., ret=ret, trace=trace)
+    getLeft <- left(orLeft, ..., ret=ret, trace=trace)
     getLeft
   }
 }
@@ -141,7 +141,7 @@ if_cps <- function(cond, cons.expr, alt.expr) {
       ifFalse <- alt.expr(cont, ..., ret=ret, stop=stop, trace=trace)
     }
     ifTrue <- cons.expr(cont, ..., ret=ret, stop=stop, trace=trace)
-    gotCond <- function(val) {
+    if_ <- function(val) {
       if(isTRUE(val)) {
         trace("if: TRUE\n")
         ifTrue()
@@ -152,7 +152,7 @@ if_cps <- function(cond, cons.expr, alt.expr) {
       }
       else stop("if: Invalid condition")
     }
-    getCond <- cond(gotCond, ..., stop=stop, ret=ret, trace=trace)
+    getCond <- cond(if_, ..., stop=stop, ret=ret, trace=trace)
   }
 }
 
@@ -162,7 +162,7 @@ switch_cps <- function(EXPR, ...) {
   function(cont, ..., ret, stop, trace=trace_) {
     list(cont, ret, stop, trace)
     alts <- lapply(alts, function(x) x(cont, ..., ret=ret, stop=stop, trace=trace))
-    got_expr <- function(val) {
+    switch_ <- function(val) {
       if (is.numeric(val)) {
         trace(paste0("switch: ", val, "\n"))
         branch <- alts[[val]]
@@ -188,7 +188,7 @@ switch_cps <- function(EXPR, ...) {
         }
       }
     }
-    EXPR(got_expr, ..., ret=ret, stop=stop, trace=trace)
+    EXPR(switch_, ..., ret=ret, stop=stop, trace=trace)
   }
 }
 
@@ -247,7 +247,7 @@ break_cps <- function()
   function(cont, ..., ret, brk, trace=trace_) {
     if (missing_(arg(brk))) stop("call to break is not in a loop")
     list(ret, brk, trace)
-    function() {
+    break_ <- function() {
       if (verbose) trace("break\n")
       brk()
     }
@@ -259,7 +259,7 @@ break_cps <- function()
 repeat_cps <- function(expr) { force(expr) #expr getting NULL???
   function(cont, ..., ret, brk, nxt, trace=trace_) {
     list(cont, ret, maybe(brk), maybe(nxt), trace)
-    again <- function(val) {
+    repeat_ <- function(val) {
       trace("repeat: again\n")
       force(val)
       val <- NULL
@@ -273,7 +273,7 @@ repeat_cps <- function(expr) { force(expr) #expr getting NULL???
       trace("repeat: next\n")
       ret(begin)
     }
-    begin <- expr(again, ..., ret=ret, brk=brk_, nxt=nxt_, trace=trace)
+    begin <- expr(repeat_, ..., ret=ret, brk=brk_, nxt=nxt_, trace=trace)
     begin
   }
 }

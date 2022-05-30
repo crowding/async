@@ -42,7 +42,7 @@ all_names <- function(expr,
                   if(inTail && tail) c(tail=as.character(expr))),
            character(0))
   }
-  collect_call <- function(expr, inTail) {
+  collect_call <- function(expr, inTail, orig=NULL) {
     if (!inTail && !nonTail) return(character(0))
     switch(mode(expr[[1]]),
            character=,
@@ -71,11 +71,12 @@ all_names <- function(expr,
              "switch"=c(collect_arg(expr[[2]], inTail=FALSE),
                         concat(lapply(expr[-1], collect_arg, inTail=inTail))),
              "function"=character(0),
-             # special tailcalls
-             "pause" = collect_call(expr[-1], inTail=inTail),
-             "ret" = collect_call(expr[-1], inTail=inTail),
+             # special indirect tailcalls
+             "pause" = collect_call(expr[-1], inTail=inTail, orig=list(expr)),
+             "ret" = collect_call(expr[-1], inTail=inTail, orig=list(expr)),
              # general function calls
-             c(if (tailcall && inTail) list(tailcall=expr) else character(0),
+             c(if (tailcall && inTail) list(tailcall=c(list(expr), orig))
+               else character(0),
                collect_head(expr[[1]], inTail=inTail),
                concat(lapply(expr[-1], collect_arg, inTail=FALSE)))
            ),
@@ -226,7 +227,7 @@ walk <- function(gen) {
     nodeProperties[[thisName]]$name <<- thisName
     tails <- all_names(body(thisNode), "tailcall")
     for (tailcall in tails) {
-      branchName <- as.character(tailcall[[1]])
+      branchName <- as.character(tailcall[[1]][[1]])
       nextNode <- get(branchName, envir=environment(thisNode))
       nextNodeName <- doWalk(nextNode, c(path, branchName))
       #cat(sprintf("%s:%s -> %s\n", thisName, branchName, nextNodeName))
@@ -286,22 +287,28 @@ block <- function(block) function(name, ...) {
   c(paste0(block, " ", quoted(name), " { "), paste0("  ", c(...)), "}")}
 group <- function(items) paste0("{", paste0(quoted(items), collapse=" "), "}")
 attrs <- function(...) {
-  x = do.call("c", list(...))
+  x = c(...)
   if(length(x) > 0)
     paste0("[", paste0(names(x), "=", quoted(x), collapse=", "), "]")
   else character(0)}
 nodeAttrs <- function(nodeGraph, nodeName) {
   label <- nodeGraph$nodeProperties[[nodeName]]$localName %||% ""
-  c(switch(label,
-           "R_"=c(label=deparse(expr(environment(nodeGraph$nodes[[nodeName]])$x)),
-                  fontname="DejaVu Sans Mono", style="filled"),
-           ";"=c(shape="point", color="black", label=";"),
-           c(label=label)),
-    switch(nodeName,
-           START=c(shape="circle", color="darkgreen", fontcolor="white"),
-           STOP=c(shape="octagon", color="darkred", fontcolor="white"),
-           RETURN=c(shape="doublecircle", size=2),
-           c())
+  c(switch(
+      nodeName,
+      START=c(shape="doubleoctagon", color="darkgreen",
+              fontcolor="lightgreen", margin="-0.5,0"),
+      STOP=c(shape="doubleoctagon", color="darkred",
+             fontcolor="pink",  margin="-0.5,0"),
+      RETURN=c(shape="octagon", color="darkblue",
+               fontcolor="lightblue", margin="-1,0"),
+      switch(
+        label,
+        "R_"=c(label=deparse(expr(environment(nodeGraph$nodes[[nodeName]])$x)),
+               fontname="DejaVu Sans Mono Bold", style="filled",
+               fontcolor="lightgreen", color="gray20"),
+        ";"=c(shape="plaintext", fixedsize="true",
+              width=0.3, height=0.3, label=";"),
+        c(label=label, style="filled,rounded", color="gray70")))
   )
 }
 node <- function(nodeGraph, nodeName) {
@@ -315,6 +322,7 @@ subgraphs <- function(nodeGraph) {
     sort(names(nodeGraph$contexts)),
     function(sgName) {
       subgraph(sgName,
+               props(style="box"),
                nodes(nodeGraph,
                      sort(names(nodeGraph$contexts[[sgName]]))))}))}
 edgeAttrs <- function(nodeGraph, from, to) {
@@ -323,9 +331,20 @@ edgeAttrs <- function(nodeGraph, from, to) {
   # outgoing label.
   props <- nodeGraph$edgeProperties[[from, to]]
   c(if(props$label=="cont") c(taillabel="") else c(taillabel=props$label),
-    if(length(props$call) > 1) #tailcall carries value
-      c(color="blue", penwidth="2", arrowhead="normal", arrowtail="normal")
-    else c(color="gray", penwidth="1"))}
+    if(length(props$call[[1]]) > 1) #tailcall carries value
+      c(penwidth="2", arrowhead="normal")
+    else c(color="gray60", penwidth="2"),
+    if (nodeGraph$nodeProperties[[to]]$localName == ";") c(arrowhead="none"),
+    if(length(props$call) > 1) { #"special" tailcalls
+      switch(as.character(props$call[[2]][[1]]),
+             ret=c(arrowhead="odot", taillabel=" ",
+                   headlabel="⮍", labelangle=0, fontsize=15, arrowsize=2.5,
+                   labeldistance=0.9, fontcolor="blue"),
+             pause=c(headlabel="⏸", labelangle=0, fontsize=15,
+                     arrowhead="odot", arrowsize=2.5,
+                     labeldistance=0.9, fontcolor="blue"),
+             character(0))}
+  )}
 edge <- function(nodeGraph, from, to) {
   concat(lapply(to, function(edgeTo) {
     paste(quoted(from), "->", quoted(edgeTo),
@@ -337,12 +356,22 @@ edges <- function(nodeGraph) {
 }
 graph <- block("graph")
 digraph <- block("digraph")
+
+props <- function(...) {
+  x = c(...)
+  paste(names(x), "=", quoted(x))}
 defaults <- function(type, ...) {
   paste(type, attrs(c(...)))}
 make_dot <- function(nodeGraph) {
   digraph("G",
-          defaults("edge", arrowhead="normal", arrowsize=1),
-          defaults("node", style="rounded,filled", shape="box"),
+          props(fontname="DejaVu Sans Book", bgcolor="lightgray", margin=0,
+                nodesep=0.1),
+          defaults("edge", fontname="DejaVu Sans Bold", arrowhead="normal",
+                   arrowsize=1, fontsize=8),
+          defaults("node", fontname="DejaVu Sans Bold",
+                   style="filled", margin="0.1,0.1",
+                   shape="box", bgcolor="white",
+                   height="0.25", width="0.25"),
           subgraphs(nodeGraph),
           edges(nodeGraph)
   )

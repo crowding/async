@@ -67,14 +67,14 @@ yield_cps <- function(expr) { force(expr)
   function(cont, ..., ret, pause, yield, trace) {
     if (missing_(arg(yield))) base::stop("yield used but this is not a generator")
     list(cont, ret, pause, yield, trace)
-    got_val <- function(val) {
+    `yield_` <- function(val) {
       force(val)
       if(verbose) trace("yield\n")
       yield(val) # these are different calls because make_async
                  # wraps around make_pump and we affect state in both...
       pause(cont, val)
     }
-    expr(got_val, ..., ret=ret, pause=pause, yield=yield, trace=trace)
+    expr(yield_, ..., ret=ret, pause=pause, yield=yield, trace=trace)
   }
 }
 
