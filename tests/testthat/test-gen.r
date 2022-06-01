@@ -140,7 +140,7 @@ test_that("tailcalls", {
            eliminate.tailcalls=FALSE)
   s2 <- nextElem(x)
 
-  # this test doesn't work, sys.nframe() is getting me "0"?
+  # FIXME: this test doesn't work, sys.nframe() is getting me "0"?
   # maybe related to R's "do..."
   expect_true(s2 >= s1)
 })

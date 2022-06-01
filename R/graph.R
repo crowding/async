@@ -1,16 +1,14 @@
 
 #' @export
 getEntry <- function(x) UseMethod("getEntry")
+#' @export
 getReturn <- function(x) UseMethod("getReturn")
+#' @export
 getStop <- function(x) UseMethod("getStop")
-
-## environment(genprimes$nextElem)
-## ls(environment(genprimes$nextElem)) # make_generator closure
-## environment(environment(genprimes$nextElem)$pump) # make_pump closure
-## ls(environment(environment(genprimes$nextElem)$pump)) # here's all the pump state
-## entry <- environment(environment(genprimes$nextElem)$pump)$cont # the entry point, it's an R()
-
-#environment(environment(genprimes$nextElem)$pump)
+#' @export
+getCurrent <- function(x) UseMethod("getStop")
+#' @export
+getOrig <- function(x) UseMethod("getOrig")
 
 #' @exportS3Method
 getEntry.generator <- function(x) environment(environment(x$nextElem)$pump)$entry
@@ -18,12 +16,27 @@ getEntry.generator <- function(x) environment(environment(x$nextElem)$pump)$entr
 getReturn.generator <- function(x) environment(x$nextElem)$return_
 #' @exportS3Method
 getStop.generator <- function(x) environment(x$nextElem)$stop_
+#' @exportS3Method
+getCurrent.generator <- function(x) environment(environment(x$nextElem)$pump)$cont
+#' @exportS3Method
+getOrig.generator <- function(x) expr(environment(x$nextElem)$orig)
+
+#' @exportS3Method
+getEntry.async <- function(x) environment(x$state$pump)$entry
+#' @exportS3Method
+getReturn.async <- function(x) x$state$resolve
+#' @exportS3Method
+getStop.async <- function(x) x$state$reject
+#' @exportS3Method
+getCurrent.async <- function(x) environment(x$state$pump)$cont
+#' @exportS3Method
+getOrig.async <- function(x) x$orig
 
 concat <- function(l) do.call("c", l)
 
 # Scan an expression and return all names used, labeled by their
-# "roles": var, call, local, state, tailcall
-all_names <- function(expr,
+# "roles": var, call, local, state, tailcall.
+all_names <- function(fn,
                       types=c("call", "var", "local", "state", "tail"),
                       call="call" %in% types,
                       var="var" %in% types,
@@ -31,6 +44,9 @@ all_names <- function(expr,
                       state="state" %in% types,
                       tail="tail" %in% types,
                       tailcall="tailcall" %in% types) {
+  if (!is.function(fn)) stop("not a function")
+  env <- environment(fn)
+  args <- names(formals(fn))
   # less recursion if we only look for tailcalls
   nonTail <- any(call, var, local, state)
   collect_head <- function(expr, inTail) {
@@ -44,46 +60,66 @@ all_names <- function(expr,
   }
   collect_call <- function(expr, inTail, orig=NULL) {
     if (!inTail && !nonTail) return(character(0))
-    switch(mode(expr[[1]]),
+    head <- expr[[1]]
+    switch(mode(head),
            character=,
-           name=switch(
-             as.character(expr[[1]]),
-             # special control flows
-             "=" =, "<-" = c(if (local) c(local=collect_store(expr[[2]])),
-                             collect_arg(expr[[3]], inTail=FALSE)),
-             "<<-" = c(if (state) c(state=collect_store(expr[[2]])),
-                       collect_arg(expr[[3]], inTail=FALSE)),
-             "if" = c(collect_arg(expr[[2]], inTail=FALSE),
-                      collect_arg(expr[[3]], inTail=inTail),
-                      if (length(expr) >= 4) collect_arg(expr[[4]], inTail=inTail)),
-             "return" = collect_arg(expr[[2]], inTail=TRUE),
-             "while" = c(collect_arg(expr[[2]], inTail=FALSE),
-                         collect_arg(expr[[3]], inTail=inTail)),
-             "for" = c(collect_arg(expr[[2]], inTail=FALSE),
-                       collect_arg(expr[[3]], inTail=FALSE),
-                       collect_arg(expr[[4]], inTail=inTail)),
-             "("= collect_arg(expr[[1]], inTail=inTail),
-             "{"= c(concat(lapply(expr[c(-1,-length(expr))],
-                                  collect_arg, inTail=FALSE)),
-                    collect_arg(expr[[length(expr)]], inTail=inTail)),
-             "||"=,"&&"=c(collect_arg(expr[[2]], inTail=FALSE),
-                          collect_arg(expr[[3]], inTail=inTail)),
-             "switch"=c(collect_arg(expr[[2]], inTail=FALSE),
-                        concat(lapply(expr[-1], collect_arg, inTail=inTail))),
-             "function"=character(0),
-             # special indirect tailcalls
-             "pause" = collect_call(expr[-1], inTail=inTail, orig=list(expr)),
-             "ret" = collect_call(expr[-1], inTail=inTail, orig=list(expr)),
-             # general function calls
-             c(if (tailcall && inTail) list(tailcall=c(list(expr), orig))
-               else character(0),
-               collect_head(expr[[1]], inTail=inTail),
-               concat(lapply(expr[-1], collect_arg, inTail=FALSE)))
-           ),
-           # a call with a call in its head?
-           c(collect_head(expr[[1]], FALSE),
-             concat(lapply(expr[-1], collect_arg, inTail=inTail)))
-           )
+           name={
+             e <- locate_(head, env, mode="function", ifnotfound=NULL)
+             if (!is.null(e)
+                 && is_forced_(as.character(head), e)
+                 && is.primitive(peek <- get(head, envir=e))) {
+               switch(
+                 as.character(head),
+                 # special control flows
+                 "=" =, "<-" = c(if (local) c(local=collect_store(expr[[2]])),
+                                 collect_arg(expr[[3]], inTail=FALSE)),
+                 "<<-" = c(if (state) c(state=collect_store(expr[[2]])),
+                           collect_arg(expr[[3]], inTail=FALSE)),
+                 "if" = c(collect_arg(expr[[2]], inTail=FALSE),
+                          collect_arg(expr[[3]], inTail=inTail),
+                          if (length(expr) >= 4)
+                            collect_arg(expr[[4]], inTail=inTail)),
+                 # ruling: argument return() is not considered in the
+                 # tail because it wouldn't inline into a state
+                 # machine switch statement that way.
+                 "return" = collect_arg(expr[[2]], inTail=FALSE),
+                 "while" = c(collect_arg(expr[[2]], inTail=FALSE),
+                             collect_arg(expr[[3]], inTail=inTail)),
+                 "for" = c(collect_arg(expr[[2]], inTail=FALSE),
+                           collect_arg(expr[[3]], inTail=FALSE),
+                           collect_arg(expr[[4]], inTail=inTail)),
+                 "("= collect_arg(expr[[1]], inTail=inTail),
+                 "{"= c(if(nonTail) concat(lapply(expr[c(-1,-length(expr))],
+                                                  collect_arg, inTail=FALSE)),
+                        collect_arg(expr[[length(expr)]], inTail=inTail)),
+                 "||"=,"&&"=c(collect_arg(expr[[2]], inTail=FALSE),
+                              collect_arg(expr[[3]], inTail=inTail)),
+                 "switch"=c(collect_arg(expr[[2]], inTail=FALSE),
+                            if(inTail || nonTail) concat(
+                              lapply(expr[-1], collect_arg, inTail=inTail))),
+                 "function"=character(0),
+                 #some other primitive?
+                 )
+               } else { # not primitive, not forced, or not found?
+                 switch(
+                   as.character(head),
+                   # special indirect tailcalls
+                   "pause" = collect_call(expr[-1], inTail=inTail, orig=list(expr)),
+                   "ret" = collect_call(expr[-1], inTail=inTail, orig=list(expr)),
+                   "unwind" = collect_call(expr[-1], inTail=inTail, orig=list(expr)),
+                   # FIXME: how to get the link to STOP??
+                   "windup" = collect_call(expr[c(-1,-2)], inTail=inTail, orig=list(expr)),
+                   # general function calls
+                   c(if (tailcall && inTail) list(tailcall=c(list(expr), orig))
+                     else character(0),
+                     collect_head(expr[[1]], inTail=inTail),
+                     if(nonTail) concat(lapply(expr[-1], collect_arg, inTail=FALSE)))
+                 )
+               }
+             },
+           # something other than a name in a call head?
+           if(nonTail) c(collect_head(expr[[1]], FALSE),
+             concat(lapply(expr[-1], collect_arg, inTail=FALSE))))
   }
   collect_arg <- function(expr, inTail) {
     if (!inTail && !nonTail) return(character(0))
@@ -98,7 +134,7 @@ all_names <- function(expr,
            character=dest,
            name=as.character(dest),
            character(0))}
-  collect_arg(expr, inTail=TRUE)
+  collect_arg(body(fn), inTail=TRUE)
 }
 
 unname <- function(x) `names<-`(x, NULL)
@@ -143,6 +179,7 @@ hashbag <- function() {
 }
 nullish <- function(x) length(x)==0
 `%||%` <- function(x, y) if (nullish(x)) y else x
+`%&&%` <- function(x, y) if (nullish(x)) x else y
 
 #' @export
 `[[.hashbag` <- function(x, ..., ifnotfound=structure(list(), class="hashbag")) {
@@ -189,11 +226,6 @@ all_indices.hashbag <- function(x) {
   concat(indices)
 }
 
-# objDict <-
-
-# `[[`.objDict
-# `[[`.objDict <- function(x, 
-
 ##  Walk
 # collect all nodes and edges and give them names,
 # nodes being named according to the sequence of branches.
@@ -201,18 +233,14 @@ all_indices.hashbag <- function(x) {
 #' @export
 walk <- function(thing) UseMethod("walk")
 
-#' @exportS3Method
 walk <- function(gen) {
-  start <- getEntry(gen)
-  stop_ <- getStop(gen)
-  stopName <- NULL
-  return_ <- getReturn(gen)
-  returnName <- NULL
-  iter <- icount()
   nodes <- new.env(parent=emptyenv())
-  nodes$START <- start; nodes$STOP <- stop_; nodes$RETURN <- return_
+  nodes$START <- getEntry(gen)
+  nodes$STOP <- getStop(gen)
+  nodes$RETURN <- getReturn(gen)
+  orig <- getOrig(gen)
+  iter <- icount()
   nodeProperties <- new.env(parent=emptyenv())
-  edges <- hashbag()
   reverseEdges <- hashbag()
   edgeProperties <- hashbag()
   nodeProperties <- hashbag()
@@ -225,7 +253,7 @@ walk <- function(gen) {
     if (exists(thisName, envir=nodeProperties)) #already visited
       return(thisName)
     nodeProperties[[thisName]]$name <<- thisName
-    tails <- all_names(body(thisNode), "tailcall")
+    tails <- all_names(thisNode, "tailcall")
     for (tailcall in tails) {
       branchName <- as.character(tailcall[[1]][[1]])
       nextNode <- get(branchName, envir=environment(thisNode))
@@ -237,9 +265,13 @@ walk <- function(gen) {
     }
     thisName
   }
-  startName <- doWalk(start, "start")
+  doWalk(nodes$START, ".")
+  for (i in names(nodes)) {
+    doWalk(nodes[[i]], i)
+  }
   # Contexts: what environment is each node in?
-  contexts <- hashbag()
+  contexts <- new.env(parent=emptyenv())
+  nodeContexts <- new.env(parent=emptyenv())
   contextNodes <- hashbag()
   for (thisNodeName in names(nodes)) {
     thisNode <- nodes[[thisNodeName]]
@@ -248,8 +280,10 @@ walk <- function(gen) {
       contextName <- paste0("ctx.", thisNodeName)
       assert(!exists(contextName, envir=contexts))
       #cat("context: ", contextName, "\n")
-      contexts[[contextName]][[thisNodeName]] <- thisNodeName
+      contexts[[contextName]] <- context
     }
+    contextNodes[[contextName]][[thisNodeName]] <- thisNodeName
+    nodeContexts[[thisNodeName]] <- contextName
     #does the node have a name in this context?
     nodeProperties[[thisNodeName]]$localName <- character(0)
 
@@ -267,22 +301,20 @@ walk <- function(gen) {
     }
   }
   # what storage used in those contexts?
-  contextProperties <- hashbag()
   list(nodes=nodes,
-       edges=edges,
        reverseEdges=reverseEdges,
        contexts=contexts,
+       contextNodes=contextNodes,
+       nodeContexts=nodeContexts,
        nodeProperties=nodeProperties,
        edgeProperties=edgeProperties,
-       start=startName,
-       return=returnName,
-       stop=stopName)
+       orig=orig)
 }
 
 
 ## make_dot
 # Code for outputting a DOT file given data collected above
-quoted <- function(name) paste0('"', name, '"')
+quoted <- function(name) paste0('"', gsub("([\\\\\\\"])", "\\\\\\1", name, ""), '"')
 block <- function(block) function(name, ...) {
   c(paste0(block, " ", quoted(name), " { "), paste0("  ", c(...)), "}")}
 group <- function(items) paste0("{", paste0(quoted(items), collapse=" "), "}")
@@ -294,56 +326,64 @@ attrs <- function(...) {
 nodeAttrs <- function(nodeGraph, nodeName) {
   label <- nodeGraph$nodeProperties[[nodeName]]$localName %||% ""
   c(switch(
+      label,
+      "R_"=c(label=paste0(deparse(expr(environment(nodeGraph$nodes[[nodeName]])$x)),
+                         collapse="\n"),
+             fontname="DejaVu Sans Mono Bold", style="filled",
+             fontcolor="lightgreen", color="gray20", labeljust="l"),
+      ";"=c(shape="circle", fixedsize="true",
+            width=0.25, height=0.25, label=";"),
+      c(label=label, style="filled,rounded", color="gray70")),
+    switch(
       nodeName,
-      START=c(shape="doubleoctagon", color="darkgreen",
-              fontcolor="lightgreen", margin="-0.5,0"),
-      STOP=c(shape="doubleoctagon", color="darkred",
-             fontcolor="pink",  margin="-0.5,0"),
-      RETURN=c(shape="octagon", color="darkblue",
-               fontcolor="lightblue", margin="-1,0"),
-      switch(
-        label,
-        "R_"=c(label=deparse(expr(environment(nodeGraph$nodes[[nodeName]])$x)),
-               fontname="DejaVu Sans Mono Bold", style="filled",
-               fontcolor="lightgreen", color="gray20"),
-        ";"=c(shape="plaintext", fixedsize="true",
-              width=0.3, height=0.3, label=";"),
-        c(label=label, style="filled,rounded", color="gray70")))
-  )
-}
+      START=c(shape="doubleoctagon", color="darkgreen", style="filled",
+              fontcolor="lightgreen", margin="0,0", fixedsize="false"),
+      STOP=c(shape="doubleoctagon", color="darkred", style="filled",
+             fontcolor="pink",  margin="0,0", fixedsize="false"),
+      RETURN=c(shape="doubleoctagon", color="darkblue", style="filled",
+               fontcolor="lightblue", margin="0,0", fixedsize="false")))}
 node <- function(nodeGraph, nodeName) {
   paste(quoted(nodeName),
         attrs(nodeAttrs(nodeGraph, nodeName)))}
 nodes <- function(nodeGraph, nodes) {
-  concat(lapply(nodes, function(n) node(nodeGraph,nodes)))}
+  concat(lapply(nodes, function(n) node(nodeGraph,n)))}
 subgraph <- block("subgraph")
 subgraphs <- function(nodeGraph) {
   concat(lapply(
     sort(names(nodeGraph$contexts)),
     function(sgName) {
-      subgraph(sgName,
-               props(style="box"),
-               nodes(nodeGraph,
-                     sort(names(nodeGraph$contexts[[sgName]]))))}))}
+      nodeNames <- names(nodeGraph$contextNodes[[sgName]])
+      # draw a box IF there are multiple nodes (or storage...)
+      if (length(nodeNames) > 1) {
+        subgraph(paste0("cluster_", sgName),
+                 props(label="", shape="box", style="dashed,rounded",
+                       margin=12, penwidth=4, color="gray70"
+                     #, rank="same"
+                       ),
+                 nodes(nodeGraph,
+                       sort(names(nodeGraph$contextNodes[[sgName]]))))
+      } else node(nodeGraph, nodeNames[[1]])})) }
 edgeAttrs <- function(nodeGraph, from, to) {
   # edge properties.
   # bolder if carrying a value
   # outgoing label.
   props <- nodeGraph$edgeProperties[[from, to]]
-  c(if(props$label=="cont") c(taillabel="") else c(taillabel=props$label),
+  c(if (props$label=="cont" || length(nodeGraph$edgeProperties[[from]]) <= 1)
+    c(taillabel="") else c(taillabel=props$label),
     if(length(props$call[[1]]) > 1) #tailcall carries value
       c(penwidth="2", arrowhead="normal")
-    else c(color="gray60", penwidth="2"),
-    if (nodeGraph$nodeProperties[[to]]$localName == ";") c(arrowhead="none"),
-    if(length(props$call) > 1) { #"special" tailcalls
-      switch(as.character(props$call[[2]][[1]]),
-             ret=c(arrowhead="odot", taillabel=" ",
-                   headlabel="⮍", labelangle=0, fontsize=15, arrowsize=2.5,
-                   labeldistance=0.9, fontcolor="blue"),
-             pause=c(headlabel="⏸", labelangle=0, fontsize=15,
-                     arrowhead="odot", arrowsize=2.5,
-                     labeldistance=0.9, fontcolor="blue"),
-             character(0))}
+    else c(color="gray70", penwidth="2"),
+    ## if (identical(nodeGraph$nodeProperties[[to]]$localName, ";"))
+    ##   c(arrowhead="none"),
+    if (length(props$call) > 1) { #"special" tailcalls
+      c(arrowhead="odot", taillabel=" ", labelangle=0, fontsize=15, arrowsize=2.25,
+        labeldistance=.9, fontcolor="blue",
+        switch(as.character(props$call[[2]][[1]]),
+               ret=c(headlabel="⮍"),
+               pause=c(headlabel="⏸",labeldistance=0.8),
+               windup=c(headlabel="⤽", fontsize=20),
+               unwind=c(headlabel="⤼", fontsize=20)))
+    }
   )}
 edge <- function(nodeGraph, from, to) {
   concat(lapply(to, function(edgeTo) {
@@ -363,16 +403,71 @@ props <- function(...) {
 defaults <- function(type, ...) {
   paste(type, attrs(c(...)))}
 make_dot <- function(nodeGraph) {
-  digraph("G",
-          props(fontname="DejaVu Sans Book", bgcolor="lightgray", margin=0,
-                nodesep=0.1),
-          defaults("edge", fontname="DejaVu Sans Bold", arrowhead="normal",
-                   arrowsize=1, fontsize=8),
-          defaults("node", fontname="DejaVu Sans Bold",
-                   style="filled", margin="0.1,0.1",
-                   shape="box", bgcolor="white",
-                   height="0.25", width="0.25"),
-          subgraphs(nodeGraph),
-          edges(nodeGraph)
+  digraph(
+    "G",
+    props(bgcolor="lightgray", margin=0, pad=0.25,
+          nodesep=0.3, ranksep=0.4, newrank="true", # packmode="graph",
+          labeljust="l", fontname="DejaVu Sans Mono Book"),
+    defaults("edge", fontname="DejaVu Sans Bold", arrowhead="normal",
+             arrowsize=0.6, fontsize=8),
+    defaults("node", fontname="DejaVu Sans Bold",
+             margin="0.1,0.1", shape="box", bgcolor="white",
+             height=0.2, width=0.2, color="gray60", penwidth=2),
+    NULL %&&% subgraph("cluster_label",
+                       paste("label",
+                             attrs(shape="box", labeljust="l",
+                                   fontname="DejaVu Sans Mono Book",
+                                   labeljust="l", penwidth=0,
+                                   label=paste0(deparse(nodeGraph$orig),
+                                                collapse="\n")))),
+    subgraphs(nodeGraph),
+    edges(nodeGraph)
   )
+}
+
+
+#' Draw a graph representation of a generator.
+#'
+#' @param x a generator or async object.
+#' @param filename The file to write to.
+#'
+#' makeGraph will write a Graphviz DOT format file describing the
+#' given generator or async/await block. If you have Graphviz
+#' installed you can then use the `dot` command to render the graph.
+#'
+#' @examples
+#' randomWalk <- gen({x <- 0; repeat {yield(x); x <- x + rnorm(1)}})
+#' \dontrun{
+#' #write a dotfile
+#' makeGraph(randomWalk, "rwalk.dot")
+#'
+#' #compile graph to ODF:
+#' system("dot -Tpdf rwalk.dot > rwalk.pdf")
+#'
+#' #or, display it in R with the Rgraphviz package:
+#' g <- Rgraphviz::agread("rwalk.dot")
+#' Rgraphviz::plot(g)
+#' }
+#' @param x A [generator][gen] or [async] object.
+#' @param file Default will write to stdout. See [cat].
+#' @param sep Line separator; defaults to `"\n"`. See [cat].
+#' @param ... Other arguments to be passed to [cat].
+#' @return a list containing information about the async/iterator.
+#' @export
+makeGraph <- function(x, file="", sep="\n", ...) {
+  UseMethod("makeGraph")
+}
+
+#' @exportS3Method
+makeGraph.generator <- function(x, file="", sep="\n", ...) {
+  graph <- walk(x)
+  cat(make_dot(graph), file=file, sep=sep, ...)
+  graph
+}
+
+#' @exportS3Method
+makeGraph.async <- function(x, file="", sep="\n", ...) {
+  graph <- walk(x)
+  cat(make_dot(graph), file=file, sep=sep, ...)
+  graph
 }

@@ -91,8 +91,8 @@ async <- function(expr, ..., split_pipes=TRUE, trace=trace_) {
 #'
 #' @param prom A promise, or something that can be converted to such
 #'   by [promises::as.promise()].
-#' @return In the context of an `async`, `await(x)` returns the resolved value of
-#'   a promise `x`, or stops with an error.
+#' @return In the context of an `async`, `await(x)` returns the
+#'   resolved value of a promise `x`, or stops with an error.
 await <- function(prom) {
   stop("Await called outside of async")
 }
@@ -104,20 +104,20 @@ await_cps <- function(prom) { force(prom)
     prom <- NULL
     success <- NULL
     value <- NULL
-    resolve <- function() {
+    then <- function() {
       trace("await: resolve\n")
       if(success) cont(value) else stop(value)
     }
-    got_prom <- function(val) {
-      tryCatch(prom <<- as.promise(val), on.error=stop)
+    await_ <- function(val) {
+      tryCatch(prom <<- as.promise(val), error=stop)
       if(verbose) trace("await: got promise\n")
       success <<- NULL
       await(prom,
             function(val) {success <<- TRUE; prom <<- NULL; value <<- val},
             function(err) {success <<- FALSE; prom <<- NULL; value <<- err})
-      pause(resolve)
+      pause(then)
     }
-    prom(got_prom, ..., pause=pause, await=await, stop=stop, trace=trace)
+    prom(await_, ..., pause=pause, await=await, stop=stop, trace=trace)
   }
 }
 
@@ -131,14 +131,14 @@ make_async <- function(expr, orig=arg(expr), ..., trace=trace_) {
   value <- nonce
   err <- nonce
 
-  return_ <- function(val) {
+  resolve <- function(val) {
     trace("async: return (resolving)\n")
     state <<- "resolved"
     value <<- val
     resolve_(val)
   }
 
-  stop_ <- function(val) {
+  reject <- function(val) {
     trace("async: stop (rejecting)\n")
     err <<- val
     state <<- "rejected"
@@ -170,7 +170,7 @@ make_async <- function(expr, orig=arg(expr), ..., trace=trace_) {
     reject_ <<- reject
   }), "async")
 
-  pump <- make_pump(expr, ..., return=return_, stop=stop_, await=await_, trace=trace)
+  pump <- make_pump(expr, ..., return=resolve, stop=reject, await=await_, trace=trace)
   pump()
   pr$orig <- orig
   pr$state <- environment()

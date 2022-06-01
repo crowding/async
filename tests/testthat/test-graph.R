@@ -26,7 +26,7 @@ if(FALSE) {"can you always break from down the stack?"
 
 
 test_that("Can extract graph of generator", {
-  
+
   genprimes <- gen({
     yield(2)
     yield(3)
@@ -47,14 +47,15 @@ test_that("Can extract graph of generator", {
     }
   })
   # can gather and write a graph (and render it, if dot is installed.)
-  nodeGraph <- walk(genprimes)
   fname <- "temp.dot" # tempfile(fileext=".dot")
-  cat(make_dot(nodeGraph), sep="\n", file=fname)
+  makeGraph(genprimes, fname)
   oname <- paste0(fname, ".pdf")
   status <- system(
     paste("command -v dot >/dev/null 2>&1 || { echo >&2 'dot is not installed'; exit 0; } && { dot", "-Tpdf", fname, ">", oname, "; }")
   )
   expect_equal(status, 0)
 
-  #g <- Rgraphviz::agread("temp.dot -Tsvg")
+  # and an async with a try-finally
+  
 })
+

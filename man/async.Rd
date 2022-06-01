@@ -36,8 +36,8 @@ by \code{\link[promises:is.promise]{promises::as.promise()}}.}
 described by the \link{promises} package (i.e. not the promises used
 in R's lazy evaluation.)
 
-In the context of an \code{async}, \code{await(x)} returns the resolved value of
-a promise \code{x}, or stops with an error.
+In the context of an \code{async}, \code{await(x)} returns the
+resolved value of a promise \code{x}, or stops with an error.
 }
 \description{
 \code{async({...})}, with an expression written in its argument, allows

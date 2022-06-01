@@ -65,7 +65,6 @@ iteror.default <- function(obj, ...) {
   }, ...)
 }
 
-
 nextElemOr <- function(obj, or, ...) {
   UseMethod("nextElemOr")
 }
@@ -86,8 +85,6 @@ nextElem.iteror <- function(obj, ...) {
 # @return a closure; calling the closure returns the name.
 sigil <- function(name=NULL) function()name
 
-`%then%` <- function(a, b) { force(a); force(b); a }
-
 
 ihasNextOr <- function(obj, ...) {
   UseMethod("ihasNextOr")
@@ -98,6 +95,8 @@ ihasNextOr.ihasNextOr <- identity
 
 #' @exportS3Method
 ihasNextOr.default <- function(obj) ihasNextOr(iteror(obj))
+
+`%then%` <- function(a, b) { force(a); force(b); a }
 
 #' @exportS3Method
 ihasNextOr.iteror <- function(obj, ...) {
@@ -130,7 +129,7 @@ nextElem.ihasNextOr <- function(obj, ...) {
 }
 
 #' @exportS3Method
-nextElemOr.ihasNextOr <- function(obj, or=stop("StopIteration"), ...) {
+nextElemOr.ihasNextOr <- function(obj, or=stop("StopIteration", call.=FALSE), ...) {
   obj(or, query="next", ...)
 }
 
@@ -148,7 +147,7 @@ nextElemOr.iter <- function(iter, or=stop("StopIteration")) {
   else tryCatch(
     nextElem(iter),
     error=function(e)
-      if (!identical(conditionMessage(e), 'StopIteration')) stop(e))
+      if (!identical(conditionMessage(e), 'StopIteration')) stop(e) else or)
 }
 
 #' @exportS3Method as.list iteror
@@ -163,7 +162,7 @@ as.list.iteror <- function(x, n=as.integer(2^31-1), ...) {
       size <- min(2 * size, n)
       length(a) <- size
     }
-    a[i] <- item
+    a[[i]] <- item
   }
   length(a) <- i
   a
@@ -194,7 +193,7 @@ ilimitor <- function(iterable, n) {
   })
 }
 
-chainor <- function(...) {
+ichain <- function(...) {
   iterors <- iteror(lapply(list(...), iteror))
   done <- sigil("done")
   thisIterator <- nextElemOr(iterors, done)
@@ -235,3 +234,51 @@ bench_iterators <- function() {
     as.list(ilimit(icount(), 500)),
     as.list(ilimitor(icountor(), 500)))
 }
+
+filter.iteror <- function(it, predicate) {
+  iteror(function(or) {
+    repeat
+      if (predicate(x <- nextElem(it, return(or))))
+        return(x)
+  })
+}
+
+imap <- function(it, fn) {
+  iteror(function(or) {
+    repeat {
+      x <- nextElemOr(it, return(or))
+      return(fn(x, next))
+    }
+  })
+}
+
+chain <- function(...) {
+  iters <- iteror(list(...))
+  it <- nextElemOr(iters, return(nullIteror()))
+  iteror(function(or) {
+    repeat {
+      return(nextElemOr(it, {
+        it <<- nextElemOr(iters, return(or));
+        next
+      }))
+    }
+  })
+}
+
+izip <- function(...) {
+  iterors <- lapply(list(...), iteror)
+
+  if (length(iterors) == 0) return(emptyIteror())
+
+  iteror(function(or) {
+    lapply(iterors, nextElemOr, return(or))
+  })
+}
+
+emptyIteror <- function() iteror(function(or) or)
+
+accumulate <- function(it, func=`+`) {
+  sum <- 0
+  iteror(function(or) sum <<- func(sum, nextElemOr(it, return(or))))
+}
+

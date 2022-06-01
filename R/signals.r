@@ -97,12 +97,12 @@ catch_cps_ <- function(expr, error) {
         stop_(e)
       })
     }
-    windup_ <- function() {
+    try_ <- function() {
       result <<- NULL
       trace("catch: begin\n")
       windup(do_windup, do_expr)
     }
-    windup_
+    try_
   }
 }
 
@@ -113,15 +113,28 @@ finally_cps_ <- function(expr, finally) {
     # Deep breath. Remember, the handlers flow from bottom to top!
     result <- NULL
     after <- NULL
-    after_finally <- function(val) {
-      force(val)
-      trace(paste0("finally: continue with ", after, "\n"))
-      switch(after,
-             success=cont(result),
-             stop=stop(result),
-             return=return(result),
-             `next`=nxt(),
-             `break`=brk())
+    if (missing(nxt)) {
+      continue <- function(val) {
+        force(val)
+        trace(paste0("finally: continue with ", after, "\n"))
+        switch(after,
+               success=cont(result),
+               stop=stop(result),
+               return=return(result),
+               stop("Unexpected final action"))
+      }
+    } else {
+      continue <- function(val) {
+        force(val)
+        trace(paste0("finally: continue with ", after, "\n"))
+        switch(after,
+               success=cont(result),
+               stop=stop(result),
+               return=return(result),
+               `next`=nxt(),
+               `break`=brk(),
+               stop("Unexpected final action"))
+      }
     }
     # if there is an uncaught error, then a return, break or next
     # from the finally block, throw the saved error instead.
@@ -137,9 +150,10 @@ finally_cps_ <- function(expr, finally) {
       trace("finally: next in finally block\n")
       if (after=="failure") stop(result) else nxt()
     }
-    do_finally <- finally(after_finally, ...,
+    do_finally <- finally(continue, ...,
                           ret=ret, stop=stop, brk=finally_brk, nxt=finally_nxt,
-                          windup=windup, unwind=unwind, return=finally_return, trace=trace)
+                          windup=windup, unwind=unwind, return=finally_return,
+                          trace=trace)
     finally_then <- function(val) {
       result <<- val
       after <<- "success"
@@ -180,13 +194,13 @@ finally_cps_ <- function(expr, finally) {
         stop_(err)
       })
     }
-    windup_ <- function() {
+    try_ <- function() {
       after <<- NULL
       result <<- NULL
       trace("finally: begin\n")
       windup(do_windup, do_expr)
     }
-    windup_
+    try_
   }
 }
 

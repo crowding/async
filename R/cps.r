@@ -61,20 +61,20 @@ make_store <- function(sym) { force(sym)
     function(cont, ..., ret, trace=trace_) {
       list(cont, ret, trace)
       dest <- NULL
-      gotVal <- function(val) {
+      store <- function(val) {
         if (is.language(val)) {
           val <- as.call(list(quote, val))
         }
         v <- do.call(sym, list(expr(dest), val), envir=env(dest))
         ret(cont, v)
       }
-      getVal <- value(gotVal, ..., ret=ret, trace=trace)
-      gotX <- function(val) {
+      getVal <- value(store, ..., ret=ret, trace=trace)
+      var <- function(val) {
         dest <<- arg(val)
         getVal()
       }
-      getX <- x(gotX, ..., ret=ret, trace=trace)
-      getX
+      getVar <- x(var, ..., ret=ret, trace=trace)
+      getVar
     }
   }
 }
@@ -92,14 +92,14 @@ make_store <- function(sym) { force(sym)
       leftVal <<- NULL
       cont(test)
     }
-    getRight <- right(andRight, ..., ret=ret, trace=trace)
+    ifTrue <- right(andRight, ..., ret=ret, trace=trace)
     andLeft <- function(val) {
       if (isFALSE(val)) {
         trace("&&: FALSE (skip)\n")
         cont(FALSE)
       } else {
         leftVal <<- val
-        getRight()
+        ifTrue()
       }
     }
     getLeft <- left(andLeft, ..., ret=ret, trace=trace)
@@ -116,14 +116,14 @@ make_store <- function(sym) { force(sym)
       trace(paste0("||: ", deparse(test), "\n"))
       cont(test)
     }
-    getRight <- right(orRight, ..., ret=ret, trace=trace)
+    ifFalse <- right(orRight, ..., ret=ret, trace=trace)
     orLeft <- function(val) {
       if (isTRUE(val)) {
         trace("||: TRUE (skip)\n")
         cont(TRUE)
       } else {
         leftVal <<- val
-        getRight()
+        ifFalse()
       }
     }
     getLeft <- left(orLeft, ..., ret=ret, trace=trace)
@@ -135,22 +135,26 @@ if_cps <- function(cond, cons.expr, alt.expr) {
   list(cond, cons.expr, maybe(alt.expr))
   function(cont, ..., ret, stop, trace=trace_) {
     list(cont, ret, stop, trace)
+    ifTrue <- cons.expr(cont, ..., ret=ret, stop=stop, trace=trace)
     if (missing_(arg(alt.expr))) {
-      ifFalse <- function() cont(invisible(NULL))
+      if_ <- function(val) {
+        if (isTRUE(val)) {
+          trace("if: TRUE\n")
+          ifTrue()
+        } else if (isFALSE(val)) {
+          cont(invisible(NULL))
+        } else stop("if: Invalid condition")
+      }
     } else {
       ifFalse <- alt.expr(cont, ..., ret=ret, stop=stop, trace=trace)
-    }
-    ifTrue <- cons.expr(cont, ..., ret=ret, stop=stop, trace=trace)
-    if_ <- function(val) {
-      if(isTRUE(val)) {
-        trace("if: TRUE\n")
-        ifTrue()
+      if_ <- function(val) {
+        if (isTRUE(val)) {
+          trace("if: TRUE\n")
+          ifTrue()
+        } else if (isFALSE(val)) {
+          ifFalse()
+        } else stop("if: Invalid condition")
       }
-      else if(isFALSE(val)) {
-        trace("if: FALSE\n")
-        ifFalse()
-      }
-      else stop("if: Invalid condition")
     }
     getCond <- cond(if_, ..., stop=stop, ret=ret, trace=trace)
   }
@@ -247,11 +251,14 @@ break_cps <- function()
   function(cont, ..., ret, brk, trace=trace_) {
     if (missing_(arg(brk))) stop("call to break is not in a loop")
     list(ret, brk, trace)
-    break_ <- function() {
-      if (verbose) trace("break\n")
-      brk()
-    }
+    if(verbose) {
+      break_ <- function() {
+        if (verbose) trace("break\n")
+        brk()
+      }
+    } else brk
   }
+
 
 # If you want to establish a new target for "break" or "next" you
 # pass that down to constructor arguments:
@@ -296,7 +303,7 @@ while_cps <- function(cond, expr) {
       ret(begin)
     }
     doExpr <- expr(again, ..., ret=ret, nxt=nxt_, brk=brk_, trace=trace)
-    gotCond <- function(val) {
+    while_ <- function(val) {
       if (val) {
         trace("while: do\n")
         val <- NULL
@@ -307,7 +314,7 @@ while_cps <- function(cond, expr) {
         ret(cont, invisible(NULL))
       }
     }
-    begin <- cond(gotCond, ..., ret=ret, nxt=nxt_, brk=brk_, trace=trace)
+    begin <- cond(while_, ..., ret=ret, nxt=nxt_, brk=brk_, trace=trace)
   }
 }
 
@@ -325,9 +332,9 @@ for_cps <- function(var, seq, expr) {
       ret(cont, invisible(NULL))
     }
     nxt_ <- function() {
-      ret(iterate)
+      ret(iter)
     }
-    iterate <- function() {
+    iter <- function() {
       stopping <- FALSE
       reason <- NULL
       if(verbose) trace(paste0("for ", var_, ": do\n"))
@@ -348,22 +355,22 @@ for_cps <- function(var, seq, expr) {
       } else {
         trace(paste0("for ", var_, ": do\n"))
         assign(var_, val, envir=env_)
-        doBody()
+        body()
       }
     }
-    gotSeq <- function(val) {
-      seq_ <<- iter(val)
-      iterate()
+    in_ <- function(val) {
+      seq_ <<- iterators::iter(val)
+      iter()
     }
-    gotVar <- function(val) {
+    for_ <- function(val) {
       var_ <<- as.character(arg_expr(val))
       env_ <<- arg_env(val)
       getSeq()
     }
-    doBody <- expr(`;_ctor`(iterate, ..., ret=ret, nxt=nxt_, brk=brk_, stop=stop, trace=trace),
+    body <- expr(`;_ctor`(iter, ..., ret=ret, nxt=nxt_, brk=brk_, stop=stop, trace=trace),
                    ..., ret=ret, nxt=nxt_, brk=brk_, stop=stop, trace=trace) # our brk_
-    getSeq <- seq(gotSeq, ..., ret=ret, nxt=nxt, brk=brk, stop=stop, trace=trace) #not our brk
-    begin <- var(gotVar, ..., ret=ret, nxt=nxt, brk=brk, stop=stop, trace=trace) #not our brk
+    getSeq <- seq(in_, ..., ret=ret, nxt=nxt, brk=brk, stop=stop, trace=trace) #not our brk
+    begin <- var(for_, ..., ret=ret, nxt=nxt, brk=brk, stop=stop, trace=trace) #not our brk
   }
 }
 
