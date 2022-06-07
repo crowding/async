@@ -102,8 +102,8 @@ by <code><a href="https://rstudio.github.io/promises//reference/is.promise.html"
     <p><code>async()</code> returns an object with class "promise" as
 described by the <a href="https://rdrr.io/r/base/delayedAssign.html" class="external-link">promises</a> package (i.e. not the promises used
 in R's lazy evaluation.)
-In the context of an <code>async</code>, <code>await(x)</code> returns the
-resolved value of a promise <code>x</code>, or stops with an error.</p>
+In the context of an <code>async</code>, <code>await(x)</code> returns the resolved value of
+a promise <code>x</code>, or stops with an error.</p>
     </div>
     <div id="details">
     <h2>Details</h2>
@@ -135,10 +135,10 @@ This is a inconvenience as it prevents using <code>await()</code> in a
 pipeline. <code>async</code> by default has <code>split_pipes=TRUE</code> which enables
 some syntactic sugar: if an <code>await()</code> appears in the leftmost,
 unnamed, argument of an R function, the pipe will be "split" at
-that call using a temporary variable. For instance,</p>
-<p></p><div class="sourceCode"><pre><code></code></pre><p></p></div>
-<p>will be effectively rewritten to something like</p>
-<p></p><div class="sourceCode"><pre><code></code></pre><p></p></div>
+that call using a temporary variable. For instance,</p><div class="sourceCode"><pre><code><span class="fu"><a href="../reference/async.html">async</a></span><span class="op">(</span><span class="fu">makeRequest</span><span class="op">(</span><span class="op">)</span> |&gt; <span class="fu"><a href="../reference/async.html">await</a></span><span class="op">(</span><span class="op">)</span> |&gt; <span class="fu"><a href="https://rdrr.io/r/base/sort.html" class="external-link">sort</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></code></pre></div>
+
+<p>will be effectively rewritten to something like</p><div class="sourceCode"><pre><code><span class="fu"><a href="../reference/async.html">async</a></span><span class="op">(</span><span class="op">{</span><span class="va">.tmp</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/async.html">await</a></span><span class="op">(</span><span class="fu">makeRequest</span><span class="op">(</span><span class="op">)</span><span class="op">)</span>; <span class="fu"><a href="https://rdrr.io/r/base/sort.html" class="external-link">sort</a></span><span class="op">(</span><span class="va">.tmp</span><span class="op">)</span><span class="op">}</span><span class="op">)</span></code></pre></div>
+
 <p>This works only so long as <code>await</code> appears in
 calls that evaluate their leftmost arguments
 normally. <code>split_pipes</code> can backfire if the outer call has other
