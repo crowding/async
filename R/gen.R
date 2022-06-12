@@ -69,7 +69,7 @@ yield_cps <- function(expr) { force(expr)
     list(cont, ret, pause, yield, trace)
     `yield_` <- function(val) {
       force(val)
-      if(verbose) trace("yield\n")
+      trace("yield\n")
       yield(val) # these are different calls because make_async
                  # wraps around make_pump and we affect state in both...
       pause(cont, val)

@@ -6,9 +6,10 @@
 #
 # Instead of exceptions, "nextElemOr" uses a lazily evaluated "or"
 # argument to signal stop of iteration.  The main method for "iteror"
-# is "nextElemOr" instead of "nextElem". The "or" argument is lazily
-# evaluated; this means the consumer can provide a "break" or "return"
-# to control
+# is "nextElemOr" rather than "nextElem". The "or" argument is lazily
+# evaluated, and will only be forced at the stop of iteration; this
+# means the consumer can provide a "break" or "return" to respond to
+# the end of the loop.
 #
 # sum <- 0
 # it <- iteror(in)
@@ -17,25 +18,33 @@
 #   sum <- sum + val;
 # }
 #
-# Compare with the usual technique of consuming an iterator with `nextElem()`
+# Compare with the usual technique of consuming an iterator with
+# `nextElem()`:
 #
 # sum <- 0
+# it <- iter(in)
 # tryCatch(
-#    while(val <- nextElem(iter)) {
-#     doStuff(val)
+#   repeat {
+#     val <- nextElem(iter)
+#     sum <- sum + val
 #   },
-#     error=function(x) if (!iteration_has_ended(e)) stop(e))
+#   error=function(x) if (!iteration_has_ended(e)) stop(e)
+# )
 #
-# Another way to use the "or" argument is to give it a sigil value.
-# Then check if nextElemOr is `identical()` to the sigil; if it is,
+# Another way to use the "or" argument is to give it a sigil value;
+# that is, a value that you know will not appear in the values yielded
+# by the generator. If the result of nextElemOr is this sigil value,
 # then you know the iterator has ended. In R it is commonplace to use
-# `NULL` in this kind of sigil role, but you do sometimes want to have
-# an iterator return literal `NULL`s. A safer way to generate a one-time
-# sigil value; the function `sigil()` will do just that.
+# `NULL` as a sigil, but you do sometimes want to have an iterator
+# return literal `NULL`s. A more general way is to use a one-time
+# sigil value; the function `sigil()` returns a nonce, i.e. a new
+# value that is not [`identical()`] to any other object in the R session.
 #
 # stopped <- sigil()
 # sum <- 0
-# while(!identical(i <- nextElemOr(iter, stopped), stopped)) {
+# repeat {
+#   i <- nextElemOr(iter, stopped)
+#   if (identical(i, stopped)) break
 #   sum <- sum + i
 # }
 
@@ -65,12 +74,13 @@ iteror.default <- function(obj, ...) {
   }, ...)
 }
 
+#' @export
 nextElemOr <- function(obj, or, ...) {
   UseMethod("nextElemOr")
 }
 
 #' @exportS3Method
-nextElemOr.funiteror <- function(obj, or=stop("StopIteration"), ...) {
+nextElemOr.funiteror <- function(obj, or, ...) {
   obj(or, ...)
 }
 
@@ -80,11 +90,12 @@ nextElem.iteror <- function(obj, ...) {
 }
 
 # `sigil()` creates a unique value, with an optional name attached.
-# An object created with `sigil()` with compare [`identical()] to
+# An object created with `sigil()` with compare [`identical()`] to
 # itself and to no other object in the R session.
+# Sigil values are useful as the "or" argument to `awaitOr` or
+# `nextElemOr`;
 # @return a closure; calling the closure returns the name.
 sigil <- function(name=NULL) function()name
-
 
 ihasNextOr <- function(obj, ...) {
   UseMethod("ihasNextOr")
@@ -98,12 +109,23 @@ ihasNextOr.default <- function(obj) ihasNextOr(iteror(obj))
 
 `%then%` <- function(a, b) { force(a); force(b); a }
 
+# :( this means that if you use nextElemOr over a regular iter, you
+# are setting up and tearing down a tryCatch in each iteration...
+
+#' @exportS3Method
+nextElemOr.iter <- function(iter, or) {
+  tryCatch(
+    nextElem(iter),
+    error=function(e)
+      if (!identical(conditionMessage(e), 'StopIteration')) stop(e) else or)
+}
+
 #' @exportS3Method
 ihasNextOr.iteror <- function(obj, ...) {
   noValue <- sigil("noValue")
   endIter <- sigil("endIter")
   last <- noValue
-  structure(function(or=stop("stopIteration"), query="next", ...) {
+  structure(function(or, query="next", ...) {
     switch(query,
            "next"={
              if (identical(last, noValue))
@@ -118,7 +140,7 @@ ihasNextOr.iteror <- function(obj, ...) {
                last <<- nextElemOr(obj, endIter)
              !identical(last, endIter)
            },
-           stop("unknown query: ", mode)
+           stop("unknown query: ", query)
            )
   }, class=c("ihasNextOr", "iteror", "ihasNext", "iter"))
 }
@@ -135,19 +157,6 @@ nextElemOr.ihasNextOr <- function(obj, or=stop("StopIteration", call.=FALSE), ..
 
 hasNext.iHasNextOr <- function(obj, ...) {
   obj(query="has", ...)
-}
-
-# :( this means that if you use nextElemOr over a regular iter, you
-# are setting up and tearing down a tryCatch in each iteration...
-
-#' @exportS3Method
-nextElemOr.iter <- function(iter, or=stop("StopIteration")) {
-  if (is_default(or))
-    nextElem(iter) # skip the tryCatch...
-  else tryCatch(
-    nextElem(iter),
-    error=function(e)
-      if (!identical(conditionMessage(e), 'StopIteration')) stop(e) else or)
 }
 
 #' @exportS3Method as.list iteror
@@ -181,7 +190,7 @@ icountor <- function(count) {
   }
 }
 
-ilimitor <- function(iterable, n) {
+ilimit <- function(iterable, n) {
   it <- iteror(iterable)
   n <- as.integer(n)
   i <- 0L
@@ -282,3 +291,16 @@ accumulate <- function(it, func=`+`) {
   iteror(function(or) sum <<- func(sum, nextElemOr(it, return(or))))
 }
 
+iseq <- function(from=1L, to=Inf, by=1L) {
+  i <- from - by
+  if (by > 0L)
+    iteror(function(or) {
+      i <<- i + by
+      if (i > to) or else i
+    })
+  else
+    iteror(function(or) {
+      i <<- i + by
+      if (i < to) or else i
+    })
+}

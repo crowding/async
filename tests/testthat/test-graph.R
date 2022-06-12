@@ -23,39 +23,123 @@ if(FALSE) {"can you always break from down the stack?"
   }
 }
 
-
-
-test_that("Can extract graph of generator", {
-
-  genprimes <- gen({
-    yield(2)
-    yield(3)
-    i <- 3
-    repeat {
-      i <- i + 2
-      j <- 3
-      repeat {
-        if ( i %% j == 0 ) {
-          break
-        }
-        if (i/j < j) {
-          yield(i)
-          break
-        }
-        j <- j + 2
-      }
-    }
-  })
-  # can gather and write a graph (and render it, if dot is installed.)
-  fname <- "temp.dot" # tempfile(fileext=".dot")
-  makeGraph(genprimes, fname)
-  oname <- paste0(fname, ".pdf")
+compileGraph <- function(fname, oname) {
   status <- system(
     paste("command -v dot >/dev/null 2>&1 || { echo >&2 'dot is not installed'; exit 0; } && { dot", "-Tpdf", fname, ">", oname, "; }")
   )
   expect_equal(status, 0)
+}
 
-  # and an async with a try-finally
-  
+test_that("Can extract graph of generator", {
+
+  fname <- "temp.dot" # tempfile(fileext=".dot")
+  oname <- paste0(fname, ".pdf")
+
+  genprimes <- gen({
+    yield(2)
+    i <- 3
+    repeat {
+      for (j in iseq(3L, by=2L)) {
+        if (i/j < j) {
+          yield(i)
+          break
+        }
+        if (i %% j == 0) {
+          break
+        }
+      }
+      i <- i + 2
+    }
+  })
+
+  makeGraph(genprimes, fname)
+  compileGraph(fname, oname)
+
+  # and an async with a try-finally?
+  cleanup <- FALSE
+  result <- NULL
+  not_run <- TRUE
+  dataset <- async({
+    tryCatch({
+      if(FALSE) await(NULL)
+      return(2)
+      not_run <<- FALSE
+    }, finally={
+      cleanup <<- TRUE
+    })
+    not_run <<- FALSE
+    5
+  })
+  makeGraph(dataset, fname)
+  compileGraph(fname, oname)
+
+
+  # and a generator with try/catch/finally/break/return
+  fizz <- gen({
+    i <- 1
+    repeat {
+      repeat {
+        tryCatch({
+          if (razz <- (i %% 2 == 0)) yield("Razz")
+          if (fizz <- (i %% 3 == 0)) yield("Fizz")
+          if (buzz <- (i %% 5 == 0)) yield("Buzz")
+          if (razz && buzz) stop()
+          if (fizz && buzz) break
+          if (razz || fizz || buzz) next
+          yield(toString(i))
+          if (i > 30) return()
+        }, error = {
+          yield("\n---")
+        }, finally = {
+          yield("\n")
+          i <- i + 1
+        })
+      }
+      yield("<>\n")
+    }
+  })
+  makeGraph(fizz, fname)
+  compileGraph(fname, oname)
+
 })
 
+test_that("function inspection with all_names", {
+
+  externConst <- 10
+  externVar <- 1
+  externVar2 <- 5
+  f <- function(arg1, arg2) {
+    arg1 <- arg1 + arg2
+    temp <- arg2/arg1
+    temp[2] <- arg1 * arg2
+    globalVar1 <<- externVar + externConst
+    externVar2[arg1] <<- temp[2]
+    package::doThing(arg2, foo=temp)
+    g(temp, arg1)
+  }
+
+  by_role <- by_name(all_names(f))
+  by_role$arg %is% c("arg1", "arg2")
+  by_role$call %is% c( "+", "/", "[<-", "*", "[", "package::doThing", "g")
+  by_role$external %is% c("globalVar1", "externVar2")
+  by_role$local %is% c("arg1", "temp")
+  by_role$tail %is% c("g")
+  by_role$var %is% c("arg1", "arg2", "temp", "externVar", "externConst",
+                     "externVar2")
+  unname(all_names(f, "var")) %is%
+    c("arg1", "arg2", "arg2", "arg1", "temp", "arg1", "arg2", "externVar",
+      "externConst", "externVar2", "arg1", "temp", "arg2", "temp",
+      "temp", "arg1")
+
+  # what needs_import
+  setdiff(union(by_role$external, by_role$var),
+          union(by_role$local, by_role$arg))
+
+  locals <- sort(union(by_role$local, by_role$arg))
+  locals %is% c("arg1", "arg2", "temp")
+  stores <- by_role$external
+  reads <- sort(setdiff(by_role$var, locals))
+  reads %is% c("externConst", "externVar", "externVar2")
+  # but only keep externs that aren't from packages?
+  # or only externs that aren't in function heads?
+})

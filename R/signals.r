@@ -113,7 +113,9 @@ finally_cps_ <- function(expr, finally) {
     # Deep breath. Remember, the handlers flow from bottom to top!
     result <- NULL
     after <- NULL
+
     if (missing(nxt)) {
+      #this is to keep the compiler from following a nonexistent path to brk/nxt
       continue <- function(val) {
         force(val)
         trace(paste0("finally: continue with ", after, "\n"))

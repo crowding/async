@@ -241,10 +241,12 @@ next_cps <- function()
   function(cont, ..., ret, nxt, trace=trace_) {
     if (missing_(arg(nxt))) stop("call to next is not in a loop")
     list(ret, nxt, trace)
-    "next_" <- function() {
-      if(verbose) trace("next\n")
-      nxt()
-    }
+    if (verbose) {
+      next_ <- function() {
+        trace("next\n")
+        nxt()
+      }
+    } else nxt
   }
 
 break_cps <- function()
@@ -253,7 +255,7 @@ break_cps <- function()
     list(ret, brk, trace)
     if(verbose) {
       break_ <- function() {
-        if (verbose) trace("break\n")
+        trace("break\n")
         brk()
       }
     } else brk
@@ -337,10 +339,10 @@ for_cps <- function(var, seq, expr) {
     iter <- function() {
       stopping <- FALSE
       reason <- NULL
-      if(verbose) trace(paste0("for ", var_, ": do\n"))
+      trace(paste0("for ", var_, ": next\n"))
       val <- tryCatch(iterators::nextElem(seq_),
                       error = function(e) {
-                        #trace(paste0("for ", var_, ": caught ", conditionMessage(e), "\n"))
+                        trace(paste0("for ", var_, ": caught ", conditionMessage(e), "\n"))
                         stopping <<- TRUE
                         reason <<- e
                       })
