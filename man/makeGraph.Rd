@@ -21,6 +21,9 @@ makeGraph will write a Graphviz DOT format file describing the
 given generator or async/await block. If you have Graphviz
 installed you can then use the \code{dot} command to render the graph.}
 }
+\value{
+a list containing information about the async/iterator.
+}
 \description{
 Draw a graph representation of a generator.
 }
@@ -37,6 +40,4 @@ system("dot -Tpdf rwalk.dot > rwalk.pdf")
 g <- Rgraphviz::agread("rwalk.dot")
 Rgraphviz::plot(g)
 }
-
-# or with the R
 }

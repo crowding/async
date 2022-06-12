@@ -1,0 +1,127 @@
+# Extending R by Compiling R to R
+
+## Iterators
+
+## Implementing a For loop, one step at a time.
+
+## Thunks and
+
+## Translating R to R
+
+## Going from Syntax Tree into a Graph of Mutually Recursive Functions. 
+
+We have seen how mutually recursive functions can implement many control flows.
+
+Each of the `cps_` functions as well as `R_` are constructors, one for each node in the syntax tree, with one argument for each child node. These node constructors return a _second_ set of constructors. This second set of constructors
+
+This second set of constructors all take a _continuation function_ as first argument, other 
+
+This might be illustrated better as ...
+
+So, for instance, `cps_for()` receives as arguments the constructors for each of the `for` loop's arguments. Then at top level 
+
+```R
+loop <- `{_cps`(
+  R_(j <- 0),
+  for_cps(R_(i), R_(1:10), `{_cps`(
+    R_(j <- j + i),
+    yield_cps(R_(j))
+  ))
+)
+```
+
+## At this Point We Have An Interpreter
+
+This nest of mutually recursive functions can be directly called in a loop (`pump.r`); this is a form of direct interpreter, and is how the `async` worked in release 0.2. 
+
+But besides being executable, the nest of functions that has been constructed is data; each node in the graph is a closure object, with an expression an arguments that exist relative to an environment, and all of these objects being introspectable and accessible as data from R. These objects will form the input to the compilation process, and will serve as the "intermediate representation" through a few stages.
+
+Having a directly executable intermediate form has testing benefits; I should be able to run my tests now on the directly interpreted generators, then after 1 pass of compilation the result should still be directly interpretable, and we can re-run the same tests again; and so in until code generation. This will let me build the compiler in smaller chunks, while still getting useful feedback and something "working" as I go along.
+
+## Gathering the Graph
+
+We have closures spanning a computational graph, first step is to catalogue the nodes and edges in the graph.
+
+The function `walk()` does this, starting with the entry function, visiting each node of the graph in turn. This is done in depth-first order, with `walk` assigning a unique name to each node according to the path that first reached it. `walk` has to detect when two paths lead to the same node.
+
+`walk` relies on `all_names` which is a souped-up version of base `all.names`; it additionally classifies the "role" in which each name appears, for example: as a variable, as a target of `<-`, as target of `<<-`, or as head of a function call, as head of a call in tail position. Note that `all_names` cannot do a foolproof classification of what variables are used in any given R function without executing the function, so I have to accommodate that by writing each node in s style that that `all_names` can "follow." This means the nodes have to be written in a dialect of "simple R" that doesn't do much funny in terms of nonstandard or lazy evaluation, and that only makes calls to other node functions in tail position.
+
+### TODO:
+
+* [ ] I need to think about how trampolines are handled in gathering the graph. Right now the trampoline functions are not counted as "nodes" which might need to change before I can generate code. Perhaps I need to traverse trampoline functions directly in the graph.
+
+### Note re "tail calls"
+
+While R does not actually have tail call elimination, `all_names` has its notion of a tail call; according to `all_names` a call is in tail position if it appears only in the last argument of the outermost set of `{}` braces, a branch of a `switch` or `if`, or in the second branch of a `||` or `&&`; If it is nested in any other kind of call it is not in tail position.
+
+```
+function(val) {
+    checkVal()
+    if (val %% 2 == 1) {
+        checkOdd(val) && plinkle(val*3-1) 
+    } else {
+        checkEven(val) || tinkle(val/2)
+    }
+}
+```
+
+In the above snippet, the calls `plinkle(val)` and `tinkle(val/2)` are in tail position, because they appear in the second args of `||` and `&&`, in the final statement of `{}` in, in a branch of `if`, which is the final statement in `{`.  `checkOdd` is not in tail position because it is in the first argument of `&&`; `checkVal` is not in tail position because whereas `checkOdd`, `checkEven` and `msg` are not in tail position.
+
+This notion will be useful because a tail call is a natural place to "splice" one function to the next. When evaluation reaches a tail position, the function is bound to return whatever the tail call returns. This means that any local variables in the function can be ignored from that point forward. (again, this being in our "simple R" dialect where we avoid lazy eval shenanigans.) When collecting the graph, tail calls are equivalent to state transitions. When writing node functions, we only make calls to other node functions in tail position; `walk` will only consider those to be state transitions.
+
+## Drawing the graph
+
+Having collected the shape of the graph and its nodes, the first thing to do with this graph is to make a visual representation of it. This will be an instructive and diagnostic tool, as well as an aid to writing further compilation phases. If a reasonable drawing can be made of how a generator works as a graph, then I might have captured sufficient information to compile it. So `walk` and `compileGraph` were largely written in parallel; the former collecting information about the graph, and the latter generating a Graphviz DOT format file from this information.
+
+`compileGraph(walk(g), "filename.dot")` will spit out a Graphviz DOT file which can then be processed with the `dot` command to draw a graph. (However this package will not add a dependency on Graphviz.)
+
+## Munging names
+
+As drawn in the graphs above, each instance of a construct like `for` shares a context among its function nodes and hidden variables. This context is represented by the dotted lines. When directly executed, each node is a closure object, so that its variables. In this way two "for" loops can be nested without interfering with each other, because each creates its own nodes that have their own enclosing environment for its hidden state variables.
+
+In the compiled form, all these nodes will be merged into the same namespace in a big `switch` statement. Also, most optimization stages should go smoother if I don't have to think about names existing in different namespaces. So the first compiler pass is name-munging; placing all nodes into the same environment. The graph walker, `walk` has already assigned a unique name to each node and context, as well as the local names and global targets of its tailcalls, what global names they correspond to; and all closed-over variables that are used.
+
+In name munging I need to: 
+
+* [ ] collect all the variables used in each context and copy them over to the new environment using their new names.
+  *  [ ] question: are the vars collected by context? 
+* [ ] translate each node's closxp so that its variable references are changed to the munged variables and its calls go go to munged call names. This can be done simply with a "quoting environment".
+* [ ] re-walk the states? Or update the parts of our hashtables that we used. Or do both and check if the graph output is the same. 
+
+## Optimizing
+
+It's not clear whether to work on this step before or after code generation. Right now I am thinking that if optimization is done on a closxp-based representation of the graph, I can skip over it to get code generation sorted first. Or, since the optimized graph should still be directly executable, I should be able to do optimisations before code generation. But I have the most questiona about how code generation works, so that seems like the likely next target.
+
+The main optimizations are inlining of constants and tailcalls. Any state variables that are read from and not written should be inlined. You can do this with a "quoting environment" again; replace a call to `cont(thing)` with `{val <- thing; (...)}` with the contents of `cont`.
+
+At the very least, any node that has only one incoming connection should be inlined into its parent. At the most, any path transition that does not invoke a trampoline can be inlined (possibly duplicating some paths, but making fewer states in the bargain), This will effectively remove some states from the graph, so following this step, re-do the transitive closure (or even just re-walk based on your new START state) you might check the transitive closure starting from START and remove stuff that's no longer in the closure.
+
+## Generating Code
+
+Now, in theory, you can go over the graph and take each function,
+
+* [ ] replace its tailcalls `cont(val)` with assignments to a variables `val` and `state`
+ * [ ] might as well make the convention that "val" should always be the argument to a graph function
+ * [ ] then jam all the function bodies together into one function with variables and a switch statement
+ * [ ] re-map that switch statement to use numbers for states instead of names
+ * [ ] jam it all into a function template that you use to make an iterator or promise, as appropriate.
+    * [ ] this might involve sprucing up my quasiquotation engine and adding it back to nseval
+    * [ ] which suggests representation of quotations in nseval with an immediately closxp i.e.
+
+```R
+quo_ <-  function (expr, env) as.call(list(function() eval(expr, env)))
+```
+
+which is one callsxp containing a CLOSXP which is closed over an ENVSXP with two vars. Should be efficient enough, The point of this will be that you can inject one of these _quo s into an expression, or eval() it and it should come back with the right value, giving a level of "hygeine" to evaluations. And unlike using a raw promsxp, a closure will generally print okay.
+
+Now, a question I have is about how to handle the `R_` functions because they will be working in the same namespace as the rest of the code. If they take the form of "eval" I might be able to just unwrap them. The question is whether I can do this early or late. I might want to generate `R_` functions that are bound to the target environment? Or just directly label the R_ closxps with an attribute that the compiler can pick up?
+
+# Game plan:
+
+* [ ] make storage graph work, drawing arrows for loads/stores
+* [ ] post on Twitter
+  * [ ] figure out what it would take to have the graph _also_ show the stores made by trampolines etc?
+  * [ ] I think the answer might be to distinguish trampolined edges from trampoline functions somehow. The graph collector should follow both, and register a "trampolined" property...
+* [ ] start doing enough code generation until you identify the need for quasiquote, or run into the thing with the thunks, then see what the mismatch is shaped like.
+
+ * why is it getting "iter" and "iterators"...
