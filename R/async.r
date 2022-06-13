@@ -109,10 +109,11 @@ await_cps <- function(prom) { force(prom)
       if(success) cont(value) else stop(value)
     }
     await_ <- function(val) {
-      tryCatch(prom <<- as.promise(val), error=stop)
+      val <- tryCatch(as.promise(val), error=stop)
+      prom <<- val
       if(verbose) trace("await: got promise\n")
       success <<- NULL
-      await(prom,
+      await(val,
             function(val) {success <<- TRUE; prom <<- NULL; value <<- val},
             function(err) {success <<- FALSE; prom <<- NULL; value <<- err})
       pause(then)

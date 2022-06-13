@@ -39,7 +39,8 @@ test_that("Can extract graph of generator", {
     yield(2)
     i <- 3
     repeat {
-      for (j in iseq(3L, by=2L)) {
+      j <- 3
+      repeat {
         if (i/j < j) {
           yield(i)
           break
@@ -47,11 +48,11 @@ test_that("Can extract graph of generator", {
         if (i %% j == 0) {
           break
         }
+        j <- j + 2
       }
       i <- i + 2
     }
   })
-
   makeGraph(genprimes, fname)
   compileGraph(fname, oname)
 
@@ -72,7 +73,6 @@ test_that("Can extract graph of generator", {
   })
   makeGraph(dataset, fname)
   compileGraph(fname, oname)
-
 
   # and a generator with try/catch/finally/break/return
   fizz <- gen({
@@ -100,6 +100,25 @@ test_that("Can extract graph of generator", {
   })
   makeGraph(fizz, fname)
   compileGraph(fname, oname)
+
+  fb <- gen({
+    for (i in iseq()) {
+      if (i %% 3 == 0) {
+        if (i %% 5 == 0)
+          yield("FizzBuzz")
+        else
+          yield("Fizz")
+      } else {
+        if (i %% 5 == 0)
+          yield("Buzz")
+        else
+          yield(i)
+      }
+    }
+  })
+  makeGraph(fb, fname)
+  compileGraph(fname, oname)
+
 
 })
 
