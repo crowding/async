@@ -6,7 +6,7 @@ R <- function(x) {
     list_missing(cont, stop)
     x <- x
     #give it a name so that the graph drawer can detect it
-    R_ <- function(...) {
+    R_ <- function() {
       trace(paste0("R: ", deparse(expr(x)), "\n"))
       #there's presently a slight issue with nseval here when x stops
       #do(cont, x)
@@ -16,6 +16,7 @@ R <- function(x) {
     }
   }
 }
+
 
 return_cps <- function(x) {
   maybe(x)

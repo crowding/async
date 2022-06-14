@@ -1,4 +1,5 @@
-#' Code for walking over an async/generator and gathering information about its
+# Code for walking over an async/generator and gathering information about its
+# nodes and graphs.
 
 #' @export
 getEntry <- function(x) UseMethod("getEntry")
@@ -52,19 +53,27 @@ by_name <- function(vec) {
 # - local: names appearing as target of <-
 # - external: names appearing as target of <<-
 # - tail: names of calls in "tail position"
-# - tailcall: the entire calls in tail position
-#             (a list, possibly with translated form for trampolines)
+# - tramp: names that are passed to "cont" of a tailcall (i.e. a trampoline)
+# - tailcall: the entire calls in tail position.
+#             (a list, possibly with original form for trampolines)
+# - trampoline: entire trampolined calls
+#             (also a list with orginal forms)
 all_names <- function(fn,
-                      types=c("call", "var", "arg", "local", "external", "tail"),
+                      types=c("call", "var", "arg", "local",
+                              "external", "tail", "tramp"),
                       call="call" %in% types,
                       var="var" %in% types,
                       arg="arg" %in% types,
                       local="local" %in% types,
                       external="external" %in% types,
                       tail="tail" %in% types,
-                      tailcall="tailcall" %in% types) {
+                      tramp="tramp" %in% types,
+                      tailcall="tailcall" %in% types,
+                      trampoline="trampoline" %in% types,
+                      handler="handler" %in% types) {
   if (!is.function(fn)) stop("not a function")
   env <- environment(fn)
+  args <- names(formals(fn)) %||% character(0)
   # less recursion if we only look for tailcalls
   nonTail <- any(call, var, local, external)
   collect_head <- function(expr, inTail) {
@@ -95,81 +104,96 @@ all_names <- function(fn,
            character(0)
            )
   }
+  collect_weird_call <- function(expr, inTail, orig=NULL) {
+    c(collect_head(expr[[1]], inTail=inTail),
+      if(nonTail) concat(lapply(unname(expr[-1]), collect_arg,
+                                inTail=FALSE)))
+  }
+  collect_ordinary_call <- function(expr, inTail, orig=NULL) {
+    c(if (tailcall && inTail) list(tailcall=c(list(expr), orig)),
+      collect_head(expr[[1]], inTail=inTail),
+      if(nonTail) concat(lapply(unname(expr[-1]), collect_arg,
+                                inTail=FALSE)))
+  }
   collect_call <- function(expr, inTail, orig=NULL) {
     if (!inTail && !nonTail) return(character(0))
     head <- expr[[1]]
     switch(mode(head),
            character=,
            name={
-             e <- locate_(head, env, mode="function", ifnotfound=NULL)
-             if (!is.null(e)
-                 && is_forced_(as.character(head), e)
-                 && is.primitive(peek <- get(head, envir=e))) {
-               switch(
-                 as.character(head),
-                 "=" =, "<-" = c(collect_store(expr[[2]], "local"),
-                                 collect_arg(expr[[3]], inTail=FALSE)),
-                 "<<-" = c(collect_store(expr[[2]], "external"),
-                           collect_arg(expr[[3]], inTail=FALSE)),
-                 "if" = c(collect_arg(expr[[2]], inTail=FALSE),
-                          collect_arg(expr[[3]], inTail=inTail),
-                          if (length(expr) >= 4)
-                            collect_arg(expr[[4]], inTail=inTail)),
-                 # the argument to return() is not considered to be
-                 # in the tail because it wouldn't inline into a state
-                 # machine switch statement that way.
-                 "return" = collect_arg(expr[[2]], inTail=FALSE),
-                 "while" = c(collect_arg(expr[[2]], inTail=FALSE),
-                             collect_arg(expr[[3]], inTail=FALSE)),
-                 "for" = c(collect_arg(expr[[2]], inTail=FALSE),
-                           collect_arg(expr[[3]], inTail=FALSE),
-                           collect_arg(expr[[4]], inTail=FALSE)),
-                 "("= collect_arg(expr[[1]], inTail=inTail),
-                 "{"= c(
-                   if(nonTail)
-                     concat(lapply(unname(expr[c(-1,-length(expr))]),
-                                   collect_arg, inTail=FALSE)),
-                   collect_arg(expr[[length(expr)]], inTail=inTail)),
-                 "||"=,"&&"=c(collect_arg(expr[[2]], inTail=FALSE),
-                              collect_arg(expr[[3]], inTail=inTail)),
-                 "switch"=c(collect_arg(expr[[2]], inTail=FALSE),
-                            if(inTail || nonTail) concat(
-                              lapply(unname(expr[-1]), collect_arg,
-                                     inTail=inTail))),
-                 "function"=character(0),
-                 #some other primitive?
-                 c(if (tailcall && inTail) list(tailcall=c(list(expr), orig))
-                   else character(0),
-                   collect_head(expr[[1]], inTail=inTail),
-                   if(nonTail) concat(lapply(unname(expr[-1]), collect_arg,
-                                             inTail=FALSE)))
-               )
-             } else { # not primitive, not forced, or not found?
-               switch(
-                 as.character(head),
-                 # tailcalls with >1 argument are trampolines.
-                 "pause" = collect_call(expr[-1], inTail=inTail,
-                                        orig=list(expr)),
-                 "ret" = collect_call(expr[-1], inTail=inTail,
-                                      orig=list(expr)),
-                 "unwind" = collect_call(expr[-1], inTail=inTail,
-                                         orig=list(expr)),
-                 # FIXME: how to get the link to STOP??
-                 "windup" = collect_call(expr[c(-1,-2)], inTail=inTail,
-                                         orig=list(expr)),
-                 # general function calls
-                 c(if (tailcall && inTail) list(tailcall=c(list(expr), orig))
-                   else character(0),
-                   collect_head(expr[[1]], inTail=inTail),
-                   if(nonTail)
-                     concat(lapply(unname(expr[-1]),
-                                   collect_arg, inTail=FALSE)))
-               )
+             isArg <- as.character(head) %in% args
+             if (!isArg)
+               e <- locate_(head, env, mode="function", ifnotfound=NULL)
+             if (!isArg && !is.null(e)
+                 && is_forced_(as.character(head), e)) {
+               peek <- get(head, envir=e)
+               if (is.primitive(peek)) {
+                 switch(
+                   as.character(head),
+                   "=" =, "<-" = c(collect_arg(expr[[3]], inTail=FALSE),
+                                   collect_store(expr[[2]], "local")),
+                   "<<-" = c(collect_arg(expr[[3]], inTail=FALSE),
+                             collect_store(expr[[2]], "external")),
+                   "if" = c(collect_arg(expr[[2]], inTail=FALSE),
+                            collect_arg(expr[[3]], inTail=inTail),
+                            if (length(expr) >= 4)
+                              collect_arg(expr[[4]], inTail=inTail)),
+                   # the argument to return() is not considered to be
+                   # in the tail because it wouldn't inline into a state
+                   # machine switch statement that way.
+                   "return" = collect_arg(expr[[2]], inTail=FALSE),
+                   "while" = c(collect_arg(expr[[2]], inTail=FALSE),
+                               collect_arg(expr[[3]], inTail=FALSE)),
+                   "for" = c(collect_arg(expr[[2]], inTail=FALSE),
+                             collect_arg(expr[[3]], inTail=FALSE),
+                             collect_arg(expr[[4]], inTail=FALSE)),
+                   "("= collect_arg(expr[[1]], inTail=inTail),
+                   "{"= c(
+                     if(nonTail)
+                       concat(lapply(unname(expr[c(-1,-length(expr))]),
+                                     collect_arg, inTail=FALSE)),
+                     collect_arg(expr[[length(expr)]], inTail=inTail)),
+                   "||"=,"&&"=c(collect_arg(expr[[2]], inTail=FALSE),
+                                collect_arg(expr[[3]], inTail=inTail)),
+                   "switch"=c(collect_arg(expr[[2]], inTail=FALSE),
+                              if(inTail || nonTail) concat(
+                                lapply(unname(expr[-1]), collect_arg,
+                                       inTail=inTail))),
+                   "function"=character(0),
+                   #some other primitive?
+                   collect_ordinary_call(expr, inTail, orig)
+                 )
+               } else {
+                 # Exists but not primitive. If a tailcall, peek at the
+                 # formals. If the formals have "..." then it is a
+                 # trampoline call.
+                 if (inTail && "..." %in% names(formals(peek))) {
+                   # trampoline! Register both the target and the indirect.
+                   handl <- match.call(peek, expr, expand.dots=FALSE)
+                   trampolined <- as.call(c(list(handl$cont), handl$...))
+                   handl$cont <- NULL
+                   handl$... <- NULL
+                   c(
+                     if (tramp) c(tramp=as.character(trampolined[[1]])),
+                     if (handler) list(handler=c(list(handl, expr), orig)),
+                     if (trampoline)
+                       list(trampoline=c(list(trampolined, expr), orig)),
+                     collect_weird_call(handl, inTail, c(list(expr), orig)),
+                     collect_weird_call(trampolined, inTail, c(list(expr), orig))
+                     )
+                 } else {
+                   collect_ordinary_call(expr, inTail, orig)
+                 }
+               }
+             } else {
+               # name not found, or an arg
+               collect_ordinary_call(expr, inTail, orig)
              }
            },
            # something other than a name in a call head?
-           if(nonTail) c(collect_head(expr[[1]], FALSE),
-                         concat(lapply(unname(expr[-1]), collect_arg, inTail=FALSE))))
+           if(nonTail)
+             c(collect_head(expr[[1]], FALSE),
+               concat(lapply(unname(expr[-1]), collect_arg, inTail=FALSE))))
   }
   collect_arg <- function(expr, inTail) {
     if (!inTail && !nonTail) return(character(0))
@@ -202,8 +226,7 @@ all_names <- function(fn,
                c(external=as.character(dest))
            },
            character(0))}
-  c(if (arg) structure(names=rep("arg", length(formals(fn))),
-                       names(formals(fn)) %||% character(0)),
+  c(if (arg) structure(args, names=rep("arg", length(args))),
     collect_arg(body(fn), inTail=TRUE))
 }
 
@@ -314,6 +337,7 @@ all_indices.hashbag <- function(x) {
 #   * double hash table, "from" node name and "to" node name
 #     data is named list:
 #     * `label`: (local branch name)
+#     * `type`: "tailcall" or "trampoline" or "handler"
 #     * `call`: list of 1 element, tailcall verbatim
 #       OR list of 2+ elements:
 #          tailcall as interpreted
@@ -350,15 +374,16 @@ walk <- function(gen) {
     if (exists(thisName, envir=nodeProperties)) #already visited
       return(thisName)
     nodeProperties[[thisName]]$name <<- thisName
-    tails <- all_names(thisNode, "tailcall")
-    for (tailcall in tails) {
+    tails <- all_names(thisNode, c("tailcall", "trampoline", "handler"))
+    for (i in seq_along(tails)) {
+      tailcall <- tails[[i]]
       branchName <- as.character(tailcall[[1]][[1]])
       nextNode <- get(branchName, envir=environment(thisNode))
       nextNodeName <- doWalk(nextNode, c(path, branchName))
       #cat(sprintf("%s:%s -> %s\n", thisName, branchName, nextNodeName))
       reverseEdges[[nextNodeName]][[thisName]] <<- TRUE
       edgeProperties[[thisName, nextNodeName]] <<-
-        list(label=branchName, call=tailcall)
+        list(label=branchName, call=tailcall, type=names(tails)[[i]])
     }
     thisName
   }
@@ -404,6 +429,8 @@ walk <- function(gen) {
   for (cxt in names(contexts)) {
     cxtVars <- sort(unique(concat(lapply(
       names(contextNodes[[cxt]]), function(thisNodeName) {
+        x <- all_names(nodes[[thisNodeName]],
+                  types=c("external", "local", "arg", "var"))
         vars <- by_name(
           all_names(nodes[[thisNodeName]],
                     types=c("external", "local", "arg", "var")))

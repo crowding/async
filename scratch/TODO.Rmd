@@ -1,0 +1,21 @@
+# basic generator should run without windups
+
+Now that we have iteror() we should go through generator and make sure that it
+doesn't unnecessarily invoke any tryCatch.
+
+# Fixing "switch"
+
+The current CPS version does not do branch fallthrough. To fix that I
+would need to know during construction which arguments are missing.
+
+R native "switch" does a thing where it can end up executing no arguments. I
+
+switch(-1, "one", "two", "three") takes no branch and returns NULL.
+
+That behavior would be bad to use base R switch as a compiled version of switch, because it would end up falling off and not tailcalling.
+
+Let's see, what about if you initialize a "mapping" at run time and then switch based on a label you pull out of there?
+
+# making arguments "quotable"
+
+Some constructors might want to get the "quoted" arguments of stuff they aren't going to evaluate. How?

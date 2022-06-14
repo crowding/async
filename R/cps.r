@@ -66,7 +66,7 @@ make_store <- function(sym) { force(sym)
           val <- as.call(list(quote, val))
         }
         v <- do.call(sym, list(expr(dest), val), envir=env(dest))
-        ret(cont, v)
+        cont(v)
       }
       getVal <- value(store, ..., ret=ret, trace=trace)
       var <- function(val) {
@@ -166,6 +166,7 @@ switch_cps <- function(EXPR, ...) {
   function(cont, ..., ret, stop, trace=trace_) {
     list(cont, ret, stop, trace)
     alts <- lapply(alts, function(x) x(cont, ..., ret=ret, stop=stop, trace=trace))
+
     switch_ <- function(val) {
       if (is.numeric(val)) {
         trace(paste0("switch: ", val, "\n"))
@@ -184,11 +185,11 @@ switch_cps <- function(EXPR, ...) {
           } else {
             trace(paste0("switch: no branch taken (", deparse(val), ")"))
             #this actually is what switch does? Wild.
-            ret(cont, invisible(NULL))
+            cont(invisible(NULL))
           }
         } else {
-          trace(paste0("switch: ", deparse(val)))
-          ret(branch)
+          trace(paste0("switch: ", deparse(val), "\n"))
+          branch()
         }
       }
     }

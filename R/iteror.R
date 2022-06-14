@@ -58,7 +58,6 @@ iteror.iter <- identity
 #' @exportS3Method iteror "function"
 iteror.function <- function(obj, ...) {
   if (!("or" %in% names(formals(obj)))) stop("iteror: must have 'or' argument")
-  formals(obj)$or <- quote(stop("stopIteration", call.=FALSE))
   structure(obj, class=c("funiteror", "iteror", "iter"))
 }
 
@@ -97,23 +96,22 @@ nextElem.iteror <- function(obj, ...) {
 # @return a closure; calling the closure returns the name.
 sigil <- function(name=NULL) function()name
 
-ihasNextOr <- function(obj, ...) {
-  UseMethod("ihasNextOr")
+ihasNext <- function(obj, ...) {
+  UseMethod("ihasNext")
 }
 
 #' @exportS3Method
-ihasNextOr.ihasNextOr <- identity
+ihasNext.ihasNextOr <- identity
 
 #' @exportS3Method
-ihasNextOr.default <- function(obj) ihasNextOr(iteror(obj))
+ihasNext.default <- function(obj) ihasNext(iteror(obj))
 
 `%then%` <- function(a, b) { force(a); force(b); a }
 
-# :( this means that if you use nextElemOr over a regular iter, you
-# are setting up and tearing down a tryCatch in each iteration...
-
 #' @exportS3Method
 nextElemOr.iter <- function(iter, or) {
+  # :( this means that if you use nextElemOr over a regular iter, you
+  # are setting up and tearing down a tryCatch in each iteration...
   tryCatch(
     nextElem(iter),
     error=function(e)
@@ -121,7 +119,7 @@ nextElemOr.iter <- function(iter, or) {
 }
 
 #' @exportS3Method
-ihasNextOr.iteror <- function(obj, ...) {
+ihasNext.iteror <- function(obj, ...) {
   noValue <- sigil("noValue")
   endIter <- sigil("endIter")
   last <- noValue
@@ -151,10 +149,11 @@ nextElem.ihasNextOr <- function(obj, ...) {
 }
 
 #' @exportS3Method
-nextElemOr.ihasNextOr <- function(obj, or=stop("StopIteration", call.=FALSE), ...) {
+nextElemOr.ihasNextOr <- function(obj, or, ...) {
   obj(or, query="next", ...)
 }
 
+#' @exportS3Method
 hasNext.iHasNextOr <- function(obj, ...) {
   obj(query="has", ...)
 }
@@ -177,7 +176,7 @@ as.list.iteror <- function(x, n=as.integer(2^31-1), ...) {
   a
 }
 
-icountor <- function(count) {
+icount <- function(count) {
   i <- 0L
   if(missing(count)) {
     iteror(function(or) {
@@ -213,6 +212,7 @@ ichain <- function(...) {
         thisIterator <<- nextElemOr(iterors, done)
       } else return(e)
     }
+    or
   })
 }
 

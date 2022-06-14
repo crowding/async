@@ -44,7 +44,18 @@ We have closures spanning a computational graph, first step is to catalogue the 
 
 The function `walk()` does this, starting with the entry function, visiting each node of the graph in turn. This is done in depth-first order, with `walk` assigning a unique name to each node according to the path that first reached it. `walk` has to detect when two paths lead to the same node.
 
-`walk` relies on `all_names` which is a souped-up version of base `all.names`; it additionally classifies the "role" in which each name appears, for example: as a variable, as a target of `<-`, as target of `<<-`, or as head of a function call, as head of a call in tail position. Note that `all_names` cannot do a foolproof classification of what variables are used in any given R function without executing the function, so I have to accommodate that by writing each node in s style that that `all_names` can "follow." This means the nodes have to be written in a dialect of "simple R" that doesn't do much funny in terms of nonstandard or lazy evaluation, and that only makes calls to other node functions in tail position.
+`walk` relies on `all_names` which is a souped-up version of base `all.names`; it additionally classifies the "role" in which each name appears, for example: as a variable, as a target of `<-`, as target of `<<-`, or as head of a function call, as head of a call in tail position. Note that `all_names` cannot do a foolproof classification of what variables are used in any given R function without executing the function, so I have to accommodate that by writing each node in s style that that `all_names` can "follow." This means the nodes have to be written in a sort of dialect of "simple R" that doesn't do much funny in terms of nonstandard or lazy evaluation, and that only makes calls to other node functions in tail position.
+
+### Rules for writing compilable nodes:
+
+  * No function indirection, _except_ for setting a trampoline.
+    * This makes it tricky to implement something like `switch`. The most natural way to implement `switch` is to hold all your continuations in an array and index into that array, but this is a kind of indirection that `all_names` can't reasonably follow. The solution will be to cons up a compilable switch statement when the "switch" is being constructed.
+  * Only call builtins / base R functions or fully qualified package functions.
+  * No flow control via lazy evaluation, force all your function inputs (or be sure it doesn't matter)
+  * Only call to other nodes or trampoline handlers in tail position.
+  * Nodes should have either zero, or one argument, named `val`.
+  * External handlers (the ones passed down in the first layer of the node constructor) are "trampolines", i.e. they return and unwind the stack, and save a reference to the "next" function to call. The simplest is `r ret(cont, ...)`which unwinds the stack and jumps back in at `r cont(...)`. Any loop-like construct should use `ret` once per loop. 
+    * `all_names` will try to look up the functions you are calling in the environment of a given node function. If a function called in tail position has formals `cont` and `...` args, it is considered a trampoline. `walk` should collect information on both the trampoline-setting call and the trampolined call.
 
 ### TODO:
 
@@ -52,7 +63,7 @@ The function `walk()` does this, starting with the entry function, visiting each
 
 ### Note re "tail calls"
 
-While R does not actually have tail call elimination, `all_names` has its notion of a tail call; according to `all_names` a call is in tail position if it appears only in the last argument of the outermost set of `{}` braces, a branch of a `switch` or `if`, or in the second branch of a `||` or `&&`; If it is nested in any other kind of call it is not in tail position.
+While R does not actually have tail call elimination, a notion of "tail call" is used in the `async` compiler. `all_names` implements a notion of a tail call; according to `all_names`, a call is in tail position if it appears only in the last argument of the outermost set of `{}` braces, on a branch of a `switch` or `if`, or in the second branch of a `||` or `&&`; . If it is nested in any other kind of call it is not in tail position. A function that is deeply nested must be a tail argument of _all_ enclosing functions to be considered a tail call. In this example:
 
 ```
 function(val) {
@@ -65,9 +76,9 @@ function(val) {
 }
 ```
 
-In the above snippet, the calls `plinkle(val)` and `tinkle(val/2)` are in tail position, because they appear in the second args of `||` and `&&`, in the final statement of `{}` in, in a branch of `if`, which is the final statement in `{`.  `checkOdd` is not in tail position because it is in the first argument of `&&`; `checkVal` is not in tail position because whereas `checkOdd`, `checkEven` and `msg` are not in tail position.
+In the above snippet, the calls `plinkle(val)` and `tinkle(val/2)` are in tail position, because they appear in the second args of `||` and `&&`, in the final statement of `{}` in, in a branch of `if`, which is the final statement in `{`.  `checkOdd` is not in tail position because it is in the first, rather than second argument of `&&`; `checkVal` is not in tail position because it is not in the last argument of its enclosing `{}`. Meanwhile, `/`is not in tail position because it appears in the args of `tinkle` (even though `tinkle` _is_ in tail position.)
 
-This notion will be useful because a tail call is a natural place to "splice" one function to the next. When evaluation reaches a tail position, the function is bound to return whatever the tail call returns. This means that any local variables in the function can be ignored from that point forward. (again, this being in our "simple R" dialect where we avoid lazy eval shenanigans.) When collecting the graph, tail calls are equivalent to state transitions. When writing node functions, we only make calls to other node functions in tail position; `walk` will only consider those to be state transitions.
+This notion will be useful because a tail call is a natural place to "splice" one function to the next. When evaluation reaches a tail position, the function is bound to return whatever the tail call returns. This means that upon making the call, anything that  local variables in the function can be ignored from that point forward (again, this being in our "simple R" dialect where we avoid lazy eval shenanigans.) When collecting the graph, tail calls are considered to be state transitions. When writing node functions, we only make calls to other node functions in tail position; `walk` will only consider those to be state transitions.
 
 ## Drawing the graph
 
@@ -125,3 +136,6 @@ Now, a question I have is about how to handle the `R_` functions because they wi
 * [ ] start doing enough code generation until you identify the need for quasiquote, or run into the thing with the thunks, then see what the mismatch is shaped like.
 
  * why is it getting "iter" and "iterators"...
+
+<!--  LocalWords:  builtins compilable args namespace namespaces
+ -->

@@ -85,3 +85,25 @@ if (FALSE) {
   ## "throw" can also be used to return from a nested, recursive search
 
 }
+
+
+if(FALSE) {"can you always break from down the stack?"
+  # really, what about if you're in the middle of a C call?
+  thunk3 <- function(a, b) {
+    on.exit(print("exit3"))
+    do(thunk2, dots(a, b))
+  }
+  thunk2 <- function(a, b) {
+    on.exit(print("exit2"))
+    do.call("thunk", alist(a, b))
+  }
+  thunk <- function(a, b) {
+    on.exit(print("exit"))
+    if(a) b
+  }
+  i <- 0
+  repeat {
+    print(i <- i + 1)
+    thunk3(i>5, break)
+  }
+}
