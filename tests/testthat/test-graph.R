@@ -32,7 +32,6 @@ test_that("Can extract graph of generator", {
       i <- i + 2
     }
   })
-
   makeGraph(genprimes, fname)
   compileGraph(fname, oname)
 
@@ -60,6 +59,7 @@ test_that("Async with try-finally", {
 })
 
 test_that("try/finally/catch/break/return", {
+  
   fizz <- gen({
     i <- 1
     repeat {
@@ -85,6 +85,7 @@ test_that("try/finally/catch/break/return", {
   })
   makeGraph(fizz, fname)
   compileGraph(fname, oname)
+  
 })
 
 test_that("fizzbuzz", {
@@ -104,9 +105,9 @@ test_that("fizzbuzz", {
       }
     }
   })
-
   makeGraph(fb, fname)
   compileGraph(fname, oname)
+  
 })
 
 test_that("function inspection with all_names", {

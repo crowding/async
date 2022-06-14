@@ -277,7 +277,7 @@ repeat_cps <- function(expr) { force(expr) #expr getting NULL???
     }
     brk_ <- function() {
       trace("repeat: break\n")
-      ret(cont, invisible(NULL))
+      cont(invisible(NULL))
     }
     nxt_ <- function() {
       trace("repeat: next\n")

@@ -87,9 +87,10 @@ subgraphs <- function(nodeGraph) {
           subgraph(paste0("cluster1_", sgName), # dummy...
                    props(margin=6, style="invis"),
             subgraph(paste0("cluster_", sgName),
-                   props(label="", shape="box", style="dashed,rounded",
+                   props(label="", shape="box", style="rounded",
+                         bgcolor="gray85",
                          #rank="same",
-                         margin=12, penwidth=3, color="gray70"),
+                         margin=12, penwidth=2, color="gray75"),
                    nodes(nodeGraph,
                          sort(names(nodeGraph$contextNodes[[sgName]]))),
                    storage(nodeGraph, sgName)))
@@ -108,12 +109,15 @@ edgeAttrs <- function(nodeGraph, from, to) {
   props <- nodeGraph$edgeProperties[[from, to]]
   c(if (props$label=="cont" || length(nodeGraph$edgeProperties[[from]]) <= 1)
     c(taillabel="") else c(taillabel=props$label),
-    if(length(props$call[[1]]) > 1) #tailcall carries value
-      c(penwidth="2", arrowhead="normal")
-    else c(color="gray50", penwidth="2"),
+    if (length(props$call[[1]]) > 1)
+      c(color="black") else c(color="gray50"),
+    switch(props$type,
+           tailcall=c(arrowhead="normal", penwidth="2"),
+           trampoline=c(style="dashed", penwidth="2.5"),
+           handler=c(penwidth="1", arrowhead="dot")),
     ## if (identical(nodeGraph$nodeProperties[[to]]$localName, ";"))
     ##   c(arrowhead="none"),
-    if (length(props$call) > 1) { #"special" or trampolined tailcalls
+    if (props$type=="trampoline") { #"special" or trampolined tailcalls
       c(arrowhead="odot", taillabel=" ", labelangle=0, fontsize=15, arrowsize=2.25,
         labeldistance=.9, fontcolor="blue",
         switch(as.character(props$call[[2]][[1]]),
@@ -143,7 +147,7 @@ defaults <- function(type, ...) {
 make_dot <- function(nodeGraph) {
   digraph(
     "G",
-    props(bgcolor="lightgray", margin=0, pad=1,
+    props(bgcolor="lightgray", margin=0, pad=1, concentrate="false",
           nodesep=0.3, ranksep=0.4, newrank="true", # packmode="graph",
           labeljust="l", fontname="DejaVu Sans Mono Book", rankdir="TB",
           fontsize=14),
