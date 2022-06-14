@@ -332,47 +332,37 @@ for_cps <- function(var, seq, expr) {
     env_ <- NULL
     seq_ <- NULL
     brk_ <- function() {
-      ret(cont, invisible(NULL))
+      cont(invisible(NULL))
     }
     nxt_ <- function() {
-      ret(iter)
+      ret(do)
     }
-    iter <- function() {
+    do <- function() {
       stopping <- FALSE
       reason <- NULL
       trace(paste0("for ", var_, ": next\n"))
-      val <- tryCatch(iterators::nextElem(seq_),
-                      error = function(e) {
-                        trace(paste0("for ", var_, ": caught ", conditionMessage(e), "\n"))
-                        stopping <<- TRUE
-                        reason <<- e
-                      })
+      val <- async::nextElemOr(seq_, stopping <- TRUE)
       if (stopping) {
-        if (identical(conditionMessage(reason), 'StopIteration')) {
-          trace(paste0("for ", var_, ": finished\n"))
-          cont(invisible(NULL))
-        } else {
-          trace(paste0("for ", var_, ": stop: ", conditionMessage(reason), "\n"))
-          stop(reason)
-        }
+        trace(paste0("for ", var_, ": finished\n"))
+        cont(invisible(NULL))
       } else {
         trace(paste0("for ", var_, ": do\n"))
         assign(var_, val, envir=env_)
         body()
       }
     }
+    body <- expr(`;_ctor`(do, ..., ret=ret, nxt=nxt_, brk=brk_, stop=stop, trace=trace),
+                 ..., ret=ret, nxt=nxt_, brk=brk_, stop=stop, trace=trace) # our brk_
     in_ <- function(val) {
-      seq_ <<- iterators::iter(val)
-      iter()
+      seq_ <<- iteror(val)
+      do()
     }
+    getSeq <- seq(in_, ..., ret=ret, nxt=nxt, brk=brk, stop=stop, trace=trace) #not our brk
     for_ <- function(val) {
       var_ <<- as.character(arg_expr(val))
       env_ <<- arg_env(val)
       getSeq()
     }
-    body <- expr(`;_ctor`(iter, ..., ret=ret, nxt=nxt_, brk=brk_, stop=stop, trace=trace),
-                   ..., ret=ret, nxt=nxt_, brk=brk_, stop=stop, trace=trace) # our brk_
-    getSeq <- seq(in_, ..., ret=ret, nxt=nxt, brk=brk, stop=stop, trace=trace) #not our brk
     begin <- var(for_, ..., ret=ret, nxt=nxt, brk=brk, stop=stop, trace=trace) #not our brk
   }
 }

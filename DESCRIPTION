@@ -23,8 +23,6 @@ LazyData: true
 Depends: R (>= 3.5.0)
 Imports:
         nseval (>= 0.4),
-        iterators,
-        itertools,
         later,
         promises
 Suggests:

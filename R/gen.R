@@ -78,7 +78,7 @@ yield_cps <- function(expr) { force(expr)
   }
 }
 
-make_generator <- function(expr, orig=NULL, ..., trace=trace_) { list(expr, ...)
+make_generator <- function(expr, orig=arg(expr), ..., trace=trace_) { list(expr, ...)
 
   nonce <- sigil()
   yielded <- nonce
@@ -106,20 +106,19 @@ make_generator <- function(expr, orig=NULL, ..., trace=trace_) { list(expr, ...)
   # yield handler goes into a wrapper to gain access to "pause"
   pump <- make_pump(expr, ..., return=return_, stop=stop_, yield=yield_, trace=trace)
 
-  nextElem <- function(...) {
+  nextElemOr <- function(or, ...) {
     trace("generator: nextElem\n")
     switch(state,
            stopped =,
-           finished = stop("StopIteration"),
-           running = stop("Generator is already running (recursive loop?)"),
+           finished = or,
+           running = stop("Generator is already running (or terminated unexpectedly?)"),
            paused = {
              state <<- "running"
              pump()
-             assert(state != "running",
-                    msg="Generator paused without yielding?")
              switch(state,
+                    running = stop("Generator paused without yielding?"),
                     stopped = stop(err),
-                    finished = stop("StopIteration"),
+                    finished = or,
                     paused = {
                       assert(!identical(yielded, nonce),
                              msg="generator paused but no value yielded?")
@@ -128,8 +127,7 @@ make_generator <- function(expr, orig=NULL, ..., trace=trace_) { list(expr, ...)
            })
   }
 
-  g <- add_class(itertools::new_iterator(nextElem), "generator")
-  g$orig <- orig
+  g <- add_class(iteror(nextElemOr), "generator")
   g
 }
 
@@ -140,7 +138,7 @@ print.generator <- function(x, ...) {
 
 #' @export
 format.generator <- function(x, ...) {
-  envir <- environment(x$nextElem)
+  envir <- environment(x)
   code <- envir$orig
   a <- deparse(call("gen", expr(code)), backtick=TRUE)
   b <- format(env(code), ...)
@@ -152,3 +150,4 @@ format.generator <- function(x, ...) {
          "]>"), collapse="")
   c(a, b, c)
 }
+

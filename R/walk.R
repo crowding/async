@@ -13,15 +13,15 @@ getCurrent <- function(x) UseMethod("getStop")
 getOrig <- function(x) UseMethod("getOrig")
 
 #' @exportS3Method
-getEntry.generator <- function(x) environment(environment(x$nextElem)$pump)$entry
+getEntry.generator <- function(x) environment(environment(x)$pump)$entry
 #' @exportS3Method
-getReturn.generator <- function(x) environment(x$nextElem)$return_
+getReturn.generator <- function(x) environment(x)$return_
 #' @exportS3Method
-getStop.generator <- function(x) environment(x$nextElem)$stop_
+getStop.generator <- function(x) environment(x)$stop_
 #' @exportS3Method
-getCurrent.generator <- function(x) environment(environment(x$nextElem)$pump)$cont
+getCurrent.generator <- function(x) environment(environment(x)$pump)$cont
 #' @exportS3Method
-getOrig.generator <- function(x) expr(environment(x$nextElem)$orig)
+getOrig.generator <- function(x) expr(environment(x)$orig)
 
 #' @exportS3Method
 getEntry.async <- function(x) environment(x$state$pump)$entry

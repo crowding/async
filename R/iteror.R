@@ -100,6 +100,10 @@ ihasNext <- function(obj, ...) {
   UseMethod("ihasNext")
 }
 
+hasNext <- function(obj, ...) {
+  UseMethod('hasNext')
+}
+
 #' @exportS3Method
 ihasNext.ihasNextOr <- identity
 
@@ -145,7 +149,7 @@ ihasNext.iteror <- function(obj, ...) {
 
 #' @exportS3Method
 nextElem.ihasNextOr <- function(obj, ...) {
-  obj(stop("stopIteration", call.=FALSE), query="next", ...)
+  obj(stop("StopIteration", call.=FALSE), query="next", ...)
 }
 
 #' @exportS3Method
@@ -154,7 +158,7 @@ nextElemOr.ihasNextOr <- function(obj, or, ...) {
 }
 
 #' @exportS3Method
-hasNext.iHasNextOr <- function(obj, ...) {
+hasNext.ihasNextOr <- function(obj, ...) {
   obj(query="has", ...)
 }
 

@@ -171,7 +171,7 @@ test_that("try-catch error in catch", {
   })
   nextElem(g) %is% "one"
   expect_error(nextElem(g), "second")
-  expect_match(toString(g), "second")
+  expect_match(format(g), all=FALSE, "second")
 
   g <- gen({
     tryCatch({
@@ -185,7 +185,7 @@ test_that("try-catch error in catch", {
   nextElem(g) %is% "one"
   nextElem(g) %is% "two"
   expect_error(nextElem(g), "second")
-  expect_match(toString(g), "second")
+  expect_match(format(g), all=FALSE, "second")
 
 
   g <- gen({

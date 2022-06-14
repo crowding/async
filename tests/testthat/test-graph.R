@@ -9,10 +9,10 @@ compileGraph <- function(fname, oname) {
   expect_equal(status, 0)
 }
 
-test_that("Can extract graph of generator", {
+fname <- "temp.dot" # tempfile(fileext=".dot")
+oname <- paste0(fname, ".pdf")
 
-  fname <- "temp.dot" # tempfile(fileext=".dot")
-  oname <- paste0(fname, ".pdf")
+test_that("Can extract graph of generator", {
 
   genprimes <- gen({
     yield(2)
@@ -34,6 +34,40 @@ test_that("Can extract graph of generator", {
   })
   makeGraph(genprimes, fname)
   compileGraph(fname, oname)
+
+  seq <- ilimit(iseq(), 50)
+  fizztry <- gen({
+    tryCatch({
+      repeat {
+        i <- nextElem(seq)
+        if(i %% 3 == 0) {
+          if (i %% 5 == 0) {
+            yield("FizzBuzz")
+          } else {
+            yield("Fizz")
+          }
+        } else if (i %% 5 == 0) {
+          yield("Buzz")
+        }
+      }
+    }, error=function(e) NULL)
+    yield("!")
+  })
+  makeGraph(fizztry, fname)
+  compileGraph(fname, oname)
+
+
+  collatz <- function(x) { force(x)
+    gen({
+      yield(x)
+      while (x > 1) {
+        x <- if (x %% 2 == 0) x / 2L else 3L * x + 1
+        yield(x)
+      }
+    })
+  }
+
+  
 
 })
 
@@ -115,10 +149,12 @@ test_that("function inspection with all_names", {
   externConst <- 10
   externVar <- 1
   externVar2 <- 5
+  if (exists("g")) rm(g)
   g1 <- function(val) NULL
   g2 <- function(val, cont, ...) NULL
   g3 <- function(val) NULL
   delayedAssign("cont", stop("don't look at me!"))
+
   f <- function(arg1, arg2, cont) {
     arg1 <- arg1 + arg2
     temp <- arg2/arg1
@@ -161,6 +197,7 @@ test_that("function inspection with all_names", {
          trampoline=alist(g3(NULL), g2(12, g3, NULL)),
          tailcall=alist(cont(1)))
 
+  rm(cont)
   # what needs_import
   setdiff(union(by_role$external, by_role$var),
           union(by_role$local, by_role$arg)) %is% c(
@@ -173,6 +210,7 @@ test_that("function inspection with all_names", {
   reads %is% c("externConst", "externVar", "externVar2")
   # but only keep externs that aren't from packages?
   # or only externs that aren't in function heads?
+
 })
 
 test_that("all_names recognizes trampolines", {

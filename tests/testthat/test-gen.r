@@ -23,16 +23,18 @@ test_that("generator loop", {
   }
   expect_error(nextElem(i), "StopIteration")
 
-  i <- itertools::ihasNext(ii(10))
+  i <- ihasNext(ii(10))
   for (j in 1:10) {
-    itertools::hasNext(i) %is% TRUE
+    hasNext(i) %is% TRUE
     nextElem(i) %is% j
   }
-  itertools::hasNext(i) %is% FALSE
+  hasNext(i) %is% FALSE
   expect_error(nextElem(i), "StopIteration")
+
 })
 
 test_that("further nextElems will error with stopIteration", {
+
   g <- gen(yield(1))
   nextElem(g) %is% 1
   expect_error(nextElem(g), "StopIteration")
@@ -44,6 +46,7 @@ test_that("further nextElems will error with stopIteration", {
   nextElem(g) %is% 1
   expect_error(nextElem(g), "foo")
   expect_error(nextElem(g), "StopIteration")
+
 })
 
 test_that("a generator", {
@@ -53,7 +56,7 @@ test_that("a generator", {
 
 test_that("for loop over an iterator", {
   x <- gen(for (i in icount()) {yield(i)})
-  as.numeric(as.list(itertools::ilimit(x, 10))) %is% 1:10
+  as.numeric(as.list(ilimit(x, 10))) %is% 1:10
 
   j <- gen(for(i in 1:10) if (i %% 7 == 0) stop("oops") else yield(i))
   x <- 0
@@ -69,7 +72,7 @@ test_that("nested for loops", {
       yield(0)
     }
   })
-  as.numeric(as.list(itertools::ilimit(x, 24))) %is%
+  as.numeric(as.list(ilimit(x, 24))) %is%
     c(1,1,1,0,1,1,0,1,0,1,1,0,1,1,1,0,1,1,0,1,0,1,1,0)
 })
 
