@@ -19,3 +19,8 @@ Let's see, what about if you initialize a "mapping" at run time and then switch 
 # making arguments "quotable"
 
 Some constructors might want to get the "quoted" arguments of stuff they aren't going to evaluate. How?
+
+
+# ESS versus closxps?!
+
+Apparently the reason I can't just tag a "class" attribute onto a closxp and call that an iteror is.... ESS is fucking with me. If I evaluate a chunk in ESS, it is altering the environment of the resulting closxp. it comes back with the enclosing environment set to the package namespace, instead of the environment that _really_ enclosed it and has its variables. It's weird.

@@ -54,7 +54,8 @@ gen <- function(expr, ..., split_pipes=FALSE, trace=trace_) { expr <- arg(expr)
              trace=arg(trace),
              dots(...))
   set_dots(environment(), args_)
-  make_generator(...)
+  gen <- make_generator(...)
+  gen
 }
 
 #' @export
@@ -70,66 +71,120 @@ yield_cps <- function(expr) { force(expr)
     `yield_` <- function(val) {
       force(val)
       trace("yield\n")
-      yield(val) # these are different calls because make_async
-                 # wraps around make_pump and we affect state in both...
-      pause(cont, val)
+      yield(val, cont, val)
     }
     expr(yield_, ..., ret=ret, pause=pause, yield=yield, trace=trace)
   }
 }
 
 make_generator <- function(expr, orig=arg(expr), ..., trace=trace_) { list(expr, ...)
+  nextElemOr_ <- NULL
 
-  nonce <- sigil()
-  yielded <- nonce
-  err <- nonce
-  state <- "paused"
+  gen_cps <- function(expr) { force(expr)
+    function(cont, ..., stop, return, pause, trace) {
+      list(stop, return, pause, trace)
+      nonce <- sigil()
+      yielded <- nonce
+      err <- nonce
+      state <- "yielded"
 
-  return_ <- function(val) {
-    force(val)
-    trace("generator: return\n")
-    state <<- "finished"
+      return_ <- function(val) {
+        force(val)
+        trace("generator: return\n")
+        state <<- "finished"
+        return(val)
+      }
+
+      stop_ <- function(val) {
+        trace("generator: stop\n")
+        err <<- val
+        state <<- "stopped"
+        stop(val)
+      }
+
+      yield_ <- function(val, cont, ...) {
+        trace("generator: yield\n")
+        yielded <<- val
+        state <<- "yielded"
+        pause(cont, ...)
+      }
+
+      nextElemOr_ <- function(or, ...) {
+        trace("generator: nextElemOr\n")
+        nextElem <- switch(state,
+               stopped =,
+               finished = or,
+               running = stop("Generator already running (or finished unexpectedly?)"),
+               yielded = {
+                 state <<- "running"
+                 on.exit({
+                   if (state == "running") {
+                     state <<- "finished"
+                     #just a warning  (or not) bc we're probably on our
+                     #way out with a more detailed error
+                     # warning("Generator finished unexpectedly")
+                   }
+                 })
+                 pump()
+                 switch(state,
+                        running = {
+                          state <<- "finished"
+                          stop("Generator finished unexpectedly")
+                        },
+                        stopped = stop(err),
+                        finished = or,
+                        yielded = {
+                          assert(!identical(yielded, nonce),
+                                 msg="generator yielded but no value?")
+                          tmp <- yielded
+                          yielded <<- nonce
+                          tmp
+                        },
+                        stop("Generator in an unknown state"))
+               },
+               stop("Generator in an unknown state"))
+        nextElem # no tailcalls
+      }
+      nextElemOr_ <<- nextElemOr_
+      expr(return_, ..., stop=stop_, return=return_, yield=yield_,
+           pause=pause, trace=trace)
+    }
   }
 
-  stop_ <- function(val) {
-    trace("generator: stop\n")
-    err <<- val
-    state <<- "stopped"
-  }
-
-  yield_ <- function(val) {
-    trace("generator: yield\n")
-    yielded <<- val
-    state <<- "paused"
-  }
-
-  # yield handler goes into a wrapper to gain access to "pause"
-  pump <- make_pump(expr, ..., return=return_, stop=stop_, yield=yield_, trace=trace)
-
-  nextElemOr <- function(or, ...) {
-    trace("generator: nextElem\n")
-    switch(state,
-           stopped =,
-           finished = or,
-           running = stop("Generator is already running (or terminated unexpectedly?)"),
-           paused = {
-             state <<- "running"
-             pump()
-             switch(state,
-                    running = stop("Generator paused without yielding?"),
-                    stopped = stop(err),
-                    finished = or,
-                    paused = {
-                      assert(!identical(yielded, nonce),
-                             msg="generator paused but no value yielded?")
-                      reset(yielded, yielded <<- nonce)
-                    })
-           })
-  }
-
-  g <- add_class(iteror(nextElemOr), "generator")
+  pump <- make_pump(gen_cps(expr), trace=trace)
+  g <- add_class(iteror(nextElemOr_), "generator")
   g
 }
+
+# Code for walking over an async/generator and gathering information about its
+# nodes and graphs.
+
+#' @export
+getEntry <- function(x) UseMethod("getEntry")
+#' @export
+getReturn <- function(x) UseMethod("getReturn")
+#' @export
+getStop <- function(x) UseMethod("getStop")
+#' @export
+getCurrent <- function(x) UseMethod("getStop")
+#' @export
+getOrig <- function(x) UseMethod("getOrig")
+
+#' @exportS3Method
+getEntry.generator <- function(x)
+  environment(get("pump", envir=environment(x$nextElemOr)))$entry
+#' @exportS3Method
+getReturn.generator <- function(x)
+  environment(get("pump", envir=environment(x$nextElemOr)))$return_
+#' @exportS3Method
+getStop.generator <- function(x)
+  environment(get("pump", envir=environment(x$nextElemOr)))$stop_
+#' @exportS3Method
+getCurrent.generator <- function(x)
+  environment(get("pump", envir=environment(x$nextElemOr)))$cont
+#' @exportS3Method
+getOrig.generator <- function(x)
+  expr(get("orig", envir=environment(x$nextElemOr)))
 
 #' @export
 print.generator <- function(x, ...) {
@@ -138,8 +193,8 @@ print.generator <- function(x, ...) {
 
 #' @export
 format.generator <- function(x, ...) {
-  envir <- environment(x)
-  code <- envir$orig
+  envir <- environment(x$nextElemOr)
+  code <- get("orig", envir)
   a <- deparse(call("gen", expr(code)), backtick=TRUE)
   b <- format(env(code), ...)
   state <- envir$state

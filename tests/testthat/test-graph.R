@@ -32,6 +32,7 @@ test_that("Can extract graph of generator", {
       i <- i + 2
     }
   })
+
   makeGraph(genprimes, fname)
   compileGraph(fname, oname)
 
@@ -57,17 +58,24 @@ test_that("Can extract graph of generator", {
   compileGraph(fname, oname)
 
 
-  collatz <- function(x) { force(x)
-    gen({
+  collatz <- function(x) {
+    x <- as.integer(x)
+    gen(trace=cat, {
       yield(x)
-      while (x > 1) {
-        x <- if (x %% 2 == 0) x / 2L else 3L * x + 1
-        yield(x)
+      repeat {
+        if (x %% 2L == 0) {
+          x <- yield(x %/% 2L)
+        } else {
+          x <- yield(3L * x + 1L)
+        }
       }
     })
   }
+  collatz11 <- collatz(11L)
+  makeGraph(collatz11, fname)
+  compileGraph(fname, oname)
 
-  
+
 
 })
 
@@ -149,7 +157,7 @@ test_that("function inspection with all_names", {
   externConst <- 10
   externVar <- 1
   externVar2 <- 5
-  if (exists("g")) rm(g)
+  if (exists("alichlkh")) rm("alichlkh", inherits=TRUE)
   g1 <- function(val) NULL
   g2 <- function(val, cont, ...) NULL
   g3 <- function(val) NULL
@@ -164,7 +172,7 @@ test_that("function inspection with all_names", {
     package::doThing(arg2, foo=temp)
     if (FALSE) { #selection of tailcalls
       if (TRUE)
-        g(temp, arg1) # a tailcall
+        alichlkh(temp, arg1) # a tailcall to something you can't find...
       else
         g1(temp, arg1)
     } else {
@@ -178,10 +186,10 @@ test_that("function inspection with all_names", {
   by_role <- by_name(all_names(f))
   by_role$arg %is% c("arg1", "arg2", "cont")
   by_role$call %is% c( "+", "/", "*", "[<-", "[", "package::doThing",
-                      "g", "g1", "g2", "g3", "cont")
+                      "alichlkh", "g1", "g2", "g3", "cont")
   by_role$external %is% c("globalVar1", "externVar2")
   by_role$local %is% c("arg1", "temp")
-  by_role$tail %is% c("g", "g1", "g2", "g3", "cont")
+  by_role$tail %is% c("alichlkh", "g1", "g2", "g3", "cont")
   by_role$tramp %is% c("g3")
   by_role$var %is% c("arg1", "arg2", "temp", "externVar", "externConst",
                      "externVar2")
@@ -191,13 +199,14 @@ test_that("function inspection with all_names", {
       "temp", "arg1", "temp", "arg1")
 
   all_names(f, c("tailcall", "trampoline", "handler")) %is%
-    list(tailcall=alist(g(temp, arg1)),
+    list(tailcall=alist(alichlkh(temp, arg1)),
          tailcall=alist(g1(temp, arg1)),
          handler=alist(g2(val=12), g2(12, g3, NULL)),
          trampoline=alist(g3(NULL), g2(12, g3, NULL)),
          tailcall=alist(cont(1)))
 
-  rm(cont)
+  rm("cont")
+
   # what needs_import
   setdiff(union(by_role$external, by_role$var),
           union(by_role$local, by_role$arg)) %is% c(
@@ -208,9 +217,6 @@ test_that("function inspection with all_names", {
   stores <- by_role$external
   reads <- sort(setdiff(by_role$var, locals))
   reads %is% c("externConst", "externVar", "externVar2")
-  # but only keep externs that aren't from packages?
-  # or only externs that aren't in function heads?
-
 })
 
 test_that("all_names recognizes trampolines", {
@@ -227,6 +233,26 @@ test_that("all_names recognizes trampolines", {
 
   an$handler %is% alist(trample(), trample(cont, val))
   an$trampoline %is% alist(cont(val), trample(cont, val))
+
+  z <- function(err) {
+    trace(paste0("pump: stop: ", conditionMessage(err), "\n"))
+    err <<- err
+    action <<- "stop"
+    stop(err)
+  }
+  #stop is not a trampoline call bc no "cont"
+  an <- all_names(z, c("tailcall", "trampoline", "handler"))
+
+  pause <- function(cont, ...) NULL
+  w <- function(val, cont, ...) {
+    trace("generator: yield\n")
+    yielded <<- val
+    state <<- "yielded"
+    pause(cont, ...)
+  }
+  #"cont" is not registered as a trampoline because it's indirect
+  #(i.e. cont is in the args)
+  all_names(w, c("tailcall", "trampoline", "handler"))
 
 })
 

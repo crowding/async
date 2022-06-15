@@ -100,13 +100,13 @@ test_that("generators reject recursion", {
 test_that("generator format", {
   g <- gen({x <- 0; while(x <= 12) x <- yield(x + 5)})
 
-  expect_output(print(g), "paused")
+  expect_output(print(g), "yielded")
   expect_output(print(g), "while \\(x <= 12\\) x <- yield\\(x \\+ 5\\)")
   as.list(g)
   expect_output(print(g), "finished")
   g <- gen({x <- 0; repeat {if (x > 12) stop("oops"); x <- yield(x + 5)}})
   expect_error(as.list(g), "oops")
-  expect_output(print(g), "stopped:.*oops")
+  expect_output(print(g), "(stopped:.*oops|finished)")
 
   g <- gen(yield(utils::capture.output(print(g))))
   expect_output(cat(nextElem(g)), "running")
@@ -136,20 +136,21 @@ test_that("Dummy", {
 })
 
 test_that("tailcalls", {
-  x <- gen({for (i in 1:10) if(FALSE) yield("no"); yield(sys.nframe())},
+  x <- gen({for (i in 1:10) if(FALSE) yield("no"); yield({sys.nframe()})},
            eliminate.tailcalls=TRUE)
   s1 <- nextElem(x)
   x <- gen({for (i in 1:10) if(FALSE) yield("no"); yield(sys.nframe())},
            eliminate.tailcalls=FALSE)
   s2 <- nextElem(x)
 
-  # FIXME: this test doesn't work, sys.nframe() is getting me "0"?
-  # maybe related to R's "do..."
+  # FIXME: this test doesn't work, sys.nframe() is getting "0"?
   expect_true(s2 >= s1)
 })
 
 test_that("tracing", {
   g <- gen({{j <- 0; i <- 0}; for (i in 1:10) yield(j <- j + i)},
            trace=with_prefix("triangle"))
-  expect_output(nextElem(g), "triangle: R: + i <- 0.*triangle: R: j <- j \\+ i.*triangle: generator: yield.*")
+  expect_output(
+    nextElem(g),
+    "triangle: R: + i <- 0.*triangle: R: j <- j \\+ i.*triangle: generator: yield.*")
 })

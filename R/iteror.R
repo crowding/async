@@ -58,7 +58,7 @@ iteror.iter <- identity
 #' @exportS3Method iteror "function"
 iteror.function <- function(obj, ...) {
   if (!("or" %in% names(formals(obj)))) stop("iteror: must have 'or' argument")
-  structure(obj, class=c("funiteror", "iteror", "iter"))
+  structure(list(nextElemOr=obj), class=c("funiteror", "iteror", "iter"))
 }
 
 #' @exportS3Method
@@ -80,7 +80,7 @@ nextElemOr <- function(obj, or, ...) {
 
 #' @exportS3Method
 nextElemOr.funiteror <- function(obj, or, ...) {
-  obj(or, ...)
+  obj$nextElemOr(or, ...)
 }
 
 #' @exportS3Method

@@ -1,39 +1,3 @@
-# Code for walking over an async/generator and gathering information about its
-# nodes and graphs.
-
-#' @export
-getEntry <- function(x) UseMethod("getEntry")
-#' @export
-getReturn <- function(x) UseMethod("getReturn")
-#' @export
-getStop <- function(x) UseMethod("getStop")
-#' @export
-getCurrent <- function(x) UseMethod("getStop")
-#' @export
-getOrig <- function(x) UseMethod("getOrig")
-
-#' @exportS3Method
-getEntry.generator <- function(x) environment(environment(x)$pump)$entry
-#' @exportS3Method
-getReturn.generator <- function(x) environment(x)$return_
-#' @exportS3Method
-getStop.generator <- function(x) environment(x)$stop_
-#' @exportS3Method
-getCurrent.generator <- function(x) environment(environment(x)$pump)$cont
-#' @exportS3Method
-getOrig.generator <- function(x) expr(environment(x)$orig)
-
-#' @exportS3Method
-getEntry.async <- function(x) environment(x$state$pump)$entry
-#' @exportS3Method
-getReturn.async <- function(x) x$state$resolve
-#' @exportS3Method
-getStop.async <- function(x) x$state$reject
-#' @exportS3Method
-getCurrent.async <- function(x) environment(x$state$pump)$cont
-#' @exportS3Method
-getOrig.async <- function(x) x$orig
-
 concat <- function(l) do.call("c", l)
 cc <- function(...) c(..., recursive=TRUE)
 
@@ -105,15 +69,14 @@ all_names <- function(fn,
            )
   }
   collect_weird_call <- function(expr, inTail, orig=NULL) {
+    # i.e. trampolines and handlers don't need to register as tailcalls
     c(collect_head(expr[[1]], inTail=inTail),
       if(nonTail) concat(lapply(unname(expr[-1]), collect_arg,
                                 inTail=FALSE)))
   }
   collect_ordinary_call <- function(expr, inTail, orig=NULL) {
     c(if (tailcall && inTail) list(tailcall=c(list(expr), orig)),
-      collect_head(expr[[1]], inTail=inTail),
-      if(nonTail) concat(lapply(unname(expr[-1]), collect_arg,
-                                inTail=FALSE)))
+      collect_weird_call(expr, inTail, orig))
   }
   collect_call <- function(expr, inTail, orig=NULL) {
     if (!inTail && !nonTail) return(character(0))
@@ -167,20 +130,26 @@ all_names <- function(fn,
                  # Exists but not primitive. If a tailcall, peek at the
                  # formals. If the formals have "..." then it is a
                  # trampoline call.
-                 if (inTail && "..." %in% names(formals(peek))) {
+                 if (inTail &&
+                       all(c("cont", "...") %in% names(formals(peek)))) {
                    # trampoline! Register both the target and the indirect.
-                   handl <- match.call(peek, expr, expand.dots=FALSE)
+                   handl <- match.call(peek, expr, expand.dots=FALSE,
+                                       envir=as.environment(list(`...`=NULL)))
                    trampolined <- as.call(c(list(handl$cont), handl$...))
                    handl$cont <- NULL
                    handl$... <- NULL
                    c(
                      if (tramp) c(tramp=as.character(trampolined[[1]])),
                      if (handler) list(handler=c(list(handl, expr), orig)),
-                     if (trampoline)
-                       list(trampoline=c(list(trampolined, expr), orig)),
-                     collect_weird_call(handl, inTail, c(list(expr), orig)),
-                     collect_weird_call(trampolined, inTail, c(list(expr), orig))
-                     )
+                     collect_weird_call(handl, inTail,
+                                        c(list(expr), orig)),
+                     if (trampoline &&
+                           # passing along "cont" from yield_ to pause_
+                           # is not a new trampoline
+                           !(as.character(trampolined[[1]]) %in% args))
+                       c(list(trampoline=c(list(trampolined, expr), orig))),
+                     collect_weird_call(trampolined, inTail,
+                                        c(list(expr), orig)))
                  } else {
                    collect_ordinary_call(expr, inTail, orig)
                  }
@@ -317,6 +286,16 @@ all_indices.hashbag <- function(x) {
     } else list(k)
   })
   concat(indices)
+}
+
+#' @exportS3Method as.list hashbag
+as.list.hashbag <- function(x) {
+  lapply(structure(names(x), names=names(x)), function(ix) {
+    item <- get(ix, envir=x)
+    if ("hashbag" %in% class(item)) {
+      as.list(item)
+    } else item
+  })
 }
 
 ##  Walk

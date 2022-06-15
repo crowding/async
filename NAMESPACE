@@ -3,6 +3,7 @@
 S3method("[[",hashbag)
 S3method("[[<-",hashbag)
 S3method(all_indices,hashbag)
+S3method(as.list,hashbag)
 S3method(as.list,iteror)
 S3method(format,async)
 S3method(format,generator)

@@ -56,6 +56,7 @@ The function `walk()` does this, starting with the entry function, visiting each
   * Nodes should have either zero, or one argument, named `val`.
   * External handlers (the ones passed down in the first layer of the node constructor) are "trampolines", i.e. they return and unwind the stack, and save a reference to the "next" function to call. The simplest is `r ret(cont, ...)`which unwinds the stack and jumps back in at `r cont(...)`. Any loop-like construct should use `ret` once per loop. 
     * `all_names` will try to look up the functions you are calling in the environment of a given node function. If a function called in tail position has formals `cont` and `...` args, it is considered a trampoline. `walk` should collect information on both the trampoline-setting call and the trampolined call.
+  * No `on.exit` or `return` or other stuff that reifies the duration of a function call. 
 
 ### TODO:
 
@@ -78,7 +79,9 @@ function(val) {
 
 In the above snippet, the calls `plinkle(val)` and `tinkle(val/2)` are in tail position, because they appear in the second args of `||` and `&&`, in the final statement of `{}` in, in a branch of `if`, which is the final statement in `{`.  `checkOdd` is not in tail position because it is in the first, rather than second argument of `&&`; `checkVal` is not in tail position because it is not in the last argument of its enclosing `{}`. Meanwhile, `/`is not in tail position because it appears in the args of `tinkle` (even though `tinkle` _is_ in tail position.)
 
-This notion will be useful because a tail call is a natural place to "splice" one function to the next. When evaluation reaches a tail position, the function is bound to return whatever the tail call returns. This means that upon making the call, anything that  local variables in the function can be ignored from that point forward (again, this being in our "simple R" dialect where we avoid lazy eval shenanigans.) When collecting the graph, tail calls are considered to be state transitions. When writing node functions, we only make calls to other node functions in tail position; `walk` will only consider those to be state transitions.
+This notion will be useful because a tail call is a natural place to "splice" one function to the next. When evaluation reaches a tail position, the function is bound to return whatever the tail call returns. This means that upon making the call, anything that  local variables in the function can be ignored from that point forward (again, this being in our "simple R" dialect where we avoid lazy eval shenanigans.) This means that at a later stage (this is also why a call in `return` is not considered to be a tailcall, because splicing functions together would mean returns are called from different places.
+
+When collecting the graph, tail calls are considered to be state transitions. When writing node functions, we only make calls to other node functions in tail position; `walk` will only consider those to be state transitions.
 
 ## Drawing the graph
 
@@ -97,11 +100,11 @@ In name munging I need to:
 * [ ] collect all the variables used in each context and copy them over to the new environment using their new names.
   *  [ ] question: are the vars collected by context? 
 * [ ] translate each node's closxp so that its variable references are changed to the munged variables and its calls go go to munged call names. This can be done simply with a "quoting environment".
-* [ ] re-walk the states? Or update the parts of our hashtables that we used. Or do both and check if the graph output is the same. 
+* [ ] re-walk the states? Or update the parts of our hashtables that we used. Or do both and check if the graph output is the same.
 
 ## Optimizing
 
-It's not clear whether to work on this step before or after code generation. Right now I am thinking that if optimization is done on a closxp-based representation of the graph, I can skip over it to get code generation sorted first. Or, since the optimized graph should still be directly executable, I should be able to do optimisations before code generation. But I have the most questiona about how code generation works, so that seems like the likely next target.
+It's not clear whether to work on this step before or after code generation. Right now I am thinking that if optimization is done on a closxp-based representation of the graph, I can skip over it to get code generation sorted first. Or, since the optimized graph should still be directly executable, I should be able to do optimizations before code generation. But I have the most questions about how code generation works, so that seems like the likely next target.
 
 The main optimizations are inlining of constants and tailcalls. Any state variables that are read from and not written should be inlined. You can do this with a "quoting environment" again; replace a call to `cont(thing)` with `{val <- thing; (...)}` with the contents of `cont`.
 
@@ -138,4 +141,6 @@ Now, a question I have is about how to handle the `R_` functions because they wi
  * why is it getting "iter" and "iterators"...
 
 <!--  LocalWords:  builtins compilable args namespace namespaces
+<!--  LocalWords:  inlining
+ -->
  -->

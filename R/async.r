@@ -171,12 +171,24 @@ make_async <- function(expr, orig=arg(expr), ..., trace=trace_) {
     reject_ <<- reject
   }), "async")
 
-  pump <- make_pump(expr, ..., return=resolve, stop=reject, await=await_, trace=trace)
+  pump <- make_pump(expr, ...,
+                    return=resolve, stop=reject, await=await_, trace=trace)
   pump()
   pr$orig <- orig
   pr$state <- environment()
   pr
 }
+
+#' @exportS3Method
+getEntry.async <- function(x) environment(x$state$pump)$entry
+#' @exportS3Method
+getReturn.async <- function(x) x$state$resolve
+#' @exportS3Method
+getStop.async <- function(x) x$state$reject
+#' @exportS3Method
+getCurrent.async <- function(x) environment(x$state$pump)$cont
+#' @exportS3Method
+getOrig.async <- function(x) x$orig
 
 #' @export
 print.async <- function(x, ...) {

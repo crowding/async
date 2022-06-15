@@ -17,6 +17,14 @@ R <- function(x) {
   }
 }
 
+is_R <- function(f) {
+  exists("R_", environment(f), inherits=FALSE) &&
+    identical(f, get("R_", environment(f)))
+}
+
+R_expr <- function(f) {
+  arg_expr(x, environment(x))
+}
 
 return_cps <- function(x) {
   maybe(x)

@@ -24,6 +24,10 @@ test_that("yield inside of try", {
     stop("bar")
     yield(8)
   })
+  expect_equal(nextElem(g), 5)
+  expect_equal(nextElem(g), 7)
+  expect_error(nextElem(g), "bar")
+  expect_error(nextElem(g), "StopIteration")
 
   g <- gen({
     tryCatch({
@@ -186,7 +190,6 @@ test_that("try-catch error in catch", {
   nextElem(g) %is% "two"
   expect_error(nextElem(g), "second")
   expect_match(format(g), all=FALSE, "second")
-
 
   g <- gen({
     yield({

@@ -46,7 +46,7 @@ make_pump <- function(expr, ...,
                       return=base::return,
                       trace=trace_,
                       eliminate.tailcalls = TRUE) {
-  list(expr, ..., stop, return)
+  list(expr, stop, return, trace)
   nonce <- (function() function() NULL)()
 
   action <- "pause" # stopped, pause
@@ -82,7 +82,9 @@ make_pump <- function(expr, ...,
     trace(paste0("pump: stop: ", conditionMessage(err), "\n"))
     err <<- err
     action <<- "stop"
+    # the NULL is to stop `walk` from following a tailcall
     stop(err)
+    invisible(NULL)
   }
 
   return_ <- function(val) {
@@ -91,6 +93,7 @@ make_pump <- function(expr, ...,
     value <<- val
     action <<- "finish"
     return(val)
+    invisible(NULL)
   }
 
   # We maintain a list of "windings."
@@ -102,7 +105,7 @@ make_pump <- function(expr, ...,
     if(verbose) trace("pump: windup\n")
     tryCatch(cont(...), error=function(err){
       trace("pump: caught error by windup\n")
-      if(browseOnError) recover()
+      if(browseOnError) browser()
       stop_(err)
     }, finally=if(verbose) trace("pump: unwind\n"))
   }
