@@ -189,6 +189,12 @@ getStop.async <- function(x) x$state$reject
 getCurrent.async <- function(x) environment(x$state$pump)$cont
 #' @exportS3Method
 getOrig.async <- function(x) x$orig
+#' @exportS3Method
+getStartSet.async <- function(x) {
+  list(START=getEntry(x),
+       STOP=getStop(x),
+       RETURN=getReturn(x))
+}
 
 #' @export
 print.async <- function(x, ...) {

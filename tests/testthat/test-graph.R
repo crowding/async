@@ -33,6 +33,7 @@ test_that("Can extract graph of generator", {
     }
   })
 
+  nodeGraph <- walk(genprimes)
   makeGraph(genprimes, fname)
   compileGraph(fname, oname)
 
@@ -57,6 +58,18 @@ test_that("Can extract graph of generator", {
   makeGraph(fizztry, fname)
   compileGraph(fname, oname)
 
+  x <- iseq(1, 55)
+  incomplete <- gen(split_pipes=TRUE, {
+    repeat {
+      sum <- 0
+      for (i in 1:10) {
+        sum <- nextElemOr(x, {yield(sum); return()}) + sum
+      }
+      yield(sum)
+    }
+  })
+  makeGraph(incomplete, fname)
+  compileGraph(fname, oname)
 
   collatz <- function(x) {
     x <- as.integer(x)
@@ -169,6 +182,7 @@ test_that("function inspection with all_names", {
     temp[2] <- arg1 * arg2
     globalVar1 <<- externVar + externConst
     externVar2[arg1] <<- temp[2]
+    switch("foo", a=, b=, NULL)
     package::doThing(arg2, foo=temp)
     if (FALSE) { #selection of tailcalls
       if (TRUE)

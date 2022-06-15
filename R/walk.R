@@ -168,7 +168,7 @@ all_names <- function(fn,
     if (!inTail && !nonTail) return(character(0))
     switch(mode(expr),
            call=collect_call(expr, inTail),
-           name=if(var) {
+           name=if(var && !missing_(expr)) {
              c(var=unname(as.character(expr)))
            } else character(0),
            character(0))
@@ -333,10 +333,7 @@ as.list.hashbag <- function(x) {
 # * `orig`: the original call to async/gen
 #' @export
 walk <- function(gen) {
-  nodes <- new.env(parent=emptyenv())
-  nodes$START <- getEntry(gen)
-  nodes$STOP <- getStop(gen)
-  nodes$RETURN <- getReturn(gen)
+  nodes <- list2env(getStartSet(gen), parent=emptyenv())
   orig <- getOrig(gen)
   iter <- icount()
   nodeProperties <- new.env(parent=emptyenv())

@@ -169,6 +169,8 @@ getStop <- function(x) UseMethod("getStop")
 getCurrent <- function(x) UseMethod("getStop")
 #' @export
 getOrig <- function(x) UseMethod("getOrig")
+#' @export
+getStartSet <- function(x) UseMethod("getStartSet")
 
 #' @exportS3Method
 getEntry.generator <- function(x)
@@ -185,6 +187,13 @@ getCurrent.generator <- function(x)
 #' @exportS3Method
 getOrig.generator <- function(x)
   expr(get("orig", envir=environment(x$nextElemOr)))
+getStartSet.generator <- function(x) {
+  list(START=getEntry(x),
+       STOP=getStop(x),
+       RETURN=getReturn(x),
+       pump=get("pump", envir=environment(x$nextElemOr)),
+       nextElemOr=x$nextElemOr)
+}
 
 #' @export
 print.generator <- function(x, ...) {

@@ -69,6 +69,24 @@ test_that("if", {
   expect_error(pump(if_cps(R(stop("no")), R(2 < 3))), "no")
 })
 
+test_that("nextElemOr", {
+
+  x <- iseq(1, 55)
+
+  incomplete <- gen(split_pipes=TRUE, {
+    repeat {
+      sum <- 0
+      for (i in 1:10) {
+        sum <- nextElemOr(x, {yield(sum); return()}) + sum
+      }
+      yield(sum)
+    }
+  })
+
+  n <- as.numeric(as.list(g))
+  n[6] %is% sum(51:55)
+})
+
 test_that("<-", {
   pump(`<-_cps`(R(x), R(5))) %is% 5
   x %is% 5

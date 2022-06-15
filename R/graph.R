@@ -16,7 +16,8 @@ nodeAttrs <- function(nodeGraph, nodeName) {
       "R_"=c(label=paste0(deparse(expr(environment(nodeGraph$nodes[[nodeName]])$x)),
                           collapse="\\l"),
              fontname="DejaVu Sans Mono Bold", style="filled",
-             fontcolor="lightgreen", fontsize=13, color="gray20", labeljust="l"),
+             fontcolor="lightgreen", fontsize=13, color="gray20",
+             labeljust="l", nojustify="true"),
       ";"=c(shape="circle", style="filled", color="gray70",
             fixedsize="true",
             width=0.25, height=0.25, label=";"),
@@ -90,7 +91,7 @@ subgraphs <- function(nodeGraph) {
                    props(label="", shape="box", style="rounded",
                          bgcolor="gray85",
                          #rank="same",
-                         margin=12, penwidth=2, color="gray75"),
+                         margin=12, penwidth=1, color="gray75"),
                    nodes(nodeGraph,
                          sort(names(nodeGraph$contextNodes[[sgName]]))),
                    storage(nodeGraph, sgName)))
@@ -114,7 +115,7 @@ edgeAttrs <- function(nodeGraph, from, to) {
     switch(props$type,
            tailcall=c(arrowhead="normal", penwidth="2"),
            trampoline=c(style="dashed", penwidth="2.5"),
-           handler=c(penwidth="1", arrowhead="dot")),
+           handler=c(penwidth="0.75", arrowhead="dot", arrowsize="0.3")),
     ## if (identical(nodeGraph$nodeProperties[[to]]$localName, ";"))
     ##   c(arrowhead="none"),
     if (props$type=="trampoline") { #"special" or trampolined tailcalls
@@ -122,6 +123,7 @@ edgeAttrs <- function(nodeGraph, from, to) {
         labeldistance=.9, fontcolor="blue",
         switch(as.character(props$call[[2]][[1]]),
                ret=c(headlabel="⮍"),
+               yield=,
                pause=c(headlabel="⏸",labeldistance=0.8),
                windup=c(headlabel="⤽", fontsize=20),
                unwind=c(headlabel="⤼", fontsize=20)))

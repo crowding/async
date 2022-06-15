@@ -211,6 +211,7 @@ switch_cps <- function(EXPR, ...) {
   args <- list(...)
   #args <- args[!(missing_(args))]
   function(cont, ...) {
+    if (missing(cont)) browser()
     force(cont)
     if (length(args) == 0) {
       function() cont(NULL)
@@ -262,6 +263,22 @@ break_cps <- function()
     } else brk
   }
 
+
+nextElemOr_cps <- function(expr, or) {
+  list(expr, or)
+  function(cont, ..., trace=trace_) {
+
+    or_ <- or(cont, ..., trace=trace_)
+
+    getNext <- function(val) {
+      stopping <- FALSE
+      val <- nextElemOr(val, stopping <- TRUE)
+      if (stopping) or_() else cont(val)
+    }
+
+    expr(getNext, ..., trace=trace_)
+  }
+}
 
 # If you want to establish a new target for "break" or "next" you
 # pass that down to constructor arguments:

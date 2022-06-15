@@ -84,7 +84,7 @@ make_pump <- function(expr, ...,
     action <<- "stop"
     # the NULL is to stop `walk` from following a tailcall
     stop(err)
-    invisible(NULL)
+    NULL
   }
 
   return_ <- function(val) {
@@ -93,7 +93,7 @@ make_pump <- function(expr, ...,
     value <<- val
     action <<- "finish"
     return(val)
-    invisible(NULL)
+    NULL
   }
 
   # We maintain a list of "windings."
@@ -105,6 +105,7 @@ make_pump <- function(expr, ...,
     if(verbose) trace("pump: windup\n")
     tryCatch(cont(...), error=function(err){
       trace("pump: caught error by windup\n")
+      # assign("browseOnError", TRUE, envir=getNamespace("async"))
       if(browseOnError) browser()
       stop_(err)
     }, finally=if(verbose) trace("pump: unwind\n"))
