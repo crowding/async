@@ -44,7 +44,7 @@
 #' @param split_pipes Silently rewrite expressions where "yield"
 #'   appears in chained calls. See [async].
 #' @param trace Optional tracing function for debugging. See [async].
-#' @return An object with class "[iterator][iterators-package]".
+#' @return `gen({...}) returns an [iteror].
 #' @export
 gen <- function(expr, ..., split_pipes=FALSE, trace=trace_) { expr <- arg(expr)
   args_ <- c(cps_translate(expr,
@@ -60,8 +60,14 @@ gen <- function(expr, ..., split_pipes=FALSE, trace=trace_) { expr <- arg(expr)
 
 #' @export
 #' @rdname gen
+#' @description
+#' @return `yield(x)` returns the same value x.
+#'
+#' When written inside a generator expression, `yield(expr)` causes the
+#' generator to return the given value, then pause until the next value is
+#' requested.
 yield <- function(expr) {
-  stop("Yield called outside a generator")
+  stop("yield() called outside a generator")
 }
 
 yield_cps <- function(expr) { force(expr)
@@ -74,6 +80,52 @@ yield_cps <- function(expr) { force(expr)
       yield(val, cont, val)
     }
     expr(yield_, ..., ret=ret, pause=pause, yield=yield, trace=trace)
+  }
+}
+
+#' @export
+#' @rdname gen
+#' @description
+#'
+#' When running in a generator expression, `yieldFrom(it)`, given
+#' a list or [iteror] in its argument, will yield successive values from that
+#' iteror until it is exhausted, then continue.
+#'
+#' @param it A list, [iteror] or compatible object.
+#' @return yieldFrom returns NULL, invisibly.
+#' @examples
+#' chain <- function(...) {
+#'   iterators <- list(...)
+#'   gen(for (it in iterators) yieldFrom(it))
+#' }
+yieldFrom <- function(it) {
+  stop("yieldFrom() called outside a generator")
+}
+
+yieldFrom_cps <- function(it) {
+  function(cont, ..., yield, trace=trace) {
+    list(cont, yield, trace)
+
+    yieldFrom_ <- function(val) {
+      stopping <- FALSE
+      trace("yieldFrom: next")
+      val <- nextElemOr(iter, stopping <- TRUE)
+      if (stopping) {
+        trace("yieldFrom: stopping")
+        cont(invisible(NULL))
+      } else {
+        yield(val, yieldFrom_)
+      }
+    }
+
+    iter <- NULL
+    iter_ <- function(val) {
+      iter <<- iteror(val)
+      trace("yieldFrom: got iteror")
+      yieldFrom_(NULL)
+    }
+
+    it(iter_, ..., yield=yield, trace=trace)
   }
 }
 

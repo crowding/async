@@ -5,7 +5,7 @@
 # watchlist?
 base_endpoints <- c("break", "next", "return")
 async_endpoints <- c(base_endpoints, "await")
-gen_endpoints <- c(base_endpoints, "yield")
+gen_endpoints <- c(base_endpoints, "yield", "yieldFrom")
 
 # function names which block further translation of
 # their arguments

@@ -205,21 +205,6 @@ ilimit <- function(iterable, n) {
   })
 }
 
-ichain <- function(...) {
-  iterors <- iteror(lapply(list(...), iteror))
-  done <- sigil("done")
-  thisIterator <- nextElemOr(iterors, done)
-  iteror(function(or) {
-    while(!identical(thisIterator, done)) {
-      e <- nextElemOr(thisIterator, done)
-      if (identical(e, done)) {
-        thisIterator <<- nextElemOr(iterors, done)
-      } else return(e)
-    }
-    or
-  })
-}
-
 bench_iterators <- function() {
   # holy hell what the heck is iter() DOING??? 10x overhead!?
   # ah, it is switching depending on whether it's a function(n) or not.
@@ -265,17 +250,21 @@ imap <- function(it, fn) {
   })
 }
 
-chain <- function(...) {
-  iters <- iteror(list(...))
-  it <- nextElemOr(iters, return(nullIteror()))
+ichain <- function(its) {
+  its <- iteror(its)
+  it <- emptyIteror()
   iteror(function(or) {
     repeat {
       return(nextElemOr(it, {
-        it <<- nextElemOr(iters, return(or));
+        it <<- iteror(nextElemOr(its, return(or)))
         next
       }))
     }
   })
+}
+
+chain <- function(...) {
+  ichain(list(...))
 }
 
 izip <- function(...) {

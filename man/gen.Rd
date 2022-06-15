@@ -3,11 +3,14 @@
 \name{gen}
 \alias{gen}
 \alias{yield}
+\alias{yieldFrom}
 \title{Create an iterator using sequential code.}
 \usage{
 gen(expr, ..., split_pipes = FALSE, trace = trace_)
 
 yield(expr)
+
+yieldFrom(it)
 }
 \arguments{
 \item{expr}{An expression, to be turned into an iterator.}
@@ -18,6 +21,8 @@ yield(expr)
 appears in chained calls. See \link{async}.}
 
 \item{trace}{Optional tracing function for debugging. See \link{async}.}
+
+\item{it}{A list, \link{iteror} or compatible object.}
 }
 \value{
 An object with class "\link[=iterators-package]{iterator}".
@@ -29,6 +34,14 @@ pause and resume. From the "inside," a generator looks like you are
 writing sequential code with loops, branches and such, writing
 values to the outside world by calling \code{yield()}. From the "outside,"
 a generator behaves like an iterator over an indefinite collection.
+
+When written inside a generator expression, \code{yield(expr)} causes the
+generator return the given value, then pause until the next value is
+requested.
+
+When running in a generator expression, \code{yieldFrom(it)}, given
+a list or \link{iteror} in its argument, will yield successive values from that
+iteror until it is exhausted, then continue.
 }
 \details{
 When \code{nextElem} is called on a generator, the generator executes
@@ -62,4 +75,10 @@ definitions. However, this:
 
 is not legal, because \code{yield} appears in an argument to \code{+}, which
 does not have a pausable definition.
+}
+\examples{
+chain <- function(...) {
+  iterators <- list(...)
+  gen(for (it in iterators) yieldFrom(it))
+}
 }

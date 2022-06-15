@@ -33,9 +33,12 @@ test_that("Can extract graph of generator", {
     }
   })
 
-  nodeGraph <- walk(genprimes)
   makeGraph(genprimes, fname)
   compileGraph(fname, oname)
+
+})
+
+test_that("tryCatch", {
 
   seq <- ilimit(iseq(), 50)
   fizztry <- gen({
@@ -58,6 +61,10 @@ test_that("Can extract graph of generator", {
   makeGraph(fizztry, fname)
   compileGraph(fname, oname)
 
+})
+
+test_that("nextElemOr", {
+
   x <- iseq(1, 55)
   incomplete <- gen(split_pipes=TRUE, {
     repeat {
@@ -70,6 +77,10 @@ test_that("Can extract graph of generator", {
   })
   makeGraph(incomplete, fname)
   compileGraph(fname, oname)
+
+})
+
+test_that("collatz", {
 
   collatz <- function(x) {
     x <- as.integer(x)
@@ -88,7 +99,15 @@ test_that("Can extract graph of generator", {
   makeGraph(collatz11, fname)
   compileGraph(fname, oname)
 
+})
 
+test_that("yieldFrom", {
+
+  gchain <- function(its) { force(its)
+    gen(for (it in its) yieldFrom(it))
+  }
+  makeGraph(gchain(list(c("a", "b", "c"), c(1, 2, 3))), fname)
+  compileGraph(fname, oname)
 
 })
 
@@ -114,7 +133,7 @@ test_that("Async with try-finally", {
 })
 
 test_that("try/finally/catch/break/return", {
-  
+
   fizz <- gen({
     i <- 1
     repeat {
@@ -140,7 +159,7 @@ test_that("try/finally/catch/break/return", {
   })
   makeGraph(fizz, fname)
   compileGraph(fname, oname)
-  
+
 })
 
 test_that("fizzbuzz", {
@@ -162,7 +181,7 @@ test_that("fizzbuzz", {
   })
   makeGraph(fb, fname)
   compileGraph(fname, oname)
-  
+
 })
 
 test_that("function inspection with all_names", {
@@ -175,6 +194,7 @@ test_that("function inspection with all_names", {
   g2 <- function(val, cont, ...) NULL
   g3 <- function(val) NULL
   delayedAssign("cont", stop("don't look at me!"))
+  cont <- function(val, cont, ...) "wrong, don't look this up"
 
   f <- function(arg1, arg2, cont) {
     arg1 <- arg1 + arg2
@@ -193,7 +213,7 @@ test_that("function inspection with all_names", {
       if(FALSE)
         g2(12, g3, NULL) # a _trampolined_ tailcall
       else
-        cont(1) # tailcall into an argument, can't look it up...
+        cont(1) # "cont" is an argument, not the trampoline above
     }
   }
 
