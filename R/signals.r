@@ -23,7 +23,11 @@ is_R <- function(f) {
 }
 
 R_expr <- function(f) {
-  arg_expr(x, environment(x))
+  expr(get("x", environment(f)))
+}
+
+R_env <- function(f) {
+  env(get("x", environment(f)))
 }
 
 return_cps <- function(x) {

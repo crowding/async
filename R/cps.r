@@ -58,23 +58,24 @@ maybe <- function(x, if_missing=NULL)
 
 make_store <- function(sym) { force(sym)
   function(x, value) { list(x, value)
-    function(cont, ..., ret, trace=trace_) {
-      list(cont, ret, trace)
-      dest <- NULL
+    function(cont, ..., trace=trace_) { list(cont, trace)
+
+      #quote the LHS at constuction time
+      lhs <- x(cont, ..., trace=trace)
+      if (!is_R(lhs)) {
+        stop("Unexpected pause on LHS of <- or <<-")
+      }
+      env_ <- R_env(lhs)
+      var_ <- R_expr(lhs)
+      sym <- sym
+
       store <- function(val) {
-        if (is.language(val)) {
-          val <- as.call(list(quote, val))
-        }
-        v <- do.call(sym, list(expr(dest), val), envir=env(dest))
-        cont(v)
+        if (is.language(val))
+          val <- call("quote", val)
+        val <- do.call(sym, list(var_, val), envir=env_)
+        cont(val)
       }
-      getVal <- value(store, ..., ret=ret, trace=trace)
-      var <- function(val) {
-        dest <<- arg(val)
-        getVal()
-      }
-      getVar <- x(var, ..., ret=ret, trace=trace)
-      getVar
+      value(store, ..., trace=trace)
     }
   }
 }
@@ -345,19 +346,32 @@ for_cps <- function(var, seq, expr) {
   list(var, seq, expr)
   function(cont, ..., ret, nxt, brk, stop, trace=trace_) {
     list(cont, ret, maybe(nxt), maybe(brk), stop, trace)
-    i <- 0
-    var_ <- NULL
-    env_ <- NULL
+
+    #quote the LHS at constuction time
+    var_ <- var(cont, ..., ret=ret, nxt=nxt, brk=brk, stop=stop, trace=trace) #not our brk
+    if (!is_R(var_)) {
+      stop("Unexpected stuff in for() loop variable")
+    }
+    env_ <- R_env(var_)
+    var_ <- R_expr(var_)
+    if (!is.name(var_)) stop("Expected a name in for() loop variable")
+    var_ <- as.character(var_)
     seq_ <- NULL
+
     brk_ <- function() {
       cont(invisible(NULL))
     }
     nxt_ <- function() {
-      ret(do)
+      ret(iter_)
     }
-    do <- function() {
+    then_ <- function(val) {
+      force(val)
+      ret(iter_)
+    }
+    body <- expr(then_, ..., ret=ret, nxt=nxt_, brk=brk_, stop=stop,
+                 trace=trace) # our brk_
+    iter_ <- function() {
       stopping <- FALSE
-      reason <- NULL
       trace(paste0("for ", var_, ": next\n"))
       val <- async::nextElemOr(seq_, stopping <- TRUE)
       if (stopping) {
@@ -366,22 +380,14 @@ for_cps <- function(var, seq, expr) {
       } else {
         trace(paste0("for ", var_, ": do\n"))
         assign(var_, val, envir=env_)
-        body()
+        ret(body)
       }
     }
-    body <- expr(`;_ctor`(do, ..., ret=ret, nxt=nxt_, brk=brk_, stop=stop, trace=trace),
-                 ..., ret=ret, nxt=nxt_, brk=brk_, stop=stop, trace=trace) # our brk_
     in_ <- function(val) {
-      seq_ <<- iteror(val)
-      do()
+      seq_ <<- async::iteror(val)
+      iter_()
     }
     getSeq <- seq(in_, ..., ret=ret, nxt=nxt, brk=brk, stop=stop, trace=trace) #not our brk
-    for_ <- function(val) {
-      var_ <<- as.character(arg_expr(val))
-      env_ <<- arg_env(val)
-      getSeq()
-    }
-    begin <- var(for_, ..., ret=ret, nxt=nxt, brk=brk, stop=stop, trace=trace) #not our brk
   }
 }
 

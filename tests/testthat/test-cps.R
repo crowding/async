@@ -72,7 +72,6 @@ test_that("if", {
 test_that("nextElemOr", {
 
   x <- iseq(1, 55)
-
   incomplete <- gen(split_pipes=TRUE, {
     repeat {
       sum <- 0
@@ -83,8 +82,9 @@ test_that("nextElemOr", {
     }
   })
 
-  n <- as.numeric(as.list(g))
+  n <- as.numeric(as.list(incomplete))
   n[6] %is% sum(51:55)
+
 })
 
 test_that("<-", {
@@ -159,6 +159,7 @@ test_that("for", {
   pump(for_cps(R(i), R(1:10), R({x <- x + i})))
   x %is% 55
   #
+  
   x <- 0
   pump(for_cps(R(i),
                R(1:10),
@@ -167,6 +168,8 @@ test_that("for", {
                  if_cps(R(i %% 3 == 0), next_cps()),
                  if_cps(R(i %% 8 == 0), break_cps()),
                  R({x <- x + i}))))
+
+  
   x %is% 19 # 1 + 2 + 4 + 5 + 7
   i %is% 8
   #
@@ -180,12 +183,34 @@ test_that("for", {
            R(out <- c(out, x))))
   pump(cps)
   out %is% c(1, 3, 5, 7, 9)
+
+  expect_error(pump(for_cps(try_cps(R(i)), R(NULL), R(NULL))), "xpected")
+  expect_error(pump(for_cps(R(4), R(NULL), R(NULL))), "xpected")
 })
 
 test_that("for over iterator", {
   x <- 0
   pump(for_cps(R(i), R(icount(10)), R(x <- x + i)))
   x %is% 55
+})
+
+test_that("yieldFrom", {
+
+  a <- list("foo", "bar", "baz")
+  b <- iseq(1, 3)
+  gchain <- function(its) {
+    itors <- iteror(its)
+    gen(for (it in itors) yieldFrom(it))
+  }
+
+  gchain2 <- function(its) { force(its)
+    gen(for (it in its) for (i in it) yield(i))
+  }
+
+  as.list(gchain(list(a, b))) %is% list("foo", "bar", "baz", 1, 2, 3)
+  b <- iseq(1, 3)
+  as.list(ichain(list(a, b))) %is% list("foo", "bar", "baz", 1, 2, 3)
+
 })
 
 test_that("pump forces value or error", {
