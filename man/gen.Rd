@@ -25,7 +25,11 @@ appears in chained calls. See \link{async}.}
 \item{it}{A list, \link{iteror} or compatible object.}
 }
 \value{
-An object with class "\link[=iterators-package]{iterator}".
+`gen({...}) returns an \link{iteror}.
+
+\code{yield(x)} returns the same value x.
+
+yieldFrom returns NULL, invisibly.
 }
 \description{
 \code{gen({...})} with an expression written in its argument, creates a
@@ -36,7 +40,7 @@ values to the outside world by calling \code{yield()}. From the "outside,"
 a generator behaves like an iterator over an indefinite collection.
 
 When written inside a generator expression, \code{yield(expr)} causes the
-generator return the given value, then pause until the next value is
+generator to return the given value, then pause until the next value is
 requested.
 
 When running in a generator expression, \code{yieldFrom(it)}, given
@@ -46,7 +50,7 @@ iteror until it is exhausted, then continue.
 \details{
 When \code{nextElem} is called on a generator, the generator executes
 its given expression until it reaches a call to \verb{yield(...).}
-\code{nextElem} returns argument to \code{yield} is returne, and the
+\code{nextElem} returns the argument that was passed to \code{yield}, and the
 generator's execution state is preserved. The generator will resume
 on the next call to \code{nextElem()}.
 

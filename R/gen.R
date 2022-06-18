@@ -10,7 +10,7 @@
 #'
 #' When `nextElem` is called on a generator, the generator executes
 #' its given expression until it reaches a call to `yield(...).`
-#' `nextElem` returns argument to `yield` is returne, and the
+#' `nextElem` returns the argument that was passed to `yield`, and the
 #' generator's execution state is preserved. The generator will resume
 #' on the next call to `nextElem()`.
 #'
@@ -61,11 +61,11 @@ gen <- function(expr, ..., split_pipes=FALSE, trace=trace_) { expr <- arg(expr)
 #' @export
 #' @rdname gen
 #' @description
-#' @return `yield(x)` returns the same value x.
-#'
 #' When written inside a generator expression, `yield(expr)` causes the
 #' generator to return the given value, then pause until the next value is
 #' requested.
+#' @return `yield(x)` returns the same value x.
+#'
 yield <- function(expr) {
   stop("yield() called outside a generator")
 }

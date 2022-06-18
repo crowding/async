@@ -1,17 +1,22 @@
 ## graph.R
 # Code for outputting a Graphviz DOT file given data collected in walk.R
-quoted <- function(name) paste0('"', gsub('(["])', "\\\\\\1", name, ""), '"')
-block <- function(block) function(name, ...) {
-  c(paste0(block, " ", quoted(name), " { "), paste0("  ", c(...)), "}")}
-group <- function(items) paste0("{", paste0(quoted(items), collapse=" "), "}")
-attrs <- function(...) {
-  x = c(...)
-  if(length(x) > 0)
-    paste0("[", paste0(names(x), "=", quoted(x), collapse=", "), "]")
-  else character(0)}
-nodeAttrs <- function(nodeGraph, nodeName) {
-  label <- nodeGraph$nodeProperties[[nodeName]]$localName %||% ""
-  c(switch(
+
+make_dot <- function(nodeGraph,
+                     envs=TRUE,
+                     vars=TRUE,
+                     handlers=TRUE) {
+  quoted <- function(name) paste0('"', gsub('(["])', "\\\\\\1", name, ""), '"')
+  block <- function(block) function(name, ...) {
+    c(paste0(block, " ", quoted(name), " { "), paste0("  ", c(...)), "}")}
+  group <- function(items) paste0("{", paste0(quoted(items), collapse=" "), "}")
+  attrs <- function(...) {
+    x = c(...)
+    if(length(x) > 0)
+      paste0("[", paste0(names(x), "=", quoted(x), collapse=", "), "]")
+    else character(0)}
+  nodeAttrs <- function(nodeGraph, nodeName) {
+    label <- nodeGraph$nodeProperties[[nodeName]]$localName %||% ""
+    c(switch(
       label,
       "R_"=c(label=paste0(deparse(expr(environment(nodeGraph$nodes[[nodeName]])$x)),
                           collapse="\\l"),
@@ -22,135 +27,146 @@ nodeAttrs <- function(nodeGraph, nodeName) {
             fixedsize="true",
             width=0.25, height=0.25, label=";"),
       c(label=label, style="filled,rounded", color="gray70")),
-    switch(
-      nodeName,
-      START=c(shape="doubleoctagon", color="darkgreen", style="filled",
-              fontcolor="lightgreen", margin="0,0", fixedsize="false"),
-      STOP=c(shape="doubleoctagon", color="darkred", style="filled",
-             fontcolor="pink",  margin="0,0", fixedsize="false"),
-      RETURN=c(shape="doubleoctagon", color="darkblue", style="filled",
-               fontcolor="lightblue", margin="0,0", fixedsize="false")))}
-node <- function(nodeGraph, nodeName) {
-  paste(quoted(nodeName),
-        attrs(nodeAttrs(nodeGraph, nodeName)))}
-nodes <- function(nodeGraph, nodes) {
-  concat(lapply(nodes, function(n) node(nodeGraph,n)))}
-read <- function(from, field, to)
-  paste0(quoted(from), ":", field, " -> ", quoted(to))
-store <- function(from, to, field)
-  paste0(quoted(from), " -> ", quoted(to), ":", field)
-storage <- function(nodeGraph, context) {
-  # make a record node for context storage
-  # they say record-based nodes are obsoleted by html-style labels
-  # but I'll start with this...
-  varNames <- nodeGraph$contextProperties[[context]]$vars
-  if (length(varNames) == 0) NULL else {
-    c(paste(
-      quoted(paste0(context, "_", "var")),
-      attrs(shape="record",
-            label=paste0(
-              paste0("<", varNames, ">", varNames, collapse="|")),
-            fontsize=11,
-            fontname="DevaVu Sans Mono Bold", margin=0.08)),
-      # "{", paste0("<", varNames, ">", varNames, collapse="|"), "}"))),
-      concat(lapply(
-        names(nodeGraph$contextNodes[[context]]),
-        function(node) {
-          reads <- nodeGraph$nodeProperties[[node]]$reads
-          stores <- nodeGraph$nodeProperties[[node]]$stores
-          ## edges for the storage
-          c(
-            if (length(reads) > 0)
-              paste(read(paste0(context, "_var"), reads, node),
-                    attrs(penwidth=1, color="slateblue3",
-                          arrowsize=0.5, arrowhead="dot")),
-            if (length(stores) > 0)
-              paste(store(node, paste0(context, "_var"), stores),
-                    attrs(penwidth=1, color="orange3",
-                          arrowsize=0.5, arrowhead="dot"))
-          )})))}}
-subgraph <- block("subgraph")
-subgraphs <- function(nodeGraph) {
-  concat(
-    lapply(
-      sort(names(nodeGraph$contexts)),
-      function(sgName) {
-        nodeNames <- names(nodeGraph$contextNodes[[sgName]])
-        # draw a box IF there are multiple nodes OR there is storage.
-        # but NOT if it's a "passthrough R code" node (which has storage at
-        # compile time?)
-        label <- nodeGraph$nodeProperties[[nodeNames[[1]]]]$localName %||% ""
-        if ((
-          ( (length(nodeNames) > 1)
-            || (length(nodeGraph$contextProperties[[sgName]]$vars) > 0) )
-          && ( label != "R_" )
-        )) {
-          subgraph(paste0("cluster1_", sgName), # dummy...
-                   props(margin=6, style="invis"),
-            subgraph(paste0("cluster_", sgName),
-                   props(label="", shape="box", style="rounded",
-                         bgcolor="gray85",
-                         #rank="same",
-                         margin=12, penwidth=1, color="gray75"),
-                   nodes(nodeGraph,
-                         sort(names(nodeGraph$contextNodes[[sgName]]))),
-                   storage(nodeGraph, sgName)))
-        } else {
-          # no box, draw a single node
-          node(nodeGraph, nodeNames[[1]])
+      switch(
+        nodeName,
+        START=c(shape="doubleoctagon", color="darkgreen", style="filled",
+                fontcolor="lightgreen", margin="0,0", fixedsize="false",
+                pos="1,1"
+                ),
+        STOP=c(shape="doubleoctagon", color="darkred", style="filled",
+               fontcolor="pink",  margin="0,0", fixedsize="false"),
+        RETURN=c(shape="doubleoctagon", color="darkblue", style="filled",
+                 fontcolor="lightblue", margin="0,0", fixedsize="false")))}
+  node <- function(nodeGraph, nodeName) {
+    paste(quoted(nodeName),
+          attrs(nodeAttrs(nodeGraph, nodeName)))}
+  nodes <- function(nodeGraph, nodes) {
+    concat(lapply(nodes, function(n) node(nodeGraph,n)))}
+  read <- function(from, field, to)
+    paste0(quoted(from), ":", field, " -> ", quoted(to))
+  store <- function(from, to, field)
+    paste0(quoted(from), " -> ", quoted(to), ":", field)
+  storage <- function(nodeGraph, context) {
+    # make a record node for context storage
+    # they say record-based nodes are obsoleted by html-style labels
+    # but I'll start with this...
+    varNames <- nodeGraph$contextProperties[[context]]$vars
+    if (length(varNames) == 0) NULL else {
+      c(paste(
+        quoted(paste0(context, "_", "var")),
+        attrs(shape="record",
+              label=paste0(
+                paste0("<", varNames, ">", varNames, collapse="|")),
+              fontsize=11,
+              fontname="DevaVu Sans Mono Bold", margin=0.08)),
+        # "{", paste0("<", varNames, ">", varNames, collapse="|"), "}"))),
+        concat(lapply(
+          names(nodeGraph$contextNodes[[context]]),
+          function(node) {
+            reads <- nodeGraph$nodeProperties[[node]]$reads
+            stores <- nodeGraph$nodeProperties[[node]]$stores
+            ## edges for the storage
+            c(
+              if (length(reads) > 0)
+                paste(read(paste0(context, "_var"), reads, node),
+                      attrs(penwidth=1, color="slateblue3",
+                            arrowsize=0.5, arrowhead="dot",
+                            concentrate="true", constrain="false")),
+              if (length(stores) > 0)
+                paste(store(node, paste0(context, "_var"), stores),
+                      attrs(penwidth=1, color="orange3",
+                            arrowsize=0.5, arrowhead="dot",
+                            concentrate="true", constrain="false"))
+            )})))}}
+  subgraph <- block("subgraph")
+  subgraphs <- function(nodeGraph) {
+    concat(
+      lapply(
+        sort(names(nodeGraph$contexts)),
+        function(sgName) {
+          nodeNames <- names(nodeGraph$contextNodes[[sgName]])
+          # draw a box IF there are multiple nodes OR there is storage.
+          # but NOT if it's a "passthrough R code" node (which does have
+          # read-only storage?)
+          label <- nodeGraph$nodeProperties[[nodeNames[[1]]]]$localName %||% ""
+          if ((
+            ( (length(nodeNames) > 1)
+              || (length(nodeGraph$contextProperties[[sgName]]$vars) > 0) )
+            && ( label != "R_" )
+          )) {
+            contents <- c(
+              nodes(nodeGraph, sort(names(nodeGraph$contextNodes[[sgName]]))),
+              if(vars) storage(nodeGraph, sgName))
+            if (envs)
+              subgraph(paste0("cluster1_", sgName), # dummy...
+                       props(margin=6, style="invis"),
+                       subgraph(paste0("cluster_", sgName),
+                                props(label="", shape="box", style="rounded",
+                                      bgcolor="gray85",
+                                      #rank="same",
+                                      margin=12, penwidth=1, color="gray75"),
+                                contents))
+            else contents
+          } else {
+            # no box, draw a single node
+            node(nodeGraph, nodeNames[[1]])
+          }
         }
-      }
+      )
     )
-  )
-}
-edgeAttrs <- function(nodeGraph, from, to) {
-  # edge properties.
-  # bolder if carrying a value
-  # outgoing label.
-  props <- nodeGraph$edgeProperties[[from, to]]
-  c(if (props$label=="cont" || length(nodeGraph$edgeProperties[[from]]) <= 1)
-    c(taillabel="") else c(taillabel=props$label),
-    if (length(props$call[[1]]) > 1)
-      c(color="black") else c(color="gray50"),
-    switch(props$type,
-           tailcall=c(arrowhead="normal", penwidth="2"),
-           trampoline=c(style="dashed", penwidth="2.5"),
-           handler=c(penwidth="0.75", arrowhead="dot", arrowsize="0.3")),
-    ## if (identical(nodeGraph$nodeProperties[[to]]$localName, ";"))
-    ##   c(arrowhead="none"),
-    if (props$type=="trampoline") { #"special" or trampolined tailcalls
-      c(arrowhead="odot", taillabel=" ", labelangle=0, fontsize=15, arrowsize=2.25,
-        labeldistance=.9, fontcolor="blue",
-        switch(as.character(props$call[[2]][[1]]),
-               ret=c(headlabel="⮍"),
-               yield=,
-               pause=c(headlabel="⏸",labeldistance=0.8),
-               windup=c(headlabel="⤽", fontsize=20),
-               unwind=c(headlabel="⤼", fontsize=20)))
-    }
-  )}
-edge <- function(nodeGraph, from, to) {
-  concat(lapply(to, function(edgeTo) {
-    paste(quoted(from), "->", quoted(edgeTo),
-          attrs(edgeAttrs(nodeGraph, from, edgeTo)))
-  }))}
-edges <- function(nodeGraph) {
-  concat(lapply(all_indices(nodeGraph$edgeProperties),
-                function(i) edge(nodeGraph, i[1], i[2])))
-}
-graph <- block("graph")
-digraph <- block("digraph")
+  }
+  edgeAttrs <- function(nodeGraph, from, to) {
+    # edge properties.
+    # bolder if carrying a value
+    # outgoing label.
+    props <- nodeGraph$edgeProperties[[from, to]]
+    c(if (props$label=="cont" || length(nodeGraph$edgeProperties[[from]]) <= 1)
+      c(taillabel="") else c(taillabel=props$label),
+      if (length(props$call[[1]]) > 1)
+        c(color="black") else c(color="gray50"),
+      switch(props[["type"]],
+             tailcall=c(arrowhead="normal", penwidth="2", concentrate="true"),
+             trampoline=c(style="dashed", penwidth="2.5",
+                          constrain="false", concentrate="false"),
+             handler=c(penwidth="0.75", arrowhead="dot", arrowsize="0.3",
+                       concentrate="true", constrain="false")),
+      ## if (identical(nodeGraph$nodeProperties[[to]]$localName, ";"))
+      ##   c(arrowhead="none"),
+      if (props$type=="trampoline") { #"special" or trampolined tailcalls
+        c(arrowhead="odot", taillabel=" ", labelangle=0, fontsize=15, arrowsize=2.25,
+          labeldistance=.9, fontcolor="blue",
+          switch(as.character(props$call[[2]][[1]]),
+                 ret=c(headlabel="⮍"),
+                 yield=,
+                 pause=c(headlabel="⏸",labeldistance=0.8),
+                 windup=c(headlabel="⤽", fontsize=20),
+                 unwind=c(headlabel="⤼", fontsize=20)))
+      }
+      )}
+  edge <- function(nodeGraph, from, to) {
+    concat(lapply(to, function(edgeTo) {
+      edge <- nodeGraph$edgeProperties[[from, to]]
+      if (edge[["type"]] != "handler" ||
+            ((edge[["type"]] == "handler") && handlers)) {
+        paste(quoted(from), "->", quoted(edgeTo),
+              attrs(edgeAttrs(nodeGraph, from, to)))}}))}
+  edges <- function(nodeGraph) {
+    concat(lapply(all_indices(nodeGraph$edgeProperties),
+                  function(i) edge(nodeGraph, i[1], i[2])))}
+  graph <- block("graph")
+  digraph <- block("digraph")
 
-props <- function(...) {
-  x = c(...)
-  paste(names(x), "=", quoted(x))}
-defaults <- function(type, ...) {
-  paste(type, attrs(c(...)))}
-make_dot <- function(nodeGraph) {
+  props <- function(...) {
+    x = c(...)
+    paste(names(x), "=", quoted(x))}
+  defaults <- function(type, ...) {
+    paste(type, attrs(c(...)))}
+
   digraph(
     "G",
-    props(bgcolor="lightgray", margin=0, pad=1, concentrate="false",
-          nodesep=0.3, ranksep=0.4, newrank="true", # packmode="graph",
+    props(bgcolor="lightgray", margin=0, pad=0.25, concentrate="false",
+          nodesep=0.3, ranksep=0.4, newrank="true",
+          clusterrank="local", packmode="clust",
           labeljust="l", fontname="DejaVu Sans Mono Book", rankdir="TB",
           fontsize=14),
     defaults("edge", fontname="DejaVu Sans Bold", arrowhead="normal",
@@ -159,63 +175,107 @@ make_dot <- function(nodeGraph) {
              margin="0.1,0.1", shape="box", bgcolor="white",
              height=0.2, width=0.2, color="gray60", penwidth=2),
     NULL %&&% subgraph("cluster_label",
-             paste("label",
-                   attrs(shape="box", labeljust="l",
-                         fontname="DejaVu Sans Mono Book",
-                         labeljust="l", penwidth=0,
-                         label=paste0(deparse(nodeGraph$orig),
-                                      collapse="\\l")))),
+                       paste("label",
+                             attrs(shape="box", labeljust="l",
+                                   fontname="DejaVu Sans Mono Book",
+                                   labeljust="l", penwidth=0,
+                                   label=paste0(deparse(nodeGraph$orig),
+                                                collapse="\\l")))),
     subgraphs(nodeGraph),
     edges(nodeGraph)
   )
 }
 
-
-## digraph structs {
-##   node [shape=record];
-##   struct1 [label="<f0> left|<f1> mid&#92; dle|<f2> right"];
-##                                struct2 [label="<f0> one|<f1> two"];
-##   struct3 [label="hello&#92;nworld |{ b |{c|<here> d|e}| f}| g | h"];
-##              struct1:f1 -> struct2:f0;
-##   struct1:f2 -> struct3:here;
-## }
-
-## writeHtml <- function(nodes) {
-##   arg_ <- arg(nodes)
-##   tags <- all.names(expr(arg_),
-##                     functions=TRUE, unique=TRUE)
-##   x <- new.env(expr(arg_), )
-## }
-
-
 #' Draw a graph representation of a generator.
 #'
-#' @param x a generator or async object.
-#' @param filename The file to write to.
+#' `drawGraph` will traverse the objects representing a
+#' [generator][gen] or [async] and render a graph of its structure
+#' using Graphviz (if it is installed.)
 #'
-#' makeGraph will write a Graphviz DOT format file describing the
-#' given generator or async/await block. If you have Graphviz
-#' installed you can then use the `dot` command to render the graph.
+#' `drawGraph` will write a Graphviz DOT format file describing the
+#' given [generator][gen] or [async]/await block. The graph shows the
+#' generator as a state machine with nodes that connect to each other.
+#'
+#' If `type` is something other than `dot` `drawGraph will then try to
+#' invoke Graphviz  DOT to turn the graph description into an image
+#' file.
+#' 
+#' The green octagonal node is where evaluation starts, while blue
+#' "stop" and red "return" are where it ends. Nodes in green type on
+#' dark background show code that runs in the host language
+#' unmodified; gray nodes implement control flow. Dark arrows carry a
+#' value; gray edges carry no value. A "semicolon" node receives a
+#' value and discards it.
+#'
+#' Some nodes share a context with other nodes, shown by an enclosing
+#' box with a lighter background. Contexts can have state variables,
+#' shown as a rectangular record; orange edges from functions to
+#' variables represent writes; blue edges represent reads.
+#' 
+#' Dashed edges represent a state transition that goes through a
+#' trampoline handler; Dashed edges have a symbol representing the
+#' type of trampoline; (⏸) for await/yield; (⤽) or (⤼) to wind on or
+#' off an exception handler; (⮍) for a plain trampoline with no side
+#' effects (done once per loop, to avoid overflowing the stack.)
+#' Meanwhile, there is a thin edge connecting the trampoline handler;
+#' (so the user-facing "yield" function registers a continuation to
+#' the next step but actually calls the generator's yield handler.)
 #'
 #' @examples
 #' randomWalk <- gen({x <- 0; repeat {yield(x); x <- x + rnorm(1)}})
 #' \dontrun{
-#' #write a dotfile
-#' makeGraph(randomWalk, "rwalk.dot")
-#'
-#' #compile graph to ODF:
-#' system("dot -Tpdf rwalk.dot > rwalk.pdf")
+#' makeGraph(randomWalk, "pdf")
+#' # writes "randomWalk.dot" and invokes dot to make "randomWalk.pdf"
 #'
 #' #or, display it in R with the Rgraphviz package:
-#' g <- Rgraphviz::agread("rwalk.dot")
+#' g <- Rgraphviz::agread("randomWalk.dot")
 #' Rgraphviz::plot(g)
 #' }
-#' @param x A [generator][gen] or [async] object.
-#' @param file Default will write to stdout. See [cat].
-#' @param sep Line separator; defaults to `"\n"`. See [cat].
-#' @param ... Other arguments to be passed to [cat].
-#' @return a list containing information about the async/iterator.
+#' @param obj A [generator][gen] or [async] object.
+#' @param type the otuput format. If "dot", we will just write a Graphviz
+#'   dot file. If another extension like "pdf" or "svg", will write a
+#'   DOT file and then attempt to invoke Graphviz `dot` (if it is
+#'   available according to [`Sys.which`]) to produce the image.
+#' @param basename The base file name. If `basename="X"` and `type="pdf"`
+#'   you will end up with two files, `"X.dot"` and `"X.pdf"`.
+#' @param envs If `TRUE`, multiple nodes that share the same
+#'   environment will be grouped together in clusters.
+#' @param vars If `TRUE`, context variables used in each state node
+#'   will be included on the graph, with edges indicating reads/stores.
+#' @param handlers If `TRUE`, state nodes will have thin edges
+#'   connecting to their trampoline handlers, in addition to the dashed edges
+#'   connecting to the next transition.
+#' @param dot Optional path the the `dot` executable.
+#' @param dotfile Optionally specify the output DOT file name.
+#' @param filename Optionally specify the output picture file name.
+#' @return The name of the file that was created.
 #' @export
+drawGraph <- function(obj,
+                      basename=as.character(
+                        unless(substitute(obj), is.name,
+                               stop("Please specify a base filename"))),
+                      type="pdf",
+                      envs=TRUE,
+                      vars=TRUE,
+                      handlers=TRUE,
+                      dot=unless(Sys.which("dot"), function(x)x!="",{
+                        message("Graphviz was not found; writing DOT file only");
+                      }),
+                      filename=paste0(basename, ".", type),
+                      dotfile=if (type=="dot")
+                        filename else paste0(basename, ".dot"))
+{
+  makeGraph(obj, dotfile, envs=envs, vars=vars, handlers=handlers)
+  if ("type" == "dot" || dot == "") {
+    dotfile
+  } else {
+    system2(dot, c(paste0("-T", type), dotfile), stdout=filename)
+    filename
+  }
+}
+
+unless <- function(x, filter, or) if(filter(x)) x else or
+
 makeGraph <- function(x, file="", sep="\n", ...) {
   UseMethod("makeGraph")
 }
@@ -223,13 +283,13 @@ makeGraph <- function(x, file="", sep="\n", ...) {
 #' @exportS3Method
 makeGraph.generator <- function(x, file="", sep="\n", ...) {
   graph <- walk(x)
-  cat(make_dot(graph), file=file, sep=sep, ...)
+  cat(make_dot(graph, ...), file=file, sep=sep)
   invisible(graph)
 }
 
 #' @exportS3Method
 makeGraph.async <- function(x, file="", sep="\n", ...) {
   graph <- walk(x)
-  cat(make_dot(graph), file=file, sep=sep, ...)
+  cat(make_dot(graph, ...), file=file, sep=sep)
   invisible(graph)
 }

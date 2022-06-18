@@ -139,22 +139,24 @@ if_cps <- function(cond, cons.expr, alt.expr) {
     ifTrue <- cons.expr(cont, ..., ret=ret, stop=stop, trace=trace)
     if (missing_(arg(alt.expr))) {
       if_ <- function(val) {
-        if (isTRUE(val)) {
-          trace("if: TRUE\n")
-          ifTrue()
-        } else if (isFALSE(val)) {
-          cont(invisible(NULL))
-        } else stop("if: Invalid condition")
+        if(val) ifTrue() else cont(invisible(NULL))
+        ## if (isTRUE(val)) {
+        ##   trace("if: TRUE\n")
+        ##   ifTrue()
+        ## } else if (isFALSE(val)) {
+        ##   cont(invisible(NULL))
+        ## } else stop("if: Invalid condition")
       }
     } else {
       ifFalse <- alt.expr(cont, ..., ret=ret, stop=stop, trace=trace)
       if_ <- function(val) {
-        if (isTRUE(val)) {
-          trace("if: TRUE\n")
-          ifTrue()
-        } else if (isFALSE(val)) {
-          ifFalse()
-        } else stop("if: Invalid condition")
+        if(val) ifTrue() else ifFalse()
+        ## if (isTRUE(val)) {
+        ##   trace("if: TRUE\n")
+        ##   ifTrue()
+        ## } else if (isFALSE(val)) {
+        ##   ifFalse()
+        ## } else stop("if: Invalid condition")
       }
     }
     getCond <- cond(if_, ..., stop=stop, ret=ret, trace=trace)
@@ -362,15 +364,15 @@ for_cps <- function(var, seq, expr) {
       cont(invisible(NULL))
     }
     nxt_ <- function() {
-      ret(iter_)
+      ret(do_)
     }
-    then_ <- function(val) {
+    again_ <- function(val) {
       force(val)
-      ret(iter_)
+      ret(do_)
     }
-    body <- expr(then_, ..., ret=ret, nxt=nxt_, brk=brk_, stop=stop,
+    body <- expr(again_, ..., ret=ret, nxt=nxt_, brk=brk_, stop=stop,
                  trace=trace) # our brk_
-    iter_ <- function() {
+    do_ <- function() {
       stopping <- FALSE
       trace(paste0("for ", var_, ": next\n"))
       val <- async::nextElemOr(seq_, stopping <- TRUE)
@@ -380,14 +382,14 @@ for_cps <- function(var, seq, expr) {
       } else {
         trace(paste0("for ", var_, ": do\n"))
         assign(var_, val, envir=env_)
-        ret(body)
+        body()
       }
     }
-    in_ <- function(val) {
+    for_ <- function(val) {
       seq_ <<- async::iteror(val)
-      iter_()
+      do_()
     }
-    getSeq <- seq(in_, ..., ret=ret, nxt=nxt, brk=brk, stop=stop, trace=trace) #not our brk
+    getSeq <- seq(for_, ..., ret=ret, nxt=nxt, brk=brk, stop=stop, trace=trace) #not our brk
   }
 }
 

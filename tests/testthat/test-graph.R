@@ -2,15 +2,7 @@
 
 `%is%` <- expect_equal
 
-compileGraph <- function(fname, oname) {
-  status <- system(
-    paste("command -v dot >/dev/null 2>&1 || { echo >&2 'dot is not installed'; exit 0; } && { dot", "-Tpdf", fname, ">", oname, "; }")
-  )
-  expect_equal(status, 0)
-}
 
-fname <- "temp.dot" # tempfile(fileext=".dot")
-oname <- paste0(fname, ".pdf")
 
 test_that("Can extract graph of generator", {
 
@@ -33,13 +25,13 @@ test_that("Can extract graph of generator", {
     }
   })
 
-  makeGraph(genprimes, fname)
-  compileGraph(fname, oname)
+  expect_silent(drawGraph(genprimes))
 
 })
 
 test_that("tryCatch", {
 
+  # hmm. Where is yield("!")? the graph traversal didn't get it.
   seq <- ilimit(iseq(), 50)
   fizztry <- gen({
     tryCatch({
@@ -58,9 +50,8 @@ test_that("tryCatch", {
     }, error=function(e) NULL)
     yield("!")
   })
-  makeGraph(fizztry, fname)
-  compileGraph(fname, oname)
-
+  expect_silent(drawGraph(fizztry))
+  
 })
 
 test_that("nextElemOr", {
@@ -75,8 +66,7 @@ test_that("nextElemOr", {
       yield(sum)
     }
   })
-  makeGraph(incomplete, fname)
-  compileGraph(fname, oname)
+  expect_silent(drawGraph(incomplete))
 
 })
 
@@ -96,8 +86,7 @@ test_that("collatz", {
     })
   }
   collatz11 <- collatz(11L)
-  makeGraph(collatz11, fname)
-  compileGraph(fname, oname)
+  expect_silent(drawGraph(collatz11))
 
 })
 
@@ -106,8 +95,11 @@ test_that("yieldFrom", {
   gchain <- function(its) { force(its)
     gen(for (it in its) yieldFrom(it))
   }
-  makeGraph(gchain(list(c("a", "b", "c"), c(1, 2, 3))), fname)
-  compileGraph(fname, oname)
+  achain <- gchain(list(c("a", "b", "c"), c(1, 2, 3)))
+  expect_silent(drawGraph(achain))
+
+  achain2 <- gen(for (it in its) for (i in it) yield(i))
+  expect_silent(drawGraph(achain2))
 
 })
 
@@ -116,7 +108,7 @@ test_that("Async with try-finally", {
   cleanup <- FALSE
   result <- NULL
   not_run <- TRUE
-  dataset <- async({
+  tryfin <- async({
     tryCatch({
       if(FALSE) await(NULL)
       return(2)
@@ -127,8 +119,7 @@ test_that("Async with try-finally", {
     not_run <<- FALSE
     5
   })
-  makeGraph(dataset, fname)
-  compileGraph(fname, oname)
+  expect_silent(drawGraph(tryfin, vars=FALSE, envs=TRUE, handlers=TRUE))
 
 })
 
@@ -157,14 +148,13 @@ test_that("try/finally/catch/break/return", {
       yield("<>\n")
     }
   })
-  makeGraph(fizz, fname)
-  compileGraph(fname, oname)
+  expect_silent(drawGraph(fizz, vars=FALSE, envs=FALSE, handlers=FALSE))
 
 })
 
 test_that("fizzbuzz", {
 
-  fb <- gen({
+  fizzbuzz <- gen({
     for (i in iseq()) {
       if (i %% 3 == 0) {
         if (i %% 5 == 0)
@@ -179,8 +169,28 @@ test_that("fizzbuzz", {
       }
     }
   })
-  makeGraph(fb, fname)
-  compileGraph(fname, oname)
+  expect_silent(drawGraph(fizzbuzz, vars=TRUE, envs=FALSE))
+
+  nicebuzz <- gen({
+    tryCatch(
+      for (i in iseq()) {
+        if (i %% 69 == 0) {
+          if (i %% 420 == 0)
+            stop("Whoa!")
+          else
+            yield("nice")
+        } else {
+          if (i %% 420 == 0) {
+            yield("Nice")
+            break
+          } else
+            yield(i)
+        }
+      },
+      finally=yield("Goodnight")
+    )
+  })
+  expect_silent(drawGraph(nicebuzz, "fizzbuzz", handlers=TRUE, vars=TRUE, envs=FALSE))
 
 })
 
