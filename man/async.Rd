@@ -79,11 +79,15 @@ This is a inconvenience as it prevents using \code{await()} in a
 pipeline. \code{async} by default has \code{split_pipes=TRUE} which enables
 some syntactic sugar: if an \code{await()} appears in the leftmost,
 unnamed, argument of an R function, the pipe will be "split" at
-that call using a temporary variable. For instance,\preformatted{async(makeRequest() |> await() |> sort())
-}
+that call using a temporary variable. For instance,
 
-will be effectively rewritten to something like\preformatted{async(\{.tmp <- await(makeRequest()); sort(.tmp)\})
-}
+\if{html}{\out{<div class="sourceCode">}}\preformatted{async(makeRequest() |> await() |> sort())
+}\if{html}{\out{</div>}}
+
+will be effectively rewritten to something like
+
+\if{html}{\out{<div class="sourceCode">}}\preformatted{async(\{.tmp <- await(makeRequest()); sort(.tmp)\})
+}\if{html}{\out{</div>}}
 
 This works only so long as \code{await} appears in
 calls that evaluate their leftmost arguments

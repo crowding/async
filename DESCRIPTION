@@ -1,7 +1,7 @@
 Package: async
 Title: Asynchronous Code Constructs: Generators, Yield, Async, Await
-Version: 0.2.1
-Date: 2022-05-15
+Version: 0.2.2
+Date: 2022-09-07
 Authors@R: 
     person(given = "Peter",
            family = "Meilstrup",
@@ -36,6 +36,6 @@ Suggests:
     profvis,
     covr
 Roxygen: list(markdown=TRUE)
-RoxygenNote: 7.1.2
+RoxygenNote: 7.2.1
 VignetteBuilder: knitr
 Config/testthat/edition: 3

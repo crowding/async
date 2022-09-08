@@ -1,3 +1,7 @@
+# async 0.2.2
+
+  * Re-generate documentation for R-devel
+
 # async 0.2.1
 
 Fixes:
