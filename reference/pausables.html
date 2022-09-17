@@ -20,7 +20,7 @@ and in attached packages.'><!-- mathjax --><script src="https://cdnjs.cloudflare
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">async</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.2.1</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.2.2</span>
       </span>
     </div>
 
@@ -69,7 +69,7 @@ and in attached packages.</p>
     </div>
 
     <div id="ref-usage">
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="fu">pausables</span><span class="op">(</span>envir <span class="op">=</span> <span class="fu">caller</span><span class="op">(</span><span class="op">)</span>, packages <span class="op">=</span> <span class="fu">base</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/base/zpackages.html" class="external-link">.packages</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">pausables</span><span class="op">(</span>envir <span class="op">=</span> <span class="fu">caller</span><span class="op">(</span><span class="op">)</span>, packages <span class="op">=</span> <span class="fu">base</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/base/zpackages.html" class="external-link">.packages</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div id="arguments">
@@ -77,14 +77,19 @@ and in attached packages.</p>
     <dl><dt>envir</dt>
 <dd><p>The environment to search (defaulting to the calling
 environment).</p></dd>
+
+
 <dt>packages</dt>
 <dd><p>Which packages to search; defaults to currently
 loaded packages. You can scan all packages with
 <code>pausables(packages=base::.packages(all.available=TRUE))</code></p></dd>
+
 </dl></div>
     <div id="value">
     <h2>Value</h2>
-    <p>A list of expressions (either names or <code>:::</code> calls)</p>
+    
+
+<p>A list of expressions (either names or <code>:::</code> calls)</p>
     </div>
     <div id="details">
     <h2>Details</h2>
@@ -111,7 +116,7 @@ in source file <code>cps.r</code> along with implementations for R builtins.</p>
 </div>
 
 <div class="pkgdown">
-  <p></p><p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.0.3.</p>
+  <p></p><p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.0.6.</p>
 </div>
 
       </footer></div>

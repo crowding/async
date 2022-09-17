@@ -40,7 +40,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="index.html">async</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.2.1</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.2.2</span>
       </span>
     </div>
 
@@ -104,29 +104,29 @@
 </ul>
 <p>An infinite sequence of numbers will continue form each staring point <code>x[1]</code>, but it is <a href="https://en.wikipedia.org/wiki/Collatz_conjecture" class="external-link">conjectured</a> that all sequences will eventually reach the loop 1, 4, 2, 1, 4, 2, …. The following generator produces the Collatz sequence, starting from <code>x</code>, and terminating when (or if?) the sequence reaches 1.</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span class="va">collatz</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">x</span><span class="op">)</span> <span class="op">{</span> <span class="fu"><a href="https://rdrr.io/r/base/force.html" class="external-link">force</a></span><span class="op">(</span><span class="va">x</span><span class="op">)</span>
-  <span class="fu">async</span><span class="fu">::</span><span class="fu"><a href="reference/gen.html">gen</a></span><span class="op">(</span><span class="op">{</span>
-    <span class="fu"><a href="reference/gen.html">yield</a></span><span class="op">(</span><span class="va">x</span><span class="op">)</span>
-    <span class="kw">while</span> <span class="op">(</span><span class="va">x</span> <span class="op">&gt;</span> <span class="fl">1</span><span class="op">)</span> <span class="op">{</span>
-      <span class="va">x</span> <span class="op">&lt;-</span> <span class="kw">if</span> <span class="op">(</span><span class="va">x</span> <span class="op"><a href="https://rdrr.io/r/base/Arithmetic.html" class="external-link">%%</a></span> <span class="fl">2</span> <span class="op">==</span> <span class="fl">0</span><span class="op">)</span> <span class="va">x</span> <span class="op">/</span> <span class="fl">2L</span> <span class="kw">else</span> <span class="fl">3L</span> <span class="op">*</span> <span class="va">x</span> <span class="op">+</span> <span class="fl">1</span>
-      <span class="fu"><a href="reference/gen.html">yield</a></span><span class="op">(</span><span class="va">x</span><span class="op">)</span>
-    <span class="op">}</span>
-  <span class="op">}</span><span class="op">)</span>
-<span class="op">}</span></code></pre></div>
+<code class="sourceCode R"><span><span class="va">collatz</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">x</span><span class="op">)</span> <span class="op">{</span> <span class="fu"><a href="https://rdrr.io/r/base/force.html" class="external-link">force</a></span><span class="op">(</span><span class="va">x</span><span class="op">)</span></span>
+<span>  <span class="fu">async</span><span class="fu">::</span><span class="fu"><a href="reference/gen.html">gen</a></span><span class="op">(</span><span class="op">{</span></span>
+<span>    <span class="fu"><a href="reference/gen.html">yield</a></span><span class="op">(</span><span class="va">x</span><span class="op">)</span></span>
+<span>    <span class="kw">while</span> <span class="op">(</span><span class="va">x</span> <span class="op">&gt;</span> <span class="fl">1</span><span class="op">)</span> <span class="op">{</span></span>
+<span>      <span class="va">x</span> <span class="op">&lt;-</span> <span class="kw">if</span> <span class="op">(</span><span class="va">x</span> <span class="op"><a href="https://rdrr.io/r/base/Arithmetic.html" class="external-link">%%</a></span> <span class="fl">2</span> <span class="op">==</span> <span class="fl">0</span><span class="op">)</span> <span class="va">x</span> <span class="op">/</span> <span class="fl">2L</span> <span class="kw">else</span> <span class="fl">3L</span> <span class="op">*</span> <span class="va">x</span> <span class="op">+</span> <span class="fl">1</span></span>
+<span>      <span class="fu"><a href="reference/gen.html">yield</a></span><span class="op">(</span><span class="va">x</span><span class="op">)</span></span>
+<span>    <span class="op">}</span></span>
+<span>  <span class="op">}</span><span class="op">)</span></span>
+<span><span class="op">}</span></span></code></pre></div>
 <p>The call to <code>gen</code> produces a generator. You can get values one at a time with <code>nextElem()</code></p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span class="va">ctz</span> <span class="op">&lt;-</span> <span class="fu">collatz</span><span class="op">(</span><span class="fl">12</span><span class="op">)</span>
-<span class="va">ctz</span> <span class="op">&lt;-</span> <span class="fu">collatz</span><span class="op">(</span><span class="fl">12</span><span class="op">)</span>
-<span class="fu">nextElem</span><span class="op">(</span><span class="va">ctz</span><span class="op">)</span>
-<span class="co"># [1] 12</span>
-<span class="fu">nextElem</span><span class="op">(</span><span class="va">ctz</span><span class="op">)</span>
-<span class="co"># [1] 6</span>
-<span class="fu">nextElem</span><span class="op">(</span><span class="va">ctz</span><span class="op">)</span>
-<span class="co"># [1] 3</span>
-<span class="fu">nextElem</span><span class="op">(</span><span class="va">ctz</span><span class="op">)</span>
-<span class="co"># [1] 10</span>
-<span class="fu">nextElem</span><span class="op">(</span><span class="va">ctz</span><span class="op">)</span>
-<span class="co"># [1] 5</span></code></pre></div>
+<code class="sourceCode R"><span><span class="va">ctz</span> <span class="op">&lt;-</span> <span class="fu">collatz</span><span class="op">(</span><span class="fl">12</span><span class="op">)</span></span>
+<span><span class="va">ctz</span> <span class="op">&lt;-</span> <span class="fu">collatz</span><span class="op">(</span><span class="fl">12</span><span class="op">)</span></span>
+<span><span class="fu">nextElem</span><span class="op">(</span><span class="va">ctz</span><span class="op">)</span></span>
+<span><span class="co"># [1] 12</span></span>
+<span><span class="fu">nextElem</span><span class="op">(</span><span class="va">ctz</span><span class="op">)</span></span>
+<span><span class="co"># [1] 6</span></span>
+<span><span class="fu">nextElem</span><span class="op">(</span><span class="va">ctz</span><span class="op">)</span></span>
+<span><span class="co"># [1] 3</span></span>
+<span><span class="fu">nextElem</span><span class="op">(</span><span class="va">ctz</span><span class="op">)</span></span>
+<span><span class="co"># [1] 10</span></span>
+<span><span class="fu">nextElem</span><span class="op">(</span><span class="va">ctz</span><span class="op">)</span></span>
+<span><span class="co"># [1] 5</span></span></code></pre></div>
 <p>You can also use any other method that applies to an iterator, like <code>as.list</code>.</p>
 <div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1"></a><span class="kw">collatz</span>(27L) <span class="op">|</span><span class="er">&gt;</span><span class="st"> </span>as.list <span class="op">|</span><span class="er">&gt;</span><span class="st"> </span>as.numeric</span>
 <span id="cb3-2"><a href="#cb3-2"></a><span class="co">#   [1]   82   41  124   62   31   94   47  142   71  214  107  322  161  484  242</span></span>
@@ -152,13 +152,13 @@
 <p><code>async</code> doesn’t handle running parallel tasks by itself; it builds on existing packages like <code>future</code> and <code>later</code>. The <code>later</code> package lets you assign tasks to be done in the event loop, when R is idle.</p>
 <p>Ring a bell 5 times at 10 second intervals (subject to R being idle):</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span class="fu"><a href="reference/async.html">async</a></span><span class="op">(</span><span class="op">{</span>
-  <span class="kw">for</span> <span class="op">(</span><span class="va">i</span> <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fl">5</span><span class="op">)</span> <span class="op">{</span>
-    <span class="fu"><a href="reference/async.html">await</a></span><span class="op">(</span><span class="fu"><a href="reference/delay.html">delay</a></span><span class="op">(</span><span class="fl">10</span><span class="op">)</span><span class="op">)</span>  <span class="co">#delay() uses later::later()</span>
-    <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Beep"</span>, <span class="va">i</span>, <span class="st">"\n"</span><span class="op">)</span>
-    <span class="fu">beepr</span><span class="fu">::</span><span class="fu">beep</span><span class="op">(</span><span class="fl">2</span><span class="op">)</span>
-  <span class="op">}</span>
-<span class="op">}</span><span class="op">)</span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu"><a href="reference/async.html">async</a></span><span class="op">(</span><span class="op">{</span></span>
+<span>  <span class="kw">for</span> <span class="op">(</span><span class="va">i</span> <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fl">5</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="fu"><a href="reference/async.html">await</a></span><span class="op">(</span><span class="fu"><a href="reference/delay.html">delay</a></span><span class="op">(</span><span class="fl">10</span><span class="op">)</span><span class="op">)</span>  <span class="co">#delay() uses later::later()</span></span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Beep"</span>, <span class="va">i</span>, <span class="st">"\n"</span><span class="op">)</span></span>
+<span>    <span class="fu">beepr</span><span class="fu">::</span><span class="fu">beep</span><span class="op">(</span><span class="fl">2</span><span class="op">)</span></span>
+<span>  <span class="op">}</span></span>
+<span><span class="op">}</span><span class="op">)</span></span></code></pre></div>
 <div class="section level4">
 <h4 id="shiny-apps">Shiny apps<a class="anchor" aria-label="anchor" href="#shiny-apps"></a>
 </h4>
@@ -249,7 +249,7 @@
 
 <div class="pkgdown">
   <p></p>
-<p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.0.3.</p>
+<p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.0.6.</p>
 </div>
 
       </footer>
