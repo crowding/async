@@ -1,4 +1,3 @@
-
 #' Create an iterator using sequential code.
 #'
 #' `gen({...})` with an expression written in its argument, creates a
@@ -130,8 +129,6 @@ yieldFrom_cps <- function(it) {
 }
 
 make_generator <- function(expr, orig=arg(expr), ..., trace=trace_) { list(expr, ...)
-  nextElemOr_ <- NULL
-
   gen_cps <- function(expr) { force(expr)
     function(cont, ..., stop, return, pause, trace) {
       list(stop, return, pause, trace)
@@ -174,7 +171,7 @@ make_generator <- function(expr, orig=arg(expr), ..., trace=trace_) { list(expr,
                      state <<- "finished"
                      #just a warning  (or not) bc we're probably on our
                      #way out with a more detailed error
-                     # warning("Generator finished unexpectedly")
+                     #warning("Generator finished unexpectedly")
                    }
                  })
                  pump()
@@ -195,7 +192,7 @@ make_generator <- function(expr, orig=arg(expr), ..., trace=trace_) { list(expr,
                         stop("Generator in an unknown state"))
                },
                stop("Generator in an unknown state"))
-        nextElem # no tailcalls
+#        nextElem # avoid the appearance of a tailcall (why?)
       }
       nextElemOr_ <<- nextElemOr_
       expr(return_, ..., stop=stop_, return=return_, yield=yield_,
@@ -205,8 +202,10 @@ make_generator <- function(expr, orig=arg(expr), ..., trace=trace_) { list(expr,
 
   pump <- make_pump(gen_cps(expr), trace=trace)
   g <- add_class(iteror(nextElemOr_), "generator")
+  nextElemOr_ <- NULL
   g
 }
+
 
 # Code for walking over an async/generator and gathering information about its
 # nodes and graphs.
@@ -247,9 +246,31 @@ getStartSet.generator <- function(x) {
        nextElemOr=x$nextElemOr)
 }
 
+#' @exportS3Method
+compile.generator <- function(x, level=1) {
+  # returns "walk" data structure...
+  if (abs(level > 0)) munged <- munge( x )
+
+  munged$orig <- get("orig", environment(x$nextElemOr))
+  # create a new iteror with this nextElemOr_
+  add_class(iteror(munged$nextElemOr), c("compiled_generator", "generator"))
+}
+
 #' @export
 print.generator <- function(x, ...) {
   cat(format(x, ...), sep="\n")
+}
+
+getState <- function(x, ...) {
+  UseMethod("getState")
+}
+
+getState.generator <- function(x, ...) {
+  environment(x$nextElemOr)$state
+}
+
+getState.compiled_generator <- function(x, ...) {
+  environment(x$nextElemOr)$..ctx.nextElemOr.state
 }
 
 #' @export
@@ -258,7 +279,7 @@ format.generator <- function(x, ...) {
   code <- get("orig", envir)
   a <- deparse(call("gen", expr(code)), backtick=TRUE)
   b <- format(env(code), ...)
-  state <- envir$state
+  state <- getState(x)
   c <- paste0(c("<Generator [",
          if(state=="stopped")
            c("stopped: ", capture.output(print(envir$err)))
@@ -266,4 +287,3 @@ format.generator <- function(x, ...) {
          "]>"), collapse="")
   c(a, b, c)
 }
-

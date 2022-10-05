@@ -1,15 +1,15 @@
 # The "iterators" package uses stop("StopIteration") and tryCatch to
 # signal end of iteration, but tryCatch has a lot of overhead. In the
-# context of a generator, when you are in a "for" loop oever an
+# context of a generator, when you are in a "for" loop over an
 # iterator, you have to be setting up and tearing down the trycatch on
 # each iteration. so that you can return control from the generator.
 #
-# Instead of exceptions, "nextElemOr" uses a lazily evaluated "or"
-# argument to signal stop of iteration.  The main method for "iteror"
-# is "nextElemOr" rather than "nextElem". The "or" argument is lazily
-# evaluated, and will only be forced at the stop of iteration; this
-# means the consumer can provide a "break" or "return" to respond to
-# the end of the loop.
+# The main method for "iteror" is "nextElemOr" rather than
+# "nextElem". Instead of exceptions, "nextElemOr" uses a lazily
+# evaluated "or" argument to signal the end of iteration.  The "or"
+# argument is lazily evaluated, and will only be forced at the stop of
+# iteration; this means the consumer can provide a "break" or "return"
+# to respond to the end of the loop.
 #
 # sum <- 0
 # it <- iteror(in)
@@ -48,6 +48,7 @@
 #   sum <- sum + i
 # }
 
+#' @export
 iteror <- function(it, ...) {
   UseMethod("iteror")
 }
@@ -55,13 +56,13 @@ iteror <- function(it, ...) {
 iteror.iteror <- identity
 iteror.iter <- identity
 
-#' @exportS3Method iteror "function"
+#' @export
 iteror.function <- function(obj, ...) {
   if (!("or" %in% names(formals(obj)))) stop("iteror: must have 'or' argument")
   structure(list(nextElemOr=obj), class=c("funiteror", "iteror", "iter"))
 }
 
-#' @exportS3Method
+#' @export
 iteror.default <- function(obj, ...) {
   i <- 0
   n <- length(obj)
@@ -78,12 +79,14 @@ nextElemOr <- function(obj, or, ...) {
   UseMethod("nextElemOr")
 }
 
-#' @exportS3Method
+#' @export
 nextElemOr.funiteror <- function(obj, or, ...) {
   obj$nextElemOr(or, ...)
 }
 
-#' @exportS3Method
+#' @importFrom iterators nextElem
+NULL
+#' @export
 nextElem.iteror <- function(obj, ...) {
   nextElemOr(obj, stop("StopIteration"), ...)
 }

@@ -199,7 +199,7 @@ make_dot <- function(nodeGraph,
 #' If `type` is something other than `dot` `drawGraph will then try to
 #' invoke Graphviz  DOT to turn the graph description into an image
 #' file.
-#' 
+#'
 #' The green octagonal node is where evaluation starts, while blue
 #' "stop" and red "return" are where it ends. Nodes in green type on
 #' dark background show code that runs in the host language
@@ -211,7 +211,7 @@ make_dot <- function(nodeGraph,
 #' box with a lighter background. Contexts can have state variables,
 #' shown as a rectangular record; orange edges from functions to
 #' variables represent writes; blue edges represent reads.
-#' 
+#'
 #' Dashed edges represent a state transition that goes through a
 #' trampoline handler; Dashed edges have a symbol representing the
 #' type of trampoline; (⏸) for await/yield; (⤽) or (⤼) to wind on or

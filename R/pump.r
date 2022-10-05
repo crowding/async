@@ -82,9 +82,8 @@ make_pump <- function(expr, ...,
     trace(paste0("pump: stop: ", conditionMessage(err), "\n"))
     err <<- err
     action <<- "stop"
-    # the NULL is to stop `walk` from following a tailcall
     stop(err)
-    NULL
+    NULL #avoid appearance of tailcall for walk()
   }
 
   return_ <- function(val) {
