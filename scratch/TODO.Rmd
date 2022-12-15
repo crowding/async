@@ -3,24 +3,102 @@
 Now that we have iteror() we should go through generator and make sure that it
 doesn't unnecessarily invoke any tryCatch.
 
-# Fixing "switch"
+## Fixing "switch"
 
 The current CPS version does not do branch fallthrough. To fix that I
 would need to know during construction which arguments are missing.
 
-R native "switch" does a thing where it can end up executing no arguments. I
+R native "switch" does a thing where it can end up executing no arguments.
 
-switch(-1, "one", "two", "three") takes no branch and returns NULL.
+    switch(-1, "one", "two", "three") #takes no branch and returns NULL.
 
 That behavior would be bad to use base R switch as a compiled version of switch, because it would end up falling off and not tailcalling.
 
 Let's see, what about if you initialize a "mapping" at run time and then switch based on a label you pull out of there?
 
+The other problem with switch is that
+
 # making arguments "quotable"
 
-Some constructors might want to get the "quoted" arguments of stuff they aren't going to evaluate. How?
-
+Some constructors might want to get the "quoted" arguments of stuff they aren't going to evaluate. Like "switch", or "for" for that matter.
 
 # ESS versus closxps?!
 
 Apparently the reason I can't just tag a "class" attribute onto a closxp and call that an iteror is.... ESS is fucking with me. If I evaluate a chunk in ESS, it is altering the environment of the resulting closxp. it comes back with the enclosing environment set to the package namespace, instead of the environment that _really_ enclosed it and has its variables. It's weird.
+
+# Name munging
+
+### duplication of trace() and such
+
+Okay, I apparently left off in the midst of munging names. Judging from where I left the `browser()` call, I was finding an argument that transfers "state variables" except that these variables are never updated. If they are never updated then I should be able to dedupe them. But not deduping them will not prevent me from reaching proof of concept with compilation. Deduping of unused variables is a future problem.
+
+However, the other problem with porting over utility variables is what variables are they closed over with? So one resolution might be to treat local functions found in non tail position as a kind of node, and thus capture the variables it itself refers to? Hopefully this doesn't lead to infinite regress? This would be at graph enumeration time.
+
+### Switch in graphs
+I need to do something tricky to make my implementation of `switch` traversable by `walk`. Like bquote() out a custom switch_cps. See [switch.R]().
+
+### Speed of walking the graph.
+
+There did appear to be some O(N^2) rearing their heads when walk()ing a graph. Run a profiler? There are definitely some O(n^2) data structures currently in there.
+
+I did something to make myself use hashbags more consistently and noticed a speedup! So there was def some list reallocation going on.
+
+Interestingly, using a list by index isn't much slower than using an env until you get past 100 elements or so. (see ) But s3 dispatch and going through `hashbag()` is quite a bit slower. See [map_timings.Rmd](). So I might want to just use lists instead of hashbags. If I can keep them from having to copy themselves all the time. 
+
+### Munging names
+
+So I've gathered all the nodes, or so I claim. I am trying to get a sense of what other things are referenced in each of these nodes.
+
+### Munging state pointers
+
+"state pointers" i.e. closed-over values that contain references to nodes in the graph. These need to be updated. 
+
+
+```{R}
+
+pretty <- function(thing) {
+  cat(deparse(unclass(as.list(thing)), width.cutoff = 60), sep="\n")
+}
+
+```
+
+
+One example of a read-only function value is "nonce", "value", "pumpCont", "err" which is in context `_stop` (which actually looks like it should be called `pump` as part of the start set...). I think I am just going to carry that value over literally -- this may result in having the same nonce across several instances of a generator but I think that will be okay. A nonce is never actually called, though.
+
+Hold on, though. I should be picking up that these values are changed, or else why are they initialized to nonce? It thinks `pump$err`, initialized to a nonce, is not a state variable. Why? Because this particular generator _does not reach stop_. Oh! That means it can drop out during inlining.
+
+
+### doWindup is not copied over
+
+```
+> nextElemOr(gc)
+Error in doWindup(runPump, ...) (from iteror.R#84) : could not find function "doWindup"
+```
+
+On inspecting graph, I find that doWindup is listed as a "call" but not as a "utility"
+
+Now I'm in a process of trying to invoke nextElemOr and seeing what breaks next. 
+
+`doWindup` should be translated as a node, though, no? It should be in the start set.
+Next we have "assert". I removed the call to assert in pump.r.
+
+### What else stops these from running....
+
+Now I have some problems debugging because all the are happening within runPump's tryCatch thingy.
+
+Now we have "verbose": this line is failing:
+
+```
+if (`stop_|verbose`) `stop_|trace`("pump: set unpause\n")
+<simpleError in cont(...): object 'stop_|stop' not found>
+```
+
+These are failing some
+
+## Fix unit tests for now
+
+I know I need to fix the variable assignments.
+
+Do we even need a tryCatch around nextElemOr? we need a stopIteration??0
+
+## fix graphs...

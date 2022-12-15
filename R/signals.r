@@ -12,8 +12,8 @@ R <- function(x) {
       #do(cont, x)
       #but this works ok...
       ... <- NULL # so that walk() sees a temp/local
-      set_dots(environment(), x)
-      cont(...)
+      nseval::set_dots(environment(), x)
+      cont(...) #we're putting the
     }
   }
 }

@@ -4,21 +4,21 @@
 
 ## Implementing a For loop, one step at a time.
 
-## Thunks and
+## Thunks
 
 ## Translating R to R
 
-## Going from Syntax Tree into a Graph of Mutually Recursive Functions. 
+## Going from Syntax Tree into a Graph of Mutually Recursive Functions.
 
 We have seen how mutually recursive functions can implement many control flows.
 
 Each of the `cps_` functions as well as `R_` are constructors, one for each node in the syntax tree, with one argument for each child node. These node constructors return a _second_ set of constructors. This second set of constructors
 
-This second set of constructors all take a _continuation function_ as first argument, other 
+This second set of constructors all take a _continuation function_ as first argument, other
 
 This might be illustrated better as ...
 
-So, for instance, `cps_for()` receives as arguments the constructors for each of the `for` loop's arguments. Then at top level 
+So, for instance, `cps_for()` receives as arguments the constructors for each of the `for` loop's arguments. Then at top level
 
 ```R
 loop <- `{_cps`(
@@ -32,7 +32,7 @@ loop <- `{_cps`(
 
 ## At this Point We Have An Interpreter
 
-This nest of mutually recursive functions can be directly called in a loop (`pump.r`); this is a form of direct interpreter, and is how the `async` worked in release 0.2. 
+This nest of mutually recursive functions can be directly called in a loop (`pump.r`); this is a form of direct interpreter, and is how the `async` worked in release 0.2.
 
 But besides being executable, the nest of functions that has been constructed is data; each node in the graph is a closure object, with an expression an arguments that exist relative to an environment, and all of these objects being introspectable and accessible as data from R. These objects will form the input to the compilation process, and will serve as the "intermediate representation" through a few stages.
 
@@ -54,9 +54,9 @@ The function `walk()` does this, starting with the entry function, visiting each
   * No flow control via lazy evaluation, force all your function inputs (or be sure it doesn't matter)
   * Only call to other nodes or trampoline handlers in tail position.
   * Nodes should have either zero, or one argument, named `val`.
-  * External handlers (the ones passed down in the first layer of the node constructor) are "trampolines", i.e. they return and unwind the stack, and save a reference to the "next" function to call. The simplest is `r ret(cont, ...)`which unwinds the stack and jumps back in at `r cont(...)`. Any loop-like construct should use `ret` once per loop. 
+  * External handlers (the ones passed down in the first layer of the node constructor) are "trampolines", i.e. they return and unwind the stack, and save a reference to the "next" function to call. The simplest is `r ret(cont, ...)`which unwinds the stack and jumps back in at `r cont(...)`. Any loop-like construct should use `ret` once per loop.
     * `all_names` will try to look up the functions you are calling in the environment of a given node function. If a function called in tail position has formals `cont` and `...` args, it is considered a trampoline. `walk` should collect information on both the trampoline-setting call and the trampolined call.
-  * No `on.exit` or `return` or other stuff that reifies the duration of a function call. 
+  * No `on.exit` or `return` or other stuff that reifies the duration of a function call.
 
 ### TODO:
 
@@ -70,7 +70,7 @@ While R does not actually have tail call elimination, a notion of "tail call" is
 function(val) {
     checkVal()
     if (val %% 2 == 1) {
-        checkOdd(val) && plinkle(val*3-1) 
+        checkOdd(val) && plinkle(val*3-1)
     } else {
         checkEven(val) || tinkle(val/2)
     }
@@ -95,10 +95,10 @@ As drawn in the graphs above, each instance of a construct like `for` shares a c
 
 In the compiled form, all these nodes will be merged into the same namespace in a big `switch` statement. Also, most optimization stages should go smoother if I don't have to think about names existing in different namespaces. So the first compiler pass is name-munging; placing all nodes into the same environment. The graph walker, `walk` has already assigned a unique name to each node and context, as well as the local names and global targets of its tailcalls, what global names they correspond to; and all closed-over variables that are used.
 
-In name munging I need to: 
+In name munging I need to:
 
 * [ ] collect all the variables used in each context and copy them over to the new environment using their new names.
-  *  [ ] question: are the vars collected by context? 
+  *  [ ] question: are the vars collected by context?
 * [ ] translate each node's closxp so that its variable references are changed to the munged variables and its calls go go to munged call names. This can be done simply with a "quoting environment".
 * [ ] re-walk the states? Or update the parts of our hashtables that we used. Or do both and check if the graph output is the same.
 

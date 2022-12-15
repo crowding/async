@@ -47,17 +47,17 @@ make_pump <- function(expr, ...,
                       trace=trace_,
                       eliminate.tailcalls = TRUE) {
   list(expr, stop, return, trace)
-  nonce <- (function() function() NULL)()
+  nonce <- (function() NULL)()
 
   action <- "pause" # stopped, pause
-  cont <- nonce
+  pumpCont <- nonce
   value <- nonce
   err <- nonce
 
   pause_ <- function(cont, ...) {
     if(verbose) trace("pump: set unpause\n")
-    list(cont)
-    cont <<- function() cont(...)
+    list(cont, ...)
+    pumpCont <<- function() cont(...)
     action <<- "pause"
   }
 
@@ -65,7 +65,7 @@ make_pump <- function(expr, ...,
     ret_ <- function(cont, ...) {
       list(cont, ...) #force
       if(verbose) trace("pump: set continue\n")
-      cont <<- function() {
+      pumpCont <<- function() {
         cont(...)
       }
       action <<- "continue"
@@ -82,7 +82,7 @@ make_pump <- function(expr, ...,
     trace(paste0("pump: stop: ", conditionMessage(err), "\n"))
     err <<- err
     action <<- "stop"
-    stop(err)
+    stop(err) #"stop" is now getting picked up as a util function.
     NULL #avoid appearance of tailcall for walk()
   }
 
@@ -119,7 +119,7 @@ make_pump <- function(expr, ...,
       outerWinding(f, ...)
     }
     windings <<- c(list(g), windings)
-    cont <<- function() {
+    pumpCont <<- function() {
       if(verbose) trace("pump: continuing after windup\n")
       cont(...)
     }
@@ -129,23 +129,23 @@ make_pump <- function(expr, ...,
   unwind_ <- function(cont, ...) {
     if(verbose) trace("pump: removing from windup list\n")
     windings[[1]] <<- NULL
-    cont <<- function() {
+    pumpCont <<- function() {
       if(verbose) trace("pump: continuing after unwind\n")
       cont(...)
     }
     action <<- "rewind"
   }
 
-  doWindup <- function(...) {
-    windings[[1]](...)
+  doWindup <- function(cont, ...) {
+    windings[[1]](cont, ...)
   }
 
-  # "expr" represents the syntax tree, It is a context constructor
-  # that takes some context functions ("our "ret" and "stop" etc) and
+  # Our argument "expr" is a context constructor
+  # that takes some branch targets ("our "ret" and "stop" etc) and
   # returns an entry continuation.
   entry <- expr(return_, ..., ret=ret_, stop=stop_, return=return_,
                 windup=windup_, unwind=unwind_, pause=pause_, trace=trace)
-  cont <- entry
+  pumpCont <- entry
 
   pump <- function(...) {
     trace("pump: run\n")
@@ -159,12 +159,12 @@ make_pump <- function(expr, ...,
   }
 
   runPump <- function(...) {
-    assert(action == "pause",
-           paste0("pump asked to continue, but last action was ", action))
-    cont(...) # here's where you inject a return value into an await
+    if (action != "pause")
+      base::stop("pump asked to continue, but last action was ", action)
+    pumpCont(...) # here's where you inject a return value into a yield?
     while(action == "continue") {
       if(verbose) trace("pump: continue\n")
-      action <<- "pause"; reset(cont, cont <<- NULL)()
+      action <<- "pause"; reset(pumpCont, pumpCont <<- NULL)()
     }
   }
 

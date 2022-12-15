@@ -132,10 +132,12 @@ make_generator <- function(expr, orig=arg(expr), ..., trace=trace_) { list(expr,
   gen_cps <- function(expr) { force(expr)
     function(cont, ..., stop, return, pause, trace) {
       list(stop, return, pause, trace)
-      nonce <- sigil()
+      nonce <- function() NULL
       yielded <- nonce
       err <- nonce
       state <- "yielded"
+
+      getState <- function() state
 
       return_ <- function(val) {
         force(val)
@@ -160,10 +162,10 @@ make_generator <- function(expr, orig=arg(expr), ..., trace=trace_) { list(expr,
 
       nextElemOr_ <- function(or, ...) {
         trace("generator: nextElemOr\n")
-        nextElem <- switch(state,
+        switch(state,
                stopped =,
                finished = or,
-               running = stop("Generator already running (or finished unexpectedly?)"),
+               running = base::stop("Generator already running (or finished unexpectedly?)"),
                yielded = {
                  state <<- "running"
                  on.exit({
@@ -178,7 +180,7 @@ make_generator <- function(expr, orig=arg(expr), ..., trace=trace_) { list(expr,
                  switch(state,
                         running = {
                           state <<- "finished"
-                          stop("Generator finished unexpectedly")
+                          base::stop("Generator finished unexpectedly")
                         },
                         stopped = stop(err),
                         finished = or,
@@ -194,18 +196,18 @@ make_generator <- function(expr, orig=arg(expr), ..., trace=trace_) { list(expr,
                stop("Generator in an unknown state"))
 #        nextElem # avoid the appearance of a tailcall (why?)
       }
+
       nextElemOr_ <<- nextElemOr_
       expr(return_, ..., stop=stop_, return=return_, yield=yield_,
            pause=pause, trace=trace)
     }
   }
 
+  nextElemOr_ <- NULL
   pump <- make_pump(gen_cps(expr), trace=trace)
   g <- add_class(iteror(nextElemOr_), "generator")
-  nextElemOr_ <- NULL
   g
 }
-
 
 # Code for walking over an async/generator and gathering information about its
 # nodes and graphs.
@@ -239,21 +241,35 @@ getCurrent.generator <- function(x)
 getOrig.generator <- function(x)
   expr(get("orig", envir=environment(x$nextElemOr)))
 getStartSet.generator <- function(x) {
-  list(START=getEntry(x),
-       STOP=getStop(x),
-       RETURN=getReturn(x),
+  #everything whose name you want to remain stable after munging
+  list(entry=getEntry(x),
+       stop_=getStop(x),
+       return_=getReturn(x),
        pump=get("pump", envir=environment(x$nextElemOr)),
-       nextElemOr=x$nextElemOr)
+       runPump=environment(get("pump", environment(x$nextElemOr)))$runPump,
+       doWindup=environment(get("pump", environment(x$nextElemOr)))$doWindup,
+       nextElemOr=x$nextElemOr,
+       getState=get("getState", environment(x$nextElemOr)))
 }
 
 #' @exportS3Method
 compile.generator <- function(x, level=1) {
-  # returns "walk" data structure...
-  if (abs(level > 0)) munged <- munge( x )
-
-  munged$orig <- get("orig", environment(x$nextElemOr))
-  # create a new iteror with this nextElemOr_
-  add_class(iteror(munged$nextElemOr), c("compiled_generator", "generator"))
+  # returns an environment with munged nodes/storage
+  if (abs(level) >= 1) {
+    munged <- munge( x )
+    munged$orig <- get("orig", environment(x$nextElemOr))
+    if (abs(level) >= 3) {
+      stop("TODO: Aggressive inlining")
+    } else if (abs(level) >= 2) {
+      stop("TODO: Inlining")
+    }
+    # create a new iteror with this munged generator's nextElemOr.
+    if (level < 0) {
+      add_class(iteror(munged$nextElemOr), c("generator"))
+    } else {
+      stop("TODO: code generation")
+    }
+  } else x
 }
 
 #' @export
@@ -266,11 +282,7 @@ getState <- function(x, ...) {
 }
 
 getState.generator <- function(x, ...) {
-  environment(x$nextElemOr)$state
-}
-
-getState.compiled_generator <- function(x, ...) {
-  environment(x$nextElemOr)$..ctx.nextElemOr.state
+  environment(x$nextElemOr)$getState()
 }
 
 #' @export

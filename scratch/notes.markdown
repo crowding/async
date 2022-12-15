@@ -138,6 +138,7 @@ continuation to call next.
 
 is effectively rewritten like this:
 
+```
 for <- function(name, list, body) {
     name <- nseval::arg_expr(name)
     body <- nseval::arg_expr(body)
@@ -145,5 +146,6 @@ for <- function(name, list, body) {
 
     })
 })
+```
 
-This means that the repertiore of control-flow operators can be extended; all the extension writer needs to do is implenent
+This means that the repertiore of control-flow operators can be extended; all the extension writer needs to do is implement.

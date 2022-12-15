@@ -1,0 +1,156 @@
+### test failure: can print a name-munged generator
+
+Generator's print method is not finding the "state" variable that nextElemOr uses,
+because it was munged to 'nextElemOr|state'.
+
+Is `nextElemOr` part of the munging? really? I guess I think/thought it and `pump` would have to be namespace-munged.
+
+Okay, I think the answer is to add a "getState" function to the start set. The start set is really "nodes that we have to carry over (whether they're in the graph of not) and have consistent names." 
+
+### walk(graphc) finds a second context just having "runPump" in it.
+
+This would mean that runPump was not translated? But my thingy says it's translated. It should be moving over with the nodes. Am I tracing that?
+
+But wait, the nodes are moved last! They should move first, perhaps. But wait, then, what thing is my translation finding? It shouldn't find a function there at all?
+
+Mysteries. I changed the order and...
+
+It is still doing it.
+
+```
+> gc <- compile(g, level=-1)
+> graph <- walk(g)
+> graphc <- walk(gc)
+> length(graphc$contexts)
+[1] 2
+> names(graphc$contexts)
+[1] "runPump|" "entry|"  
+```
+
+But the log said:
+```
+Context:  stop_| 
+ Moving nodes:
+   Node: `stop_|`$`stop_` -> `stop_`
+   Node: `stop_|`$`runPump` -> `runPump`
+
+Static pointer?: `runPump` -> `stop_|runPump`
+     with translated reference: `stop_|`$`runPump` -> `runPump`
+```
+
+Weird... yeah, _just_ runPump is failing to be ported?
+
+I have both the pre- and post-compiled graphs;
+
+```
+> (graph$contexts[["stop_|"]][["runPump"]])
+function(...) { ... }
+<environment: 0x55ed7e7ea790>
+> graphc$contexts[["runPump|"]]$pump
+function(...) { ... }
+<environment: 0x55ed7e7ea790>
+```
+
+Hold on. There's also a "runPump" in the normal context. They are different:
+
+```
+graphc$contexts[['entry|']][["runPump"]]
+function (...) 
+{
+    assert(`stop_|action` == "pause", paste0("pump asked to continue, but last action was ", 
+        `stop_|action`))
+    `stop_|pumpCont`(...)
+    ...
+}
+<environment: 0x55ed760dfa48>
+> graphc$contexts[["runPump|"]]$runPump
+function(...) {
+    assert(action == "pause",
+           paste0("pump asked to continue, but last action was ", action))
+    pumpCont(...) # here's where you inject a return value into a yield?
+    ...
+}
+<environment: 0x55ed7e7ea790>
+```
+
+To the translated one went into the right spot while the other one is being picked up as a node? OH! It's getting them from `getStartSet` somehow?
+
+```
+lapply(getStartSet.generator(gc), environment)
+$entry
+<environment: 0x55ed760dfa48>
+...
+$runPump
+<environment: 0x55ed7e7ea790>
+
+```
+
+Okay yeah it's coming from `getStartSet`. How? A bad variable reference. Was using global `g` instead of argument `x`
+
+### runPump is being translated as stop|runPump???
+
+Okay, so after munging I have both "runPump" and "stop|runPump" defined. It looks like it is moving the node as well as data. It shouldn't do that. It's doing that because runPump is "read" as well as called.
+
+Who does the reading? Is that in the graph?
+
+```
+> lapply(as.list(graph$contextNodes[[graph$nodeContexts[["runPump"]]]]), function(nodeName) graph$nodeProperties[[nodeName]]$read)
+...
+$pump
+[1] "action"  "nonce"   "runPump" "value"  
+...
+```
+
+Okay, it's registering as a var because of the call to `doWindup(runPump)`.
+
+Options for fixing this:
+
+1. [ ] Since this is in runPump with will not exist when codegen, maybe just mask parts of code from the "walk" algorithm. Maybe make walk() ignore anything inside of an "identity". But we It would also have to mask when doing variable translations.
+2. [ ] Make munge ignore any var that points to a canonical node with the canonical node name? This, though, how would it distinguish a legit pointer? And part of the problem is that this ends up in varTranslations, it would have to be something we do before that.
+3. [ ] Either canonically Ignore `doWindup`'s args during `walk`, 
+4. [x] Make `walk` treat `doWindup` as a trampoline call even if it's not the tail. 
+
+I did 4. just needed to make it detect trampoline calls even outside the function tail.
+
+### Error finding "trace": need to move utility functions.
+
+Well we need `trace` over there in the destination environment too. Why isn't trace gathered?
+I need to also carry over "utility" functions, then. This works the same as moving nodes, I guess.
+
+I made it copy over utility functions. Problem: this creates a bunch of actual duplicates of "trace,", bu thtis doesn't stop me right noe. 
+
+Bigger Problem: it is copying over "stop" and "pumpCont" as if they are utilities.
+
+```
+Context:  stop_| 
+ Moving nodes:
+   Node: `stop_|`$`stop_` -> `stop_`
+   Node: `stop_|`$`runPump` -> `runPump`
+   Node: `stop_|`$`return_` -> `return_`
+   Node: `stop_|`$`ret_` -> `_3.do_.body.2.ret`
+   Node: `stop_|`$`pump` -> `pump`
+   Node: `stop_|`$`pause_` -> `_3.do_.body.1.yield.pause`
+ Moving utils:
+   Function: `stop_|`$`stop` -> `stop_|stop`
+   Function: `stop_|`$`trace` -> `stop_|trace`
+   Function: `stop_|`$`pumpCont` -> `stop_|pumpCont`
+ Moving data:
+   State var: `action` -> `stop_|action`
+   State pointer: `pumpCont` -> `stop_|pumpCont`
+     with translated reference: `entry|`$`R_` -> `entry`
+   State var: `verbose` -> `stop_|verbose`
+   State var: `nonce` -> `stop_|nonce`
+   State var: `value` -> `stop_|value`
+```
+
+Checking with the graph:
+```
+graph$contextProperties[["stop_|"]]
+lapply(as.list(graph$contextNodes[["stop_|"]]), \ (node)as.list(graph$nodeProperties[[node]]))
+```
+
+`pumpCont` is showing up as "read" as well as a state pointer. It's properly a state pointer 
+(and gets translated as such.) 
+So let's ignore utils that also show up as state pointers..?
+It's still picking up `stop` as a util though. Why? It's a reference to base "stop". I think that's correct.
+

@@ -1,7 +1,7 @@
 Package: async
 Title: Asynchronous Code Constructs: Generators, Yield, Async, Await
 Version: 0.2.99
-Date: 2022-09-15
+Date: 2022-12-09
 Authors@R: 
     person(given = "Peter",
            family = "Meilstrup",

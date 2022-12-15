@@ -15,25 +15,26 @@ by_name <- function(vec) {
 # - var: names appearing in arguments of calls
 # - call: names appearing at head of calls
 # - local: names appearing as target of <-
-# - external: names appearing as target of <<-
+# - store: names appearing as target of <<-
 # - tail: names of calls in "tail position"
-# - tramp: names that are passed to "cont" of a tailcall (i.e. a trampoline)
-# - utility: names of calls whose targets are bound in the same
-#            function's environment
+# - tramp: names that are passed to "cont" of a tailcall
+#          (i.e. a trampoline)
+# - utility: names of NON-tailcalls whose targets are bound in
+#            the same function's environment.
 # - tailcall: the entire calls in tail position.
 #             (a list, possibly with original form for trampolines)
 # - trampoline: entire trampolined calls
 #             (also a list with orginal forms)
-# - handler: the trampoline call which you passed the handler to
+# - handler: the trampoline handler takes the continuation
 #             (also a list with original forms)
 all_names <- function(fn,
                       types=c("call", "var", "arg", "local",
-                              "external", "tail", "tramp"),
+                              "store", "tail", "tramp"),
                       call="call" %in% types,
                       var="var" %in% types,
                       arg="arg" %in% types,
                       local="local" %in% types,
-                      external="external" %in% types,
+                      store="store" %in% types,
                       tail="tail" %in% types,
                       tramp="tramp" %in% types,
                       tailcall="tailcall" %in% types,
@@ -44,7 +45,7 @@ all_names <- function(fn,
   env <- environment(fn)
   args <- names(formals(fn)) %||% character(0)
   # less recursion if we only look for tailcalls
-  nonTail <- any(call, var, local, external)
+  nonTail <- any(call, var, local, store, utility)
   collect_head <- function(expr, inTail) {
     if (!inTail && !nonTail) return(character(0))
     switch(mode(expr),
@@ -101,7 +102,7 @@ all_names <- function(fn,
                    "=" =, "<-" = c(collect_arg(expr[[3]], inTail=FALSE),
                                    collect_store(expr[[2]], "local")),
                    "<<-" = c(collect_arg(expr[[3]], inTail=FALSE),
-                             collect_store(expr[[2]], "external")),
+                             collect_store(expr[[2]], "store")),
                    "if" = c(collect_arg(expr[[2]], inTail=FALSE),
                             collect_arg(expr[[3]], inTail=inTail),
                             if (length(expr) >= 4)
@@ -123,8 +124,6 @@ all_names <- function(fn,
                      collect_arg(expr[[length(expr)]], inTail=inTail)),
                    "||"=,"&&"=c(collect_arg(expr[[2]], inTail=FALSE),
                                 collect_arg(expr[[3]], inTail=inTail)),
-                   # arguments to `switch` are not considered to be in tail
-                   # position because... why?
                    "switch"=c(collect_arg(expr[[2]], inTail=FALSE),
                               if(inTail || nonTail) concat(
                                 lapply(unname(expr[-1]), collect_arg,
@@ -134,12 +133,9 @@ all_names <- function(fn,
                    collect_ordinary_call(expr, inTail, orig)
                  )
                } else {
-                 # Exists but not primitive. If a tailcall, peek at the
-                 # formals. If the formals have "..." then it is a
-                 # trampoline call.
-                 if (inTail &&
-                       all(c("cont", "...") %in% names(formals(peek)))) {
-                   # trampoline! Register both the target and the indirect.
+                 if (all(c("cont", "...") %in% names(formals(peek)))) {
+                   # A trampoline-indirect call! Register both the target and
+                   # the indirect.
                    handl <- match.call(peek, expr, expand.dots=FALSE,
                                        envir=as.environment(list(`...`=NULL)))
                    trampolined <- as.call(c(list(handl$cont), handl$...))
@@ -159,11 +155,14 @@ all_names <- function(fn,
                                         c(list(expr), orig)))
                  } else {
                    # if it's bound in the same context, note it as a utility call.
-                   # an example is "trace"
-                   # which is going to get duplicate entries because it's
+                   # an example is "trace"...
+                   # which is going to get many duplicate entries because it's
                    # given as an argument to every constructor, hmm.
-                   c(if(utility && identical(e, env))
-                       c(utility = as.character(head)),
+
+                   c(
+                     if(utility && !inTail && identical(e, env)) {
+                       c(utility = as.character(head))
+                     },
                      collect_ordinary_call(expr, inTail, orig))
                  }
                }
@@ -204,8 +203,8 @@ all_names <- function(fn,
            name={
              if (how == "local" && local)
                c(local=as.character(dest))
-             else if (how == "external" && external)
-               c(external=as.character(dest))
+             else if (how == "store" && store)
+               c(store=as.character(dest))
            },
            character(0))}
   c(if (arg) structure(args, names=rep("arg", length(args))),
@@ -223,7 +222,7 @@ by_class <- function(vec) {
 }
 
 contains <- function(env, candidate, cmp=identical) {
-  # FIXME: this should be a hashset or something
+  # FIXME: this should be a hashset or something?
   # maybe make something like memo::pointer_key(identity, list)("two")
   for (key in names(env))
     if (cmp(candidate, env[[key]]))
@@ -239,77 +238,43 @@ make.unique.wrt <- function(x, existing) {
   u
 }
 
-condense.name <- function(name) {
-  #input "name" is a character vector of branch names
-  with(rle(name),
-       paste0(ifelse(values=="cont", "", values),
-              ifelse(values != "cont" & lengths == 1, "", lengths),
-              collapse="."))
+paste.dropping.empty <- function(..., sep=".", collapse=NULL, recycle0=FALSE) {
+  args <- list(...)
+  result <- if (length(args) > 1) {
+    a <- args[[1]]
+    amask = (a == "") | (is.na(a))
+    b = do.call("paste.dropping.empty",
+                c(args[-1], list(sep=sep, recycle0=recycle0)))
+    bmask = (b == "") | (is.na(b))
+    ifelse(amask, b,
+           ifelse(bmask, a,
+                  paste(a, b, sep=sep, recycle0=recycle0)))
+  } else if (length(args) == 1) {
+    ifelse(is.na(args[[1]]), "", args[[1]])
+  } else {
+    character(0)
+  }
+  if (!is.null(collapse)) {
+    paste(result[result != ""], collapse=collapse)
+  } else result
 }
 
-## Hashbag
-# is a multi-level dictionary
-hashbag <- function() {
-  structure(new.env(parent=emptyenv()), class="hashbag")
+condense.name <- function(name) {
+  #input "name" is a character vector of branch labels.
+  #for instance, if the path to get to a node takes branches with labels
+  #start, cont, cont, cont, ifFalse, cont, cont, break
+  #the condensed label will be "start.3.ifFalse.2.break"
+  result <- with(rle(name), # with "values" and "lengths"
+                 paste.dropping.empty(
+                   ifelse(values=="cont", "", values),
+                   ifelse(values != "cont" & lengths == 1, "", lengths),
+                   sep="", collapse="."))
 }
+
 nullish <- function(x) length(x)==0
 `%||%` <- function(x, y) if (nullish(x)) y else x
 `%&&%` <- function(x, y) if (nullish(x)) x else y
 
-#' @export
-`[[.hashbag` <- function(x, ..., ifnotfound=structure(list(), class="hashbag")) {
-  indices <- list(...)
-  if (!nullish(x) && exists(indices[[1]], envir=x)) {
-    if (length(indices) > 1) {
-      do.call(`[[`, c(list(get(indices[[1]], envir=x)), indices[-1]))
-    } else {
-      get(indices[[1]], envir=x)
-    }
-  } else {
-    ifnotfound
-  }
-}
-#' @export
-`[[<-.hashbag` <- function(x, ..., value) {
-  indices <- list(...)
-  if (nullish(x)) x <- hashbag()
-  if (length(indices) > 1) {
-    if (exists(indices[[1]], envir=x)) {
-      val <- x[[ indices[[1]] ]]
-    } else {
-      val <- hashbag()
-    }
-    val <- do.call("[[<-", c(quote(val), indices[-1], list(value=value)))
-  } else {
-    val <- value
-  }
-  assign(indices[[1]], val, envir=x)
-  x
-}
-
-all_indices <- function(x) UseMethod("all_indices")
-
-#' @export
-all_indices.hashbag <- function(x) {
-  l <- as.list.environment(x, all.names=TRUE, sorted=TRUE)
-  n <- names(l)
-  indices <- mapply(n, l, SIMPLIFY=FALSE, USE.NAMES=FALSE, FUN=function(k, v) {
-    if (!nullish(v) && "hashbag" %in% class(v)) {
-      mapply(`c`, k, all_indices(v), USE.NAMES=FALSE, SIMPLIFY=FALSE)
-    } else list(k)
-  })
-  concat(indices)
-}
-
-#' @exportS3Method as.list hashbag
-as.list.hashbag <- function(x, ..., all.names=TRUE) {
-  lapply(structure(as.character(names(x)), names=names(x)), function(ix) {
-    item <- get(ix, envir=x)
-    if ("hashbag" %in% class(item)) {
-      as.list(item, all.names=all.names)
-    } else item
-  })
-}
 
 ##  Walk
 # collect all nodes and edges and give them names,
@@ -341,6 +306,7 @@ as.list.hashbag <- function(x, ..., all.names=TRUE) {
 # * `contexts`: hash table (by generated name) of environment objects
 # * `contextProperties`: hash by name of list:
 #   * vars: vector of closed-over vars used by contained nodes.
+#   * state: (TODO) closed-over vars that are the target of "<<-"
 # * `contextNodes`: double hash by context name and contained node name
 #                 data is TRUE
 # * `nodeContexts`: hash by node ID, data is context ID
@@ -352,21 +318,21 @@ walk <- function(gen) {
   nodes <- list2env(nodes, parent=emptyenv())
   orig <- getOrig(gen)
   iter <- icount()
-  nodeProperties <- new.env(parent=emptyenv())
+  nodeProperties <- hashbag()
   reverseEdges <- hashbag()
   edgeProperties <- hashbag()
   nodeProperties <- hashbag()
   #do a DFS to collect the graph:
   doWalk <- function(thisNode, path, recurse=TRUE) {
     if (is.null(thisName <- contains(nodes, thisNode))) {
-      thisName <- condense.name(path)
+      thisName <- paste0("_", condense.name(path))
       assert(!exists(thisName, envir=nodeProperties))
       nodes[[thisName]] <<- thisNode
       nodeOrder <<- c(nodeOrder, thisName)
     }
     if (exists(thisName, envir=nodeProperties)) #already visited
       return(thisName)
-    nodeProperties[[thisName]]$name <<- thisName
+    nodeProperties[[thisName, "name"]] <<- thisName
     tails <- all_names(thisNode, c("tailcall", "trampoline", "handler"))
     for (i in seq_along(tails)) {
       tailcall <- tails[[i]]
@@ -375,13 +341,14 @@ walk <- function(gen) {
       nextNodeName <- doWalk(nextNode, c(path, branchName))
       #cat(sprintf("%s:%s -> %s\n", thisName, branchName, nextNodeName))
       reverseEdges[[nextNodeName]][[thisName]] <<- TRUE
+      #"label" actually records the "local name" of an edge.
       edgeProperties[[thisName, nextNodeName]] <<-
         list(label=branchName, call=tailcall, type=names(tails)[[i]])
     }
     thisName
   }
-  doWalk(nodes$START, ".") # use path from start to name nodes.
-  for (i in nodeOrder) { # and walk the rest to be sure
+  doWalk(nodes[[nodeOrder[[1]]]], "") # use path from start to name nodes.
+  for (i in nodeOrder[-1]) { # and walk the rest to be sure
     doWalk(nodes[[i]], i)
   }
   # now we have collected a set of nodes and tables of
@@ -389,22 +356,22 @@ walk <- function(gen) {
   # Contexts: what environment is each node in?
   contexts <- new.env(parent=emptyenv())
   nodeContexts <- new.env(parent=emptyenv())
-  contextProperties <- new.env(parent=emptyenv())
+  contextProperties <- hashbag()
   contextNodes <- hashbag()
   for (thisNodeName in nodeOrder) {
     thisNode <- nodes[[thisNodeName]]
     context <- environment(nodes[[thisNodeName]])
     if (is.null(contextName <- contains(contexts, context))) {
-      contextName <- paste0("ctx.", thisNodeName)
+      contextName <- paste0(thisNodeName, "|")
       assert(!exists(contextName, envir=contexts))
       #cat("context: ", contextName, "\n")
       contexts[[contextName]] <- context
     }
-    contextNodes[[contextName]][[thisNodeName]] <- thisNodeName
+    contextNodes[[contextName,thisNodeName]] <- thisNodeName
     nodeContexts[[thisNodeName]] <- contextName
 
     #does the node have a name in its context?
-    nodeProperties[[thisNodeName]]$localName <- character(0)
+    nodeProperties[[thisNodeName, "localName"]] <- character(0)
     for (nm in names(context)) {
       #watch out for unforced args like ifnotfound=stop("Not found")
       if (nm != "..." && is_forced_(nm, context)) {
@@ -419,32 +386,37 @@ walk <- function(gen) {
     }
   }
   # what storage used by each node / each context?
-  for (cxt in names(contexts)) {
-    cxtVars <- sort(unique(concat(lapply(
-      names(contextNodes[[cxt]]), function(thisNodeName) {
-        vars <- by_name(
-          all_names(nodes[[thisNodeName]],
-                    types=c("call", "external", "local", "arg", "var", "utility")))
-        reads <- c(setdiff(vars$var, union(vars$local, vars$arg)))
-        stores <- vars$external
-        calls <- vars$call
-        utils <- vars$utility
-        nodeProperties[[thisNodeName]]$reads <<- sort(reads)
-        nodeProperties[[thisNodeName]]$stores <<- sort(stores)
-        nodeProperties[[thisNodeName]]$calls <<- sort(calls)
-        nodeProperties[[thisNodeName]]$utils <<- sort(utils)
-        sort(union(union(reads, stores), utils))
+  varTypes <- c("call", "store", "local", "arg", "var", "utility")
+  for (contextName in names(contexts)) {
+    for (thisNodeName in names(contextNodes[[contextName]])) {
+      vars <- by_name(
+        all_names(nodes[[thisNodeName]],
+                  types=varTypes))
+      for (type in varTypes) {
+        nodeProperties[[thisNodeName, type]] <- sort(vars[[type]])
       }
-    ))))
-    contextProperties[[cxt]] <- list(vars=cxtVars)
+      # "reads" being anything used that's not local to the node
+      reads <- c(setdiff(vars$var, union(vars$local, vars$arg)))
+      nodeProperties[[thisNodeName, "read"]] <- sort(reads)
+    }
+    # gather all nonlocal names used across this context
+    for (what in c("read", "store", "utility", "call")) {
+      contextProperties[[contextName, what]] <-
+        gatherVars(nodeProperties, contextNodes, contextName, what)
+    }
   }
-  list(nodes=nodes,
-       nodeProperties=nodeProperties,
-       edgeProperties=edgeProperties,
-       reverseEdges=reverseEdges,
-       contexts=contexts,
-       contextProperties=contextProperties,
-       nodeContexts=nodeContexts,
-       contextNodes=contextNodes,
-       orig=orig)
+  list(nodes = nodes,
+       nodeProperties = nodeProperties,
+       edgeProperties = edgeProperties,
+       reverseEdges = reverseEdges,
+       contexts = contexts,
+       contextProperties = contextProperties,
+       nodeContexts = nodeContexts,
+       contextNodes = contextNodes,
+       orig = orig)
+}
+
+gatherVars <- function(nodeProperties, contextNodes, contextName, key) {
+  unique(c(character(0), lapply(as.list(contextNodes[[contextName]]),
+                  function(x) {nodeProperties[[x]][[key]]}), recursive=TRUE))
 }

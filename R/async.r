@@ -193,7 +193,10 @@ getOrig.async <- function(x) x$orig
 getStartSet.async <- function(x) {
   list(START=getEntry(x),
        STOP=getStop(x),
-       RETURN=getReturn(x))
+       RETURN=getReturn(x),
+       pump=get("pump", envir=x$state),
+       runPump=environment(get("pump", (x$state)))$runPump,
+       getState=get("getState", x$state))
 }
 
 #' @export

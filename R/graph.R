@@ -63,8 +63,8 @@ make_dot <- function(nodeGraph,
         concat(lapply(
           names(nodeGraph$contextNodes[[context]]),
           function(node) {
-            reads <- nodeGraph$nodeProperties[[node]]$reads
-            stores <- nodeGraph$nodeProperties[[node]]$stores
+            reads <- nodeGraph$nodeProperties[[node]]$read
+            stores <- nodeGraph$nodeProperties[[node]]$store
             ## edges for the storage
             c(
               if (length(reads) > 0)

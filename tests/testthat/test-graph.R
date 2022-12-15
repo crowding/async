@@ -1,8 +1,24 @@
 #' @import nseval
 
+
 `%is%` <- expect_equal
 
+test_that("pasting together names", {
 
+  paste.dropping.empty(
+    c("", "x", "", "x"), c("", "", "X", "X"),
+    sep=".") %is%
+    c("", "x", "X", "x.X")
+
+  paste.dropping.empty(
+    c("", "x", "", "x"), c("", "", "X", "X"),
+    sep=".", collapse="-") %is%
+    c("x-X-x.X")
+
+  condense.name(c("start", "cont", "cont", "test", "test",
+                  "cont", "break")) %is% "start.2.test2.1.break"
+
+})
 
 test_that("Can extract graph of generator", {
 
@@ -51,7 +67,7 @@ test_that("tryCatch", {
     yield("!")
   })
   expect_silent(drawGraph(fizztry))
-  
+
 })
 
 test_that("nextElemOr", {
@@ -119,6 +135,9 @@ test_that("Async with try-finally", {
     not_run <<- FALSE
     5
   })
+  ## wait_for_it()
+  ## expect_true(not_run)
+  ## expect_false(cleanup)
   expect_silent(drawGraph(tryfin, vars=FALSE, envs=TRUE, handlers=TRUE))
 
 })
@@ -231,7 +250,7 @@ test_that("function inspection with all_names", {
   by_role$arg %is% c("arg1", "arg2", "cont")
   by_role$call %is% c( "+", "/", "*", "[<-", "[", "package::doThing",
                       "alichlkh", "g1", "g2", "g3", "cont")
-  by_role$external %is% c("globalVar1", "externVar2")
+  by_role$store %is% c("globalVar1", "externVar2")
   by_role$local %is% c("arg1", "temp")
   by_role$tail %is% c("alichlkh", "g1", "g2", "g3", "cont")
   by_role$tramp %is% c("g3")
@@ -252,13 +271,13 @@ test_that("function inspection with all_names", {
   rm("cont")
 
   # what needs_import
-  setdiff(union(by_role$external, by_role$var),
+  setdiff(union(by_role$store, by_role$var),
           union(by_role$local, by_role$arg)) %is% c(
             "globalVar1", "externVar2", "externVar", "externConst")
 
   locals <- sort(union(by_role$local, by_role$arg))
   locals %is% c("arg1", "arg2", "cont", "temp")
-  stores <- by_role$external
+  stores <- by_role$store
   reads <- sort(setdiff(by_role$var, locals))
   reads %is% c("externConst", "externVar", "externVar2")
 })
@@ -308,9 +327,9 @@ test_that("all_names and args", {
     set_dots(environment(), x)
     cont(...)
   }
-  all_names(R_, c("external", "local", "arg", "var")) %is%
+  all_names(R_, c("store", "local", "arg", "var")) %is%
     c(var="x", var="x", var="...")
 
-  all_names(function(x)x <<- x) %is% c(arg="x", var="x", external="x")
+  all_names(function(x)x <<- x) %is% c(arg="x", var="x", store="x")
 
 })
