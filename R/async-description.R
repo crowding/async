@@ -21,3 +21,14 @@
 #' @author Peter Meilstrup
 NULL
 
+.onLoad <- function(libname, pkgname) {
+  unlockBinding("verbose", getNamespace(pkgname))
+}
+
+verbose <- FALSE
+trace_ <- function(x) if(verbose) cat(x)
+
+setVerbose <- function(to=TRUE) {
+  unlockBinding("verbose", getNamespace("async"))
+  verbose <<- to
+}

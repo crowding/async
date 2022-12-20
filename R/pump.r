@@ -16,16 +16,12 @@ assert <- function(condition,
   }
 }
 
-# assign("verbose", TRUE, envir=getNamespace("async"))
-verbose <- FALSE
-trace_ <- function(x) if(verbose) cat(x)
-
 #' @param prefix Character prefix to print before the trace.
 #' @rdname async
 #' @export
 with_prefix <- function(prefix) function(...) cat(paste0(prefix, ": ", ...), sep="")
 
-reset <- function(...) list(...)[[1]] #evaluates all args then returns first.
+reset <- function(...) list(...)[[1]]
 
 add_class <- function(x, ...) {
   attr(x, "class") <- c(..., attr(x, "class"))
@@ -45,9 +41,10 @@ make_pump <- function(expr, ...,
                       stop=base::stop,
                       return=base::return,
                       trace=trace_,
-                      eliminate.tailcalls = TRUE) {
+                      eliminate.tailcalls = TRUE,
+                      catch=TRUE) {
   list(expr, stop, return, trace)
-  nonce <- (function() NULL)()
+  nonce <- (function() NULL)
 
   action <- "pause" # stopped, pause
   pumpCont <- nonce
@@ -100,14 +97,20 @@ make_pump <- function(expr, ...,
   # null_winding <- function(cont, ...) cont(...)
   # f(cont) that establishes a context,
   # and returning from f(cont), unwinds that context.
-  base_winding <- function(cont, ...) {
-    if(verbose) trace("pump: windup\n")
-    tryCatch(cont(...), error=function(err){
-      trace("pump: caught error by windup\n")
-      # assign("browseOnError", TRUE, envir=getNamespace("async"))
-      if(browseOnError) browser()
-      stop_(err)
-    }, finally=if(verbose) trace("pump: unwind\n"))
+  if(catch) {
+    base_winding <- function(cont, ...) {
+      if(verbose) trace("pump: windup\n")
+      tryCatch(cont(...), error=function(err){
+        trace("pump: caught error by windup\n")
+        # assign("browseOnError", TRUE, envir=getNamespace("async"))
+        if(browseOnError) browser()
+        stop_(err)
+      }, finally=if(verbose) trace("pump: unwind\n"))
+    }
+  } else {
+    base_winding <- function(cont, ...) {
+      cont(...)
+    }
   }
   windings <- list(base_winding)
 
@@ -137,7 +140,8 @@ make_pump <- function(expr, ...,
   }
 
   doWindup <- function(cont, ...) {
-    windings[[1]](cont, ...)
+    wind <- windings[[1]]
+    wind(cont, ...)
   }
 
   # Our argument "expr" is a context constructor
@@ -164,7 +168,8 @@ make_pump <- function(expr, ...,
     pumpCont(...) # here's where you inject a return value into a yield?
     while(action == "continue") {
       if(verbose) trace("pump: continue\n")
-      action <<- "pause"; reset(pumpCont, pumpCont <<- NULL)()
+      action <<- "pause";
+      list(pumpCont, pumpCont <<- NULL)[[1]]()
     }
   }
 

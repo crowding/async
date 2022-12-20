@@ -1,11 +1,9 @@
-trace <- function(...) cat(..., sep="")
-trace <- function(...) NULL
 
 munge <- function(# the async/generator to munge
                   g,
                   # What is the destination env?  In the interpreted
                   # form the effective parent environment is captured
-                  # in the "R_" objects.  In the compiled form it _will_
+                  # in the "R_" objects.  In the compiled form it might
                   # be the a child of the base environment that called
                   # gen() (different for each invocation!) So we don't
                   # know yet, so just munge to a new env and set its
@@ -14,18 +12,25 @@ munge <- function(# the async/generator to munge
   # The graph data structure should give us most info we need.
   graph <- walk(g)
 
-  # move over storage
-  # including utility functions like "stop" and "trace"
-  # (? should be deduped/ included in graph?)
+  # Collect information in the storage used by the functions in each context.
   for (contextName in names(graph$contexts)) {
-    trace("Context: ", contextName, "\n")
+    trace_(paste0("Context: ", contextName, "\n"))
     context <- graph$contexts[[contextName]]
-    contextVars <- graph$contextProperties[[contextName]]$read
-    utils <- setdiff(graph$contextProperties[[contextName]]$utility, contextVars)
-    # collect the translated names of variables and nodes
+    props <- graph$contextProperties[[contextName]]
+    contextVars <- unique(c(props$read, props$store))
+    # Make up translated names of variables and nodes
     varTranslations <- structure(
       as.character(paste0(contextName, contextVars, recycle0=TRUE)),
       names=contextVars)
+
+    # wait what is going on here? Why isn't it translating "cont"
+#    if(contextName == "entry|") browser()
+    calls <- unlist(as.list(props)[c("tail", "tramp", "hand", "utility")],
+                    use.names=FALSE)
+
+    # why is this looking at all the edges instead of what's collected in
+    # context props?
+    # because that's where the new labels are.
     callTranslations <- concat(lapply(
       names(graph$contextNodes[[contextName]]),
       function(nodeName) {
@@ -33,50 +38,21 @@ munge <- function(# the async/generator to munge
         structure(names(props) %||% character(0),
                   names=vapply(props, function(x) x$label, ""))
       }))
-    utilTranslations <- structure(paste0(contextName, utils, recycle0=TRUE),
-                                  names=utils)
 
-    translations <-
-      as.environment(c(lapply(callTranslations, as.name),
-                       lapply(varTranslations, as.name),
-                       lapply(utilTranslations, as.name)))
+    utils <- setdiff(setdiff(props$utility,
+                             names(callTranslations)),
+                     contextVars)
+    utilTranslations <- structure(
+      paste0(contextName, utils, recycle0=TRUE),
+      names=utils)
 
-    trace(" Moving nodes:\n")
-    for (nodeName in names(graph$contextNodes[[contextName]])) {
-      # nodeName is the translated node name that walk() came up with
-      node <- graph$nodes[[nodeName]]
-      nodeBody <- body(node)
-      # Translate the exits and storage used by the node
-      translatedBody <- substituteDirect(nodeBody, translations)
-      trace("   Node: `", contextName, "`$`",
-          graph$nodeProperties[[nodeName]]$localName,
-          "` -> `", nodeName, "`\n")
-      dest.env[[nodeName]] <-
-        function_(formals(node), translatedBody, dest.env)
-    }
-
-    if (length(utilTranslations) > 0) {
-      trace(" Moving utils:\n")
-      for (fnam in names(utilTranslations)) {
-        func <- graph$contexts[[contextName]][[fnam]]
-        trace("   Function: `", contextName, "`$`", fnam,
-            "` -> `", utilTranslations[[fnam]], "`\n")
-        if(FALSE) {
-          #translate the function?
-          translatedBody <- substituteDirect(body(func), translations)
-          dest.env[[utilTranslations[[fnam]]]] <-
-            function_(formals(func), translatedBody, dest.env)
-        } else {
-          #copy direct, Don't translate;
-          #fns marked "utility" are "bound locally" but not "defined locally."
-          dest.env[[utilTranslations[[fnam]]]] <- func
-        }
-      }
-    }
-
-    # transfer each binding in this context
+    # move_value may need to translate a state pointer, and so needs
+    # to have the nodes already moved. So moving vars happens after
+    # nodes. On the other hand, if in the future we want to dedupe
+    # constants while moving, we should move values _before_ nodes, so
+    # that we can move nodes with a better translation table.
     if (length(varTranslations) > 0) {
-      trace(" Moving data:\n")
+      trace_(" Moving data:\n")
       f <- is_forced_(names(varTranslations), context)
       if (any(!f)) {
         stop("Unforced arguments found in munging: ",
@@ -88,14 +64,43 @@ munge <- function(# the async/generator to munge
                    varTranslations, callTranslations)
       }
     }
+    trace_(" Moving nodes:\n")
+    assert(length(intersect(names(callTranslations), names(varTranslations))) == 0)
+    assert(length(intersect(names(callTranslations), names(utilTranslations))) == 0)
+    assert(length(intersect(names(varTranslations), names(utilTranslations))) == 0)
+    nms <- c(varTranslations, callTranslations, utilTranslations)
 
+    for (nodeName in names(graph$contextNodes[[contextName]])) {
+      # nodeName is the translated node name that walk() came up with
+#      if (nodeName == "runPump") browser()
+      node <- graph$nodes[[nodeName]]
+      nodeBody <- body(node)
+      translatedBody <- trans(nodeBody, nms, nms)
+      trace_(paste0("   Node: `", contextName, "`$`",
+                    graph$nodeProperties[[nodeName]]$localName,
+                    "` -> `", nodeName, "`\n"))
+      dest.env[[nodeName]] <-
+        function_(formals(node), translatedBody, dest.env)
+    }
+    if (length(utilTranslations) > 0) {
+      trace_(" Moving utils:\n")
+      for (fnam in names(utilTranslations)) {
+        func <- graph$contexts[[contextName]][[fnam]]
+        trace_(paste0("   Function: `", contextName, "`$`", fnam,
+                      "` -> `", utilTranslations[[fnam]], "`\n"))
+        #copy direct, but don't translate; fns marked "utility"
+        #are "bound locally" but not "defined locally."
+        #(i.e. not closed over the context state.)
+        dest.env[[utilTranslations[[fnam]]]] <- func
+      }
+    }
   }
   dest.env
 }
 
 move_value <- function(graph, contextName, varName, dest.env, newName,
                        varTranslations, callTranslations) {
-  value <- graph$contexts[[contextName]][[varName]]
+  value <- get(varName, graph$contexts[[contextName]])
   UseMethod("move_value", value)
 }
 
@@ -110,38 +115,44 @@ move_value.quotation <- function(graph, contextName, varName, dest.env, newName,
 move_value.function <- function(graph, contextName, varName, dest.env, newName,
                                 varTranslations, callTranslations) {
 
-  written <- varName %in% graph$contextProperties[[contextName, "external"]]
-  value <- graph$contexts[[contextName]][[varName]]
+  written <- varName %in% graph$contextProperties[[contextName, "store"]]
+  value <- get(varName, graph$contexts[[contextName]])
   isNonce <- is.null(body(value))
   if (isNonce) {
     # I use a "function() NULL" per node as a sigil value, can just copy those
     if (written) {
-      trace("   State var with nonce: `", varName, "` -> `", newName, "`\n")
+      trace_(paste0("   State var with nonce: `",
+                    varName, "` -> `", newName, "`\n"))
     } else {
-      trace("   Read-only var with nonce: `", varName, "` -> `", newName, "`\n")
+      trace_(paste0("   Read-only var with nonce: `",
+                    varName, "` -> `", newName, "`\n"))
     }
     dest.env[[newName]] <- value
   } else if (!is.null(key <- contains(graph$nodes, value))) {
     # the var points to one of our (old) nodes.
     # Is it written to somewhere?
     if (written) {
-      trace("   State pointer: `", varName, "` -> `", newName, "`\n")
+      trace_(paste0("   State pointer: `",
+                    varName, "` -> `", newName, "`\n"))
     } else {
-      trace("   Static pointer?: `", varName, "` -> `", newName, "`\n")
+      trace_(paste0("   Static pointer?: `",
+                    varName, "` -> `", newName, "`\n"))
+      browser()
     }
     # in either case, translate to the new function.
-    trace("     with translated reference: `",
-        graph$nodeContexts[[key]], "`$`", graph$nodeProperties[[key]]$localName,
-        "` -> `", key, "`\n")
+    trace_(paste0("     with translated reference: `",
+                  graph$nodeContexts[[key]],
+                  "`$`", graph$nodeProperties[[key]]$localName,
+                  "` -> `", key, "`\n"))
     dest.env[[newName]] <- dest.env[[key]]
   } else {
     # a function, but not a nonce nor recognized as one of the nodes?
     if (written) {
-      trace("   State var with unknown function value(?): `",
-          varName, "` -> `", newName, "`\n")
+      trace_(paste0("   State var with unknown function value(?): `",
+                    varName, "` -> `", newName, "`\n"))
     } else {
-      trace("   Read-only var with unknown function value(?): `",
-          varName, "` -> `", newName, "`\n")
+      trace_(paste0("   Read-only var with unknown function value(?): `",
+                    varName, "` -> `", newName, "`\n"))
     }
     dest.env[[newName]] <- value
   }
@@ -150,8 +161,12 @@ move_value.function <- function(graph, contextName, varName, dest.env, newName,
 move_value.default <- function(graph, contextName, varName, dest.env, newName,
                                varTranslations, callTranslations) {
   written <- varName %in% graph$contextProperties[[contextName, "external"]]
-  trace("   State var: `", varName, "` -> `", newName, "`\n", sep="")
-  dest.env[[newName]] <- graph$contexts[[contextName]][[varName]]
+  if (written) {
+    trace_(paste0("   State var: `", varName, "` -> `", newName, "`\n"))
+  } else {
+    trace_(paste0("   Constant: `", varName, "` -> `", newName, "`\n"))
+  }
+  dest.env[[newName]] <- get(varName, graph$contexts[[contextName]])
 }
 
 dedupe <- function(x) x[!duplicated(x)] # keeps labels

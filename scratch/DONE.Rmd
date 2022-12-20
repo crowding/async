@@ -154,3 +154,76 @@ lapply(as.list(graph$contextNodes[["stop_|"]]), \ (node)as.list(graph$nodeProper
 So let's ignore utils that also show up as state pointers..?
 It's still picking up `stop` as a util though. Why? It's a reference to base "stop". I think that's correct.
 
+## Name munging is inappropriately munging `base::stop` to ``` base::`nextElemOr|stop` ```
+
+` object 'nextElemOr|stop' not found` in runPump. But, there is such a function?? Oh, `get_function()` shows me the context: ``` base::`nextElemOr|stop` ```
+
+because translate() needs to ignore arguments to "::" or ":::", d'oh! I need something more sophisticated than substitute. So i pulled the trick from vadr to translate using an environment...
+
+Sadly, this is noticeably slow compared to using substitute(). And it forces me to use temp vars in a couple spots that I do a double call (`f(x)(y)`).
+
+# basic generator should run without windups
+
+Now that we have iteror() we should go through generator and make sure that it
+doesn't unnecessarily invoke any tryCatch. This I did incidentally because it exposes 
+the stack traces a little better.
+
+## call to `pumpCont` is not being translated
+
+    > g <- async:::compile(gen(for (i in 1:10) yield(i)), level=-1)
+    > nextElemOr(g, "or")
+    Error in pumpCont(..., envir = <environment>) : 
+      could not find function "pumpCont"
+
+`pumpCont` was translated where it appears as a variable but not where it appears as a call. Let's break "munge" when it gets to runPump and see what gives.
+
+    all_names(graph$nodes[[nodeName]], c("call", "store", "local", "arg", "var", "utility"))
+
+Oh it's happening when I gather the context properties. I was doing
+
+       utils <- setdiff(graph$contextProperties[[contextName]]$utility, contextVars)
+
+Which was incorrect.
+
+## Generator is not yielding
+
+With tracing on:
+
+    > gc <- async:::compile(gen(for (i in 1:10) yield(i)), level=-1)
+    > nextElemOr(g, "or")
+
+    R: i
+    yield
+    generator: yield
+    pump: set unpause
+    pump: pause
+    Error in obj$nextElemOr(or, ...) : Generator finished unexpectedly
+
+Do this to debug the next node:
+
+    > debug(environment(g$nextElemOr)$`stop_|pumpCont`)
+
+    ls(environment(environment(gc$nextElemOr)$`stop_|pumpCont`))
+    
+(delete pages of fussing about this var not being translated or that one not being covered in `walk`, etc.)
+
+Okay now seems like the damn entry point stored in pumpCont is pointing out of scope. Ah. it was moved as an util after being moved as a data (among several other things)
+
+## What if you were just more dumb about this?
+
+I.e. you had each context return expressions for each of its states, and a list of names to be translated.
+
+Most of the mechanics of substituting inlining, etc. would be the
+same, it's the "scanning things and automatically tagging vars" that
+would be skipped. So it seems like I'm far enough along path A that I
+wouldn't gain a whole lot trying to feel out path B _just_ yet, though
+the idea of generating the dumb part _automatically_ is appealing, but
+I can also throw memoization into the mix.
+
+And just like that, I've had a nearly successful generator run after munging.
+
+## Graph failing with `missing value where TRUE/FALSE needed`
+
+What's up with my graph? edgeProperties is giving me a "type: NULL" on some edge. 
+
+Oof, it's that thing where "c"/unlist adds numbers to names again. I've been trying to use "names" of a vector to track classes of a thing and there's some friction.

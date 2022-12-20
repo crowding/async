@@ -29,12 +29,15 @@ make_dot <- function(nodeGraph,
       c(label=label, style="filled,rounded", color="gray70")),
       switch(
         nodeName,
+        entry=,
         START=c(shape="doubleoctagon", color="darkgreen", style="filled",
                 fontcolor="lightgreen", margin="0,0", fixedsize="false",
                 pos="1,1"
                 ),
+        stop_=,
         STOP=c(shape="doubleoctagon", color="darkred", style="filled",
                fontcolor="pink",  margin="0,0", fixedsize="false"),
+        return=,
         RETURN=c(shape="doubleoctagon", color="darkblue", style="filled",
                  fontcolor="lightblue", margin="0,0", fixedsize="false")))}
   node <- function(nodeGraph, nodeName) {
@@ -50,7 +53,8 @@ make_dot <- function(nodeGraph,
     # make a record node for context storage
     # they say record-based nodes are obsoleted by html-style labels
     # but I'll start with this...
-    varNames <- nodeGraph$contextProperties[[context]]$vars
+    varNames <- union(nodeGraph$contextProperties[[context]]$read,
+                      nodeGraph$contextProperties[[context]]$store)
     if (length(varNames) == 0) NULL else {
       c(paste(
         quoted(paste0(context, "_", "var")),
@@ -125,11 +129,12 @@ make_dot <- function(nodeGraph,
       if (length(props$call[[1]]) > 1)
         c(color="black") else c(color="gray50"),
       switch(props[["type"]],
-             tailcall=c(arrowhead="normal", penwidth="2", concentrate="true"),
-             trampoline=c(style="dashed", penwidth="2.5",
+             tail=c(arrowhead="normal", penwidth="2", concentrate="true"),
+             tramp=c(style="dashed", penwidth="2.5",
                           constrain="false", concentrate="false"),
-             handler=c(penwidth="0.75", arrowhead="dot", arrowsize="0.3",
-                       concentrate="true", constrain="false")),
+             hand=c(penwidth="0.75", arrowhead="dot", arrowsize="0.3",
+                    concentrate="true", constrain="false"),
+             stop("unknown edge type?")),
       ## if (identical(nodeGraph$nodeProperties[[to]]$localName, ";"))
       ##   c(arrowhead="none"),
       if (props$type=="trampoline") { #"special" or trampolined tailcalls
@@ -146,8 +151,8 @@ make_dot <- function(nodeGraph,
   edge <- function(nodeGraph, from, to) {
     concat(lapply(to, function(edgeTo) {
       edge <- nodeGraph$edgeProperties[[from, to]]
-      if (edge[["type"]] != "handler" ||
-            ((edge[["type"]] == "handler") && handlers)) {
+      if (edge[["type"]] != "hand" ||
+            ((edge[["type"]] == "hand") && handlers)) {
         paste(quoted(from), "->", quoted(edgeTo),
               attrs(edgeAttrs(nodeGraph, from, to)))}}))}
   edges <- function(nodeGraph) {
@@ -266,7 +271,7 @@ drawGraph <- function(obj,
                         filename else paste0(basename, ".dot"))
 {
   makeGraph(obj, dotfile, envs=envs, vars=vars, handlers=handlers)
-  if ("type" == "dot" || dot == "") {
+  if (type == "dot" || dot == "") {
     dotfile
   } else {
     system2(dot, c(paste0("-T", type), dotfile), stdout=filename)

@@ -1,23 +1,44 @@
 #' Create an iterator using sequential code.
 #'
 #' `gen({...})` with an expression written in its argument, creates a
-#' generator, which acts like a block of code whose execution can
-#' pause and resume. From the "inside," a generator looks like you are
-#' writing sequential code with loops, branches and such, writing
-#' values to the outside world by calling `yield()`. From the "outside,"
-#' a generator behaves like an iterator over an indefinite collection.
+#' generator, an object which computes an indefinite sequence.
 #'
-#' When `nextElem` is called on a generator, the generator executes
-#' its given expression until it reaches a call to `yield(...).`
-#' `nextElem` returns the argument that was passed to `yield`, and the
-#' generator's execution state is preserved. The generator will resume
-#' on the next call to `nextElem()`.
+#' On the "inside", that is the point of view of code you write in
+#' `{...}`, is ordinary sequential code using conditionals, branches,
+#' loops and such, outputting one value after another with `yield()`.
+#' For example, this code creates a generator that computes a random
+#' walk:
+#'
+#' ```r
+#' rwalk <- gen({
+#'   x <- 0;
+#'   repeat {
+#'     x <- x + rnorm(1)
+#'     yield(x)
+#'   }
+#' })
+#' ```
+#'
+#' On the "outside," that is, the object returned by `gen()`, a
+#' generator behaves like an iterator over an indefinite
+#' collection. So we can collect the first 100 values from the above
+#' generator and compute their mean:
+#'
+#' ```r
+#' rwalk |> itertools2::take(100) |> as.numeric() |> mean()
+#' ```
+#'
+#' When `nextElem(rwalk)` is called, the generator executes its
+#' "inside" expression until it reaches a call to `yield().` THe
+#' generator 'pauses', preserving its execution state, and `nextElem`
+#' then returns what was passed to `yield`. The next time
+#' `nextElem(rwalk)` is called, the generator resumes executing its
+#' inside expression starting after the `yield()`
 #'
 #' The generator expression is evaluated in a local environment.
 #'
-#' Generators are not based on forking or parallel OS processes; they
-#' run in the same thread as their caller. The control flow in a
-#' generator is interleaved with that of the R code which queries it.
+#' Generators are _not_ based on forking or parallel OS processes; they
+#' run in the same R process where `nextElem` is called.
 #'
 #' A generator expression can use any R functions, but a call to
 #' `yield` may only appear in some positions. This package has several
@@ -185,8 +206,9 @@ make_generator <- function(expr, orig=arg(expr), ..., trace=trace_) { list(expr,
                         stopped = stop(err),
                         finished = or,
                         yielded = {
-                          assert(!identical(yielded, nonce),
-                                 msg="generator yielded but no value?")
+                          if (identical(yielded, nonce)) {
+                            stop("Generator yielded but no value?")
+                          }
                           tmp <- yielded
                           yielded <<- nonce
                           tmp
@@ -204,7 +226,7 @@ make_generator <- function(expr, orig=arg(expr), ..., trace=trace_) { list(expr,
   }
 
   nextElemOr_ <- NULL
-  pump <- make_pump(gen_cps(expr), trace=trace)
+  pump <- make_pump(gen_cps(expr), trace=trace, catch=FALSE)
   g <- add_class(iteror(nextElemOr_), "generator")
   g
 }
@@ -241,7 +263,8 @@ getCurrent.generator <- function(x)
 getOrig.generator <- function(x)
   expr(get("orig", envir=environment(x$nextElemOr)))
 getStartSet.generator <- function(x) {
-  #everything whose name you want to remain stable after munging
+  #everything whose name you want to remain stable after munging,
+  #for instance so the above accessors can find them.
   list(entry=getEntry(x),
        stop_=getStop(x),
        return_=getReturn(x),

@@ -1,7 +1,3 @@
-# basic generator should run without windups
-
-Now that we have iteror() we should go through generator and make sure that it
-doesn't unnecessarily invoke any tryCatch.
 
 ## Fixing "switch"
 
@@ -95,10 +91,14 @@ if (`stop_|verbose`) `stop_|trace`("pump: set unpause\n")
 
 These are failing some
 
-## Fix unit tests for now
+### does generator need to catch?
 
-I know I need to fix the variable assignments.
+I know I need to fix the next things. It has been pretty difficult with the big tryCatch wrapped around everything, to get a stack trace. Do we even need a tryCatch around nextElemOr? I turned off the "base winding" for generators (but not for asyncs), and no tests failed. Nwo my stack traces are a bit healthier.
 
-Do we even need a tryCatch around nextElemOr? we need a stopIteration??0
+## Emacs locking up when I pause in R debugger
 
-## fix graphs...
+Aargh, something is happening in ess-mode that makes emacs lock up waiting for a response when it's in the debugger. Can be triggered by ess-whatever-completions mode. Is triggered by just having point in an R buffer for a few seconds. 
+
+ESS output window keeps saying "Disabling output delimiter because CMD failed to parse."
+
+## 

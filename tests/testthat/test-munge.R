@@ -8,20 +8,25 @@ before_and_after <- function(expr, and_then, ...) {
 }
 
 test_that("can compile generator and print it", {
-  g <- async:::compile(gen(for (i in 1:10) yield(i)), level=level)
-  expect_output(print(g))
+  g <- gen(for (i in 1:10) yield(i))
+  gc <- async:::compile(g, level=level)
+  expect_output(print(gc))
 })
 
 test_that("name munging generators", {
 
-  # walk the graph before and after compile and compare them.
-  g <- gen({
+  fg <- function() gen({
     x <- 0
     for (i in 1:10)
               yield(x <- x + i)
   })
+  # walk the graph before and after compile and compare them.
+  # Note that a munged generator's R_ nodes
+  # still have the same target environment. So invoke gen twice.
+  g <- fg()
+  gc <- compile(fg(), level=-1)
   graph <- walk(g)
-  gc <- compile(g, level=level)
+  # should be able to walk the same graph again...
   graphc <- walk(gc)
 
   # the names assigned walking the graph should become local names of graphc
@@ -66,10 +71,9 @@ test_that("munged generator has compatible parent environment", {
 
 test_that("nested loops", {
 # this is meant to test that multiple scopes with similar bindings are
-# disambiguated
+# disambiguated and 'for' plays by the same rules
 
-  g <- before_and_after(
-    gen({
+  fg <- function() gen({
       x <- 0
       for (i in 1:10) {
         x <- x + i
@@ -77,8 +81,9 @@ test_that("nested loops", {
           yield(x <- x + i)
         x <- x - i
       }
-    }),
-    compile, level=-1)
+  })
+  g <- fg()
+  gc <- compile(fg(), level=-1)
+  expect_equal(as.list(g), as.list(gc))
 
-  expect_equal(as.list(g[[1]]), as.list(g[[2]]))
 })

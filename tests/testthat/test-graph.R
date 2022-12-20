@@ -82,8 +82,8 @@ test_that("nextElemOr", {
       yield(sum)
     }
   })
-  expect_silent(drawGraph(incomplete))
 
+  expect_silent(drawGraph(incomplete))
 })
 
 test_that("collatz", {
@@ -138,7 +138,7 @@ test_that("Async with try-finally", {
   ## wait_for_it()
   ## expect_true(not_run)
   ## expect_false(cleanup)
-  expect_silent(drawGraph(tryfin, vars=FALSE, envs=TRUE, handlers=TRUE))
+  expect_silent(drawGraph(tryfin, vars=TRUE, envs=TRUE, handlers=TRUE))
 
 })
 

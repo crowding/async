@@ -159,7 +159,7 @@ test_that("for", {
   pump(for_cps(R(i), R(1:10), R({x <- x + i})))
   x %is% 55
   #
-  
+
   x <- 0
   pump(for_cps(R(i),
                R(1:10),
@@ -169,7 +169,7 @@ test_that("for", {
                  if_cps(R(i %% 8 == 0), break_cps()),
                  R({x <- x + i}))))
 
-  
+
   x %is% 19 # 1 + 2 + 4 + 5 + 7
   i %is% 8
   #

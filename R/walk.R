@@ -17,8 +17,9 @@ by_name <- function(vec) {
 # - local: names appearing as target of <-
 # - store: names appearing as target of <<-
 # - tail: names of calls in "tail position"
-# - tramp: names that are passed to "cont" of a tailcall
-#          (i.e. a trampoline)
+# - hand: names that refer to functions(cont, ...) that are called with functions
+#         (i.e. trampoline handlers)
+# - tramp: names that are passed to "cont" of a trampoline handler
 # - utility: names of NON-tailcalls whose targets are bound in
 #            the same function's environment.
 # - tailcall: the entire calls in tail position.
@@ -29,7 +30,7 @@ by_name <- function(vec) {
 #             (also a list with original forms)
 all_names <- function(fn,
                       types=c("call", "var", "arg", "local",
-                              "store", "tail", "tramp"),
+                              "store", "tail", "tramp", "hand"),
                       call="call" %in% types,
                       var="var" %in% types,
                       arg="arg" %in% types,
@@ -39,6 +40,7 @@ all_names <- function(fn,
                       tramp="tramp" %in% types,
                       tailcall="tailcall" %in% types,
                       trampoline="trampoline" %in% types,
+                      hand="hand" %in% types,
                       handler="handler" %in% types,
                       utility="utility" %in% types) {
   if (!is.function(fn)) stop("not a function")
@@ -143,6 +145,7 @@ all_names <- function(fn,
                    handl$... <- NULL
                    c(
                      if (tramp) c(tramp=as.character(trampolined[[1]])),
+                     if (hand) c(hand=as.character(expr[[1]])),
                      if (handler) list(handler=c(list(handl, expr), orig)),
                      collect_weird_call(handl, inTail,
                                         c(list(expr), orig)),
@@ -323,29 +326,52 @@ walk <- function(gen) {
   edgeProperties <- hashbag()
   nodeProperties <- hashbag()
   #do a DFS to collect the graph:
+  # what storage used by each node / each context?
+  varTypes <- c("call", "store", "local", "arg", "var", "utility",
+                "tail", "tramp", "hand")
   doWalk <- function(thisNode, path, recurse=TRUE) {
-    if (is.null(thisName <- contains(nodes, thisNode))) {
-      thisName <- paste0("_", condense.name(path))
-      assert(!exists(thisName, envir=nodeProperties))
-      nodes[[thisName]] <<- thisNode
-      nodeOrder <<- c(nodeOrder, thisName)
+    if (is.null(thisNodeName <- contains(nodes, thisNode))) {
+      thisNodeName <- paste0("_", condense.name(path))
+      assert(!exists(thisNodeName, envir=nodeProperties))
+      nodes[[thisNodeName]] <<- thisNode
+      nodeOrder <<- c(nodeOrder, thisNodeName)
     }
-    if (exists(thisName, envir=nodeProperties)) #already visited
-      return(thisName)
-    nodeProperties[[thisName, "name"]] <<- thisName
-    tails <- all_names(thisNode, c("tailcall", "trampoline", "handler"))
+    if (exists(thisNodeName, envir=nodeProperties)) #already visited
+      return(thisNodeName)
+    nodeProperties[[thisNodeName, "name"]] <<- thisNodeName
+    vars <- by_name(
+      all_names(nodes[[thisNodeName]], types=varTypes))
+    for (type in varTypes) {
+      nodeProperties[[thisNodeName, type]] <<- sort(vars[[type]])
+    }
+    # "reads" being anything used that's not local to the node
+    reads <- c(setdiff(vars$var, union(vars$local, vars$arg)))
+    nodeProperties[[thisNodeName, "read"]] <<- sort(reads)
+    named <- function(x, name) structure(x %||% character(0),
+                                         names=rep(name, length(x)))
+    tails <- c(named(vars$hand, "hand"),
+               named(vars$tramp, "tramp"),
+               named(vars$tail, "tail"))
+    locals <- c(named(vars$local, "local"),
+                named(vars$arg, "arg"))
+    # Don't try to follow a tailcall into an argument/local var;
+    tails <- tails[!tails %in% locals]
+    tails <- tails[!duplicated(tails)]
+
     for (i in seq_along(tails)) {
       tailcall <- tails[[i]]
       branchName <- as.character(tailcall[[1]][[1]])
+      if (branchName == "wind") browser()
+      if (branchName %in% nodeProperties[[thisNodeName, "local"]]) next
       nextNode <- get(branchName, envir=environment(thisNode))
       nextNodeName <- doWalk(nextNode, c(path, branchName))
-      #cat(sprintf("%s:%s -> %s\n", thisName, branchName, nextNodeName))
-      reverseEdges[[nextNodeName]][[thisName]] <<- TRUE
+      trace_(sprintf("%s:%s -> %s\n", thisNodeName, branchName, nextNodeName))
+      reverseEdges[[nextNodeName]][[thisNodeName]] <<- TRUE
       #"label" actually records the "local name" of an edge.
-      edgeProperties[[thisName, nextNodeName]] <<-
+      edgeProperties[[thisNodeName, nextNodeName]] <<-
         list(label=branchName, call=tailcall, type=names(tails)[[i]])
     }
-    thisName
+    thisNodeName
   }
   doWalk(nodes[[nodeOrder[[1]]]], "") # use path from start to name nodes.
   for (i in nodeOrder[-1]) { # and walk the rest to be sure
@@ -364,7 +390,7 @@ walk <- function(gen) {
     if (is.null(contextName <- contains(contexts, context))) {
       contextName <- paste0(thisNodeName, "|")
       assert(!exists(contextName, envir=contexts))
-      #cat("context: ", contextName, "\n")
+      trace_(paste0("  Context: ", contextName, "\n"))
       contexts[[contextName]] <- context
     }
     contextNodes[[contextName,thisNodeName]] <- thisNodeName
@@ -376,7 +402,8 @@ walk <- function(gen) {
       #watch out for unforced args like ifnotfound=stop("Not found")
       if (nm != "..." && is_forced_(nm, context)) {
         if (identical(context[[nm]], thisNode)) {
-          #cat(thisNodeName, " is called ", nm, "\n")
+          trace_(paste0("    Node ", contextName, "::", nm,
+                        " -> ", thisNodeName, "\n"))
           nodeProperties[[thisNodeName]]$localName <- nm
           if(nm == "R_") {
             nodeProperties[[thisNodeName]]$Rexpr <- expr(get("x", context))
@@ -385,24 +412,11 @@ walk <- function(gen) {
       }
     }
   }
-  # what storage used by each node / each context?
-  varTypes <- c("call", "store", "local", "arg", "var", "utility")
   for (contextName in names(contexts)) {
-    for (thisNodeName in names(contextNodes[[contextName]])) {
-      vars <- by_name(
-        all_names(nodes[[thisNodeName]],
-                  types=varTypes))
-      for (type in varTypes) {
-        nodeProperties[[thisNodeName, type]] <- sort(vars[[type]])
-      }
-      # "reads" being anything used that's not local to the node
-      reads <- c(setdiff(vars$var, union(vars$local, vars$arg)))
-      nodeProperties[[thisNodeName, "read"]] <- sort(reads)
-    }
     # gather all nonlocal names used across this context
-    for (what in c("read", "store", "utility", "call")) {
-      contextProperties[[contextName, what]] <-
-        gatherVars(nodeProperties, contextNodes, contextName, what)
+    for (kind in c("read", "store", "utility", "call", "tail", "tramp", "hand")) {
+      contextProperties[[contextName, kind]] <-
+        gatherVars(nodeProperties, contextNodes, contextName, kind)
     }
   }
   list(nodes = nodes,
