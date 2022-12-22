@@ -29,7 +29,8 @@ test_that("name munging generators", {
   # should be able to walk the same graph again...
   graphc <- walk(gc)
 
-  # the names assigned walking the graph should become local names of graphc
+  # the names assigned walking the graph should become local names of
+  # graphc.
   cnodes <- vapply(names(graphc$nodes),
                   function(nodeName)
                     graphc$nodeProperties[[nodeName]]$"localName",

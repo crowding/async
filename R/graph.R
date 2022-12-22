@@ -46,9 +46,9 @@ make_dot <- function(nodeGraph,
   nodes <- function(nodeGraph, nodes) {
     concat(lapply(nodes, function(n) node(nodeGraph,n)))}
   read <- function(from, field, to)
-    paste0(quoted(from), ":", field, " -> ", quoted(to))
+    paste0(quoted(from), ":", quoted(field), " -> ", quoted(to))
   store <- function(from, to, field)
-    paste0(quoted(from), " -> ", quoted(to), ":", field)
+    paste0(quoted(from), " -> ", quoted(to), ":", quoted(field))
   storage <- function(nodeGraph, context) {
     # make a record node for context storage
     # they say record-based nodes are obsoleted by html-style labels
@@ -205,26 +205,26 @@ make_dot <- function(nodeGraph,
 #' invoke Graphviz  DOT to turn the graph description into an image
 #' file.
 #'
-#' The green octagonal node is where evaluation starts, while blue
-#' "stop" and red "return" are where it ends. Nodes in green type on
+#' The green octagonal node is where evaluation starts, while red
+#' "stop" and blue "return" are where it ends. Nodes in green type on
 #' dark background show code that runs in the host language
 #' unmodified; gray nodes implement control flow. Dark arrows carry a
 #' value; gray edges carry no value. A "semicolon" node receives a
 #' value and discards it.
 #'
 #' Some nodes share a context with other nodes, shown by an enclosing
-#' box with a lighter background. Contexts can have state variables,
-#' shown as a rectangular record; orange edges from functions to
-#' variables represent writes; blue edges represent reads.
+#' box. Contexts can have state variables, shown as a rectangular
+#' record; orange edges from functions to variables represent writes;
+#' blue edges represent reads.
 #'
 #' Dashed edges represent a state transition that goes through a
-#' trampoline handler; Dashed edges have a symbol representing the
+#' trampoline handler. Dashed edges have a symbol representing the
 #' type of trampoline; (⏸) for await/yield; (⤽) or (⤼) to wind on or
 #' off an exception handler; (⮍) for a plain trampoline with no side
 #' effects (done once per loop, to avoid overflowing the stack.)
-#' Meanwhile, there is a thin edge connecting the trampoline handler;
-#' (so the user-facing "yield" function registers a continuation to
-#' the next step but actually calls the generator's yield handler.)
+#' Meanwhile, a thin edge connects to the trampoline handler; (so the
+#' user-facing "yield" function registers a continuation to the next
+#' step but actually calls the generator's yield handler.)
 #'
 #' @examples
 #' randomWalk <- gen({x <- 0; repeat {yield(x); x <- x + rnorm(1)}})
@@ -237,7 +237,7 @@ make_dot <- function(nodeGraph,
 #' Rgraphviz::plot(g)
 #' }
 #' @param obj A [generator][gen] or [async] object.
-#' @param type the otuput format. If "dot", we will just write a Graphviz
+#' @param type the output format. If "dot", we will just write a Graphviz
 #'   dot file. If another extension like "pdf" or "svg", will write a
 #'   DOT file and then attempt to invoke Graphviz `dot` (if it is
 #'   available according to [`Sys.which`]) to produce the image.
@@ -274,7 +274,9 @@ drawGraph <- function(obj,
   if (type == "dot" || dot == "") {
     dotfile
   } else {
-    system2(dot, c(paste0("-T", type), dotfile), stdout=filename)
+    result <- system2(dot, c(paste0("-T", type), dotfile), stdout=filename)
+    if (result != 0) stop("status", attr(result, "status"), ": ", stderr=
+                          attr(result, "errmsg"))
     filename
   }
 }

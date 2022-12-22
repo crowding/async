@@ -101,4 +101,11 @@ Aargh, something is happening in ess-mode that makes emacs lock up waiting for a
 
 ESS output window keeps saying "Disabling output delimiter because CMD failed to parse."
 
-## 
+## it would be nice if name-munging twice were idempotent.
+
+(i.e. ended up with the names and translated functions.) One way to do
+that might be to not bother slapping context on the names of nodes in
+the special "first" context encountered.)
+
+## tryCatch failing in munged generators
+

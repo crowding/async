@@ -3,20 +3,15 @@
 `%is%` <- expect_equal
 
 test_that("generators", {
-  x <- make_generator(`{_cps`(yield_cps(R("one")),
-                              yield_cps(R("two"))))
+  x <- gen({yield("one"); yield("two")})
   as.list(x) %is% list("one", "two")
 
-  x <- make_generator(`{_cps`(yield_cps(R("one")),
-                              yield_cps(R("two")),
-                              R(print("threeeee"))))
+  x <- gen({yield("one"); yield("two"); print("threeeee")})
   expect_output(as.list(x) %is% list("one", "two"), "threee")
 })
 
 test_that("generator loop", {
-  ii <- function(n) make_generator(for_cps(R(i),
-                                           R(1:n),
-                                           yield_cps(R(i))))
+  ii <- function(n) gen(for (i in 1:n) yield(i))
   i <- ii(10)
   for (j in 1:10) {
     nextElem(i) %is% j
@@ -56,6 +51,8 @@ test_that("a generator", {
 
 test_that("for loop over an iterator", {
   x <- gen(for (i in icount()) {yield(i)})
+  drawGraph(x)
+
   as.numeric(as.list(ilimit(x, 10))) %is% 1:10
 
   j <- gen(for(i in 1:10) if (i %% 7 == 0) stop("oops") else yield(i))

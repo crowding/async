@@ -21,14 +21,18 @@
 #' @author Peter Meilstrup
 NULL
 
-.onLoad <- function(libname, pkgname) {
-  unlockBinding("verbose", getNamespace(pkgname))
-}
-
 verbose <- FALSE
 trace_ <- function(x) if(verbose) cat(x)
 
-setVerbose <- function(to=TRUE) {
+compileLevel <- 0
+
+#' @export
+asyncOpts <- function(
+    verbose=get("verbose", parent.env(environment())),
+    compileLevel=get("compileLevel", parent.env(environment()))) {
+  list(verbose, compileLevel)
+  unlockBinding("compileLevel", getNamespace("async"))
   unlockBinding("verbose", getNamespace("async"))
-  verbose <<- to
+  list(verbose=verbose<<-verbose,
+       compileLevel=compileLevel<<-compileLevel)
 }

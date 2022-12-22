@@ -5,9 +5,9 @@ R <- function(x) {
   function(cont, ..., stop=base::stop, trace=trace_) {
     list_missing(cont, stop)
     x <- x
-    #give it a name so that the graph drawer can detect it
+
     R_ <- function() {
-      trace(paste0("R: ", deparse(expr(x)), "\n"))
+      trace(paste0("R: ", deparse(nseval::expr(x)), "\n"))
       #there's presently a slight issue with nseval here when x stops
       #do(cont, x)
       #but this works ok...

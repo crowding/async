@@ -224,7 +224,7 @@ test_that("Split pipe vs namespaces", {
 
   expect_equal(t, quote(
     async:::`{_cps`(
-      async:::`<-_cps`(async:::R(..async.tmp), 
+      async:::`<-_cps`(async:::R(..async.tmp),
                        async:::await_cps(async:::R(x))),
       async:::R(..async.tmp + 2))))
 })

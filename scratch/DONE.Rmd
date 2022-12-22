@@ -227,3 +227,24 @@ And just like that, I've had a nearly successful generator run after munging.
 What's up with my graph? edgeProperties is giving me a "type: NULL" on some edge. 
 
 Oof, it's that thing where "c"/unlist adds numbers to names again. I've been trying to use "names" of a vector to track classes of a thing and there's some friction.
+
+## Exclude state pointers when determining a local name.
+
+Nodes should not be named `pumpCont` for instance.
+
+## Repeat all tests with compiled
+
+Set up a global compiler option, Then repeat all generator tests with compilation off and on.
+I did this with symlinks... is there a better way? Doing source or test-file inside of a test file tended to have weird namespace errors.
+
+## `for` loop over an iterator fails
+
+    asyncOpts(compileLevel=-1, verbose=TRUE)
+    x <- gen(for (i in icount()) {yield(i)})
+    nextElem(x)
+
+`i` returns a function, somehow. It's returning the iterator, not invoking it. It didn't recognize?
+
+    debug(environment(x$nextElemOr)$`_1.do_.body.1.yield`)
+    
+Ah, because the new environment is not enclosed in `async`, `method` is not finding methods I haven't exported. So `for_cps` calls `iteror` which was going to `iteror.default`, because I hadn't `@`exported `iteror.iteror <- identity`.

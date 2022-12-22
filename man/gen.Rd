@@ -33,11 +33,7 @@ yieldFrom returns NULL, invisibly.
 }
 \description{
 \code{gen({...})} with an expression written in its argument, creates a
-generator, which acts like a block of code whose execution can
-pause and resume. From the "inside," a generator looks like you are
-writing sequential code with loops, branches and such, writing
-values to the outside world by calling \code{yield()}. From the "outside,"
-a generator behaves like an iterator over an indefinite collection.
+generator, an object which computes an indefinite sequence.
 
 When written inside a generator expression, \code{yield(expr)} causes the
 generator to return the given value, then pause until the next value is
@@ -48,17 +44,40 @@ a list or \link{iteror} in its argument, will yield successive values from that
 iteror until it is exhausted, then continue.
 }
 \details{
-When \code{nextElem} is called on a generator, the generator executes
-its given expression until it reaches a call to \verb{yield(...).}
-\code{nextElem} returns the argument that was passed to \code{yield}, and the
-generator's execution state is preserved. The generator will resume
-on the next call to \code{nextElem()}.
+On the "inside", that is the point of view of code you write in
+\code{{...}}, is ordinary sequential code using conditionals, branches,
+loops and such, outputting one value after another with \code{yield()}.
+For example, this code creates a generator that computes a random
+walk:
+
+\if{html}{\out{<div class="sourceCode r">}}\preformatted{rwalk <- gen(\{
+  x <- 0;
+  repeat \{
+    x <- x + rnorm(1)
+    yield(x)
+  \}
+\})
+}\if{html}{\out{</div>}}
+
+On the "outside," that is, the object returned by \code{gen()}, a
+generator behaves like an iterator over an indefinite
+collection. So we can collect the first 100 values from the above
+generator and compute their mean:
+
+\if{html}{\out{<div class="sourceCode r">}}\preformatted{rwalk |> itertools2::take(100) |> as.numeric() |> mean()
+}\if{html}{\out{</div>}}
+
+When \code{nextElem(rwalk)} is called, the generator executes its
+"inside" expression until it reaches a call to \verb{yield().} THe
+generator 'pauses', preserving its execution state, and \code{nextElem}
+then returns what was passed to \code{yield}. The next time
+\code{nextElem(rwalk)} is called, the generator resumes executing its
+inside expression starting after the \code{yield()}
 
 The generator expression is evaluated in a local environment.
 
-Generators are not based on forking or parallel OS processes; they
-run in the same thread as their caller. The control flow in a
-generator is interleaved with that of the R code which queries it.
+Generators are \emph{not} based on forking or parallel OS processes; they
+run in the same R process where \code{nextElem} is called.
 
 A generator expression can use any R functions, but a call to
 \code{yield} may only appear in some positions. This package has several

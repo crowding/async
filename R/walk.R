@@ -388,7 +388,7 @@ walk <- function(gen) {
     thisNode <- nodes[[thisNodeName]]
     context <- environment(nodes[[thisNodeName]])
     if (is.null(contextName <- contains(contexts, context))) {
-      contextName <- paste0(thisNodeName, "|")
+      contextName <- paste0(thisNodeName, "#")
       assert(!exists(contextName, envir=contexts))
       trace_(paste0("  Context: ", contextName, "\n"))
       contexts[[contextName]] <- context
@@ -396,21 +396,6 @@ walk <- function(gen) {
     contextNodes[[contextName,thisNodeName]] <- thisNodeName
     nodeContexts[[thisNodeName]] <- contextName
 
-    #does the node have a name in its context?
-    nodeProperties[[thisNodeName, "localName"]] <- character(0)
-    for (nm in names(context)) {
-      #watch out for unforced args like ifnotfound=stop("Not found")
-      if (nm != "..." && is_forced_(nm, context)) {
-        if (identical(context[[nm]], thisNode)) {
-          trace_(paste0("    Node ", contextName, "::", nm,
-                        " -> ", thisNodeName, "\n"))
-          nodeProperties[[thisNodeName]]$localName <- nm
-          if(nm == "R_") {
-            nodeProperties[[thisNodeName]]$Rexpr <- expr(get("x", context))
-          }
-        }
-      }
-    }
   }
   for (contextName in names(contexts)) {
     # gather all nonlocal names used across this context
@@ -418,7 +403,32 @@ walk <- function(gen) {
       contextProperties[[contextName, kind]] <-
         gatherVars(nodeProperties, contextNodes, contextName, kind)
     }
+
+    context <- contexts[[contextName]]
+    stores <- contextProperties[[contextName, "store"]]
+    # Does each node have a local name in its context?
+    # does the node have a name in its context?
+    nodeProperties[[thisNodeName, "localName"]] <- character(0)
+    for (thisNodeName in names(contextNodes[[contextName]])) {
+      thisNode <- nodes[[thisNodeName]]
+      for (nm in names(context)) {
+        if (nm %in% stores) next # a state pointer isn't a stable name
+        #watch out for unforced args like ifnotfound=stop("Not found")
+        if (nm != "..." && is_forced_(nm, context)) {
+          if (identical(context[[nm]], thisNode)) {
+            trace_(paste0("    Node ", contextName, "::", nm,
+                          " -> ", thisNodeName, "\n"))
+            nodeProperties[[thisNodeName]]$localName <- nm
+            if(nm == "R_") {
+              nodeProperties[[thisNodeName]]$Rexpr <- expr(get("x", context))
+            }
+          }
+        }
+      }
+    }
   }
+
+
   list(nodes = nodes,
        nodeProperties = nodeProperties,
        edgeProperties = edgeProperties,

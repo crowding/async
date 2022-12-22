@@ -8,10 +8,10 @@
 #'   are:
 #'      -1: Do name munging only.
 #'       0: Do nothing.
-#' Future levels:
-#' 1: Do name munging and generate a state machine.
-#' 2. Basic inlining
-#' 3. Above plus aggressive inlining
+#' Planned levels:
+#'       1: Do name munging and generate a state machine.
+#'       2. Above plus basic inlining and constant folding
+#'       3. Above plus aggressive inlining
 #' @return A newly constructed generator. It may or may not share
 #'   state variables with the input; using the input generator after
 #'   compiling is not supported.

@@ -53,7 +53,10 @@ iteror <- function(it, ...) {
   UseMethod("iteror")
 }
 
+#' @export
 iteror.iteror <- identity
+
+#' @export
 iteror.iter <- identity
 
 #' @export

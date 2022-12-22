@@ -75,6 +75,7 @@ gen <- function(expr, ..., split_pipes=FALSE, trace=trace_) { expr <- arg(expr)
              dots(...))
   set_dots(environment(), args_)
   gen <- make_generator(...)
+  if (compileLevel != 0) gen <- compile(gen, compileLevel)
   gen
 }
 
@@ -183,7 +184,7 @@ make_generator <- function(expr, orig=arg(expr), ..., trace=trace_) { list(expr,
 
       nextElemOr_ <- function(or, ...) {
         trace("generator: nextElemOr\n")
-        switch(state,
+        val <- switch(state,
                stopped =,
                finished = or,
                running = base::stop("Generator already running (or finished unexpectedly?)"),
@@ -207,16 +208,16 @@ make_generator <- function(expr, orig=arg(expr), ..., trace=trace_) { list(expr,
                         finished = or,
                         yielded = {
                           if (identical(yielded, nonce)) {
-                            stop("Generator yielded but no value?")
+                            base::stop("Generator yielded but no value?")
                           }
                           tmp <- yielded
                           yielded <<- nonce
                           tmp
                         },
-                        stop("Generator in an unknown state"))
+                        base::stop("Generator in an unknown state"))
                },
-               stop("Generator in an unknown state"))
-#        nextElem # avoid the appearance of a tailcall (why?)
+               base::stop("Generator in an unknown state"))
+        val
       }
 
       nextElemOr_ <<- nextElemOr_
@@ -276,7 +277,7 @@ getStartSet.generator <- function(x) {
 }
 
 #' @exportS3Method
-compile.generator <- function(x, level=1) {
+compile.generator <- function(x, level) {
   # returns an environment with munged nodes/storage
   if (abs(level) >= 1) {
     munged <- munge( x )
@@ -287,9 +288,9 @@ compile.generator <- function(x, level=1) {
       stop("TODO: Inlining")
     }
     # create a new iteror with this munged generator's nextElemOr.
-    if (level < 0) {
+    if (level <= -1) {
       add_class(iteror(munged$nextElemOr), c("generator"))
-    } else {
+    } else if (level >= 1) {
       stop("TODO: code generation")
     }
   } else x
