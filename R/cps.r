@@ -31,9 +31,9 @@
 # should also instantiate any other functions it requires. Each
 # function tail-calls into the next, optionally passing along some
 # arguments; each callback thus forms a node on a directed graph of
-# execuation. All the necessary nodes should be instantiated by
-# the context constructor, so that in a future version, a compiler can
-# statically walk over them to extract the call graph.
+# execuation. All the necessary nodes should be instantiated by the
+# context constructor, so that the compiler can walk over them without
+# executing to extract the call graph.
 #
 # Because R does not have native tailcall elimination, nodes can
 # optionally tailcall into the "ret" callback, which takes a
@@ -44,6 +44,26 @@
 # "cps_" stood for "continuation passing style," but we are actually now
 # building a static graph, rather than passing continuations around as
 # arguments at runtime.
+#
+# This code is directly executed for interpreted asyncs (with
+# `asyncOpts(compileLevel 0)`, but these functions also the input for
+# compiled asyncs. Compiling R generally is impossible, so
+# therefore there are some rules on how they are written:
+#
+# * Generally avoid non-standard evaluation. Anything that "looks like" variable
+#   references or function calls should actually correspond to
+#   variables/functions the compiler can find.
+# * Avoid passing a function as an argument. In `tryCatch(stuff,
+#   err=myRecovery)` it looks to the compiler like myRecovery is a
+#   var.  Do `tryCatch(stuff, err=function(e) myRecovery(e))` instead.
+# * State may close over variables in the immediately enclosing environment, but
+#   you must fully qualify any package code references.
+# * Trampoline handlers are recognized by having an argument called "cont."
+# * Don't make a local variable the same name as a variable you close over.
+# * Any calls in tail position or using trampoline handlers are treated as part
+#   of the graph. Don't put a call in tail position unless you intend that
+#   function to be "included" in the graph.
+
 
 `(_cps` <- function(expr) {
   force(expr)

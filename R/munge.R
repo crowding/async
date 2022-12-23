@@ -23,8 +23,6 @@ munge <- function(# the async/generator to munge
       as.character(paste0(contextName, contextVars, recycle0=TRUE)),
       names=contextVars)
 
-    # wait what is going on here? Why isn't it translating "cont"
-#    if(contextName == "entry|") browser()
     calls <- unlist(as.list(props)[c("tail", "tramp", "hand", "utility")],
                     use.names=FALSE)
 
@@ -50,48 +48,77 @@ munge <- function(# the async/generator to munge
     # to have the nodes already moved. So moving vars happens after
     # nodes. On the other hand, if in the future we want to dedupe
     # constants while moving, we should move values _before_ nodes, so
-    # that we can move nodes with a better translation table.
+    # that we can move nodes with a better translation table.  (so
+    # possibly move/dedupe constants first, then state vars later.)
     if (length(varTranslations) > 0) {
-      trace_(" Moving data:\n")
+      trace_(" Moving constants:\n")
       f <- is_forced_(names(varTranslations), context)
       if (any(!f)) {
         stop("Unforced arguments found in munging: ",
              paste(names(f)[[!f]], collapse=", "))
       }
-      for (varName in names(varTranslations)) {
+      for (varName in setdiff(names(varTranslations),
+                              graph$contextProperties[[contextName]]$store)) {
         newName <- varTranslations[[varName]]
         move_value(graph, contextName, varName, dest.env, newName,
                    varTranslations, callTranslations)
       }
     }
     trace_(" Moving nodes:\n")
-    assert(length(intersect(names(callTranslations), names(varTranslations))) == 0)
-    assert(length(intersect(names(callTranslations), names(utilTranslations))) == 0)
-    assert(length(intersect(names(varTranslations), names(utilTranslations))) == 0)
+    # each name should have a clearly defined role.
+    # don't pass functions as arguments outside of a trampoline call
+    if (length(which <- intersect(names(callTranslations),
+                                  names(varTranslations))) > 0) {
+      stop("Name `", which, "` appears as both a tailcall and variable")
+    }
+    if (length(which <- intersect(names(callTranslations),
+                                  names(utilTranslations))) > 0) {
+      stop("Name `", which, "` appears as both a tailcall and ordinary call")
+    }
+    if (length(which <- intersect(names(varTranslations),
+                                  names(utilTranslations))) > 0) {
+      stop("Name `", which, "` appears as both a variable and call")
+    }
     nms <- c(varTranslations, callTranslations, utilTranslations)
 
     for (nodeName in names(graph$contextNodes[[contextName]])) {
       # nodeName is the translated node name that walk() came up with
-#      if (nodeName == "runPump") browser()
       node <- graph$nodes[[nodeName]]
       nodeBody <- body(node)
-      translatedBody <- trans(nodeBody, nms, nms)
+      transBody <- trans(nodeBody, nms, nms)
       trace_(paste0("   Node: `", contextName, "`$`",
                     graph$nodeProperties[[nodeName]]$localName,
                     "` -> `", nodeName, "`\n"))
       dest.env[[nodeName]] <-
-        function_(formals(node), translatedBody, dest.env)
+        function_(formals(node), transBody, dest.env)
     }
     if (length(utilTranslations) > 0) {
       trace_(" Moving utils:\n")
       for (fnam in names(utilTranslations)) {
         func <- graph$contexts[[contextName]][[fnam]]
-        trace_(paste0("   Function: `", contextName, "`$`", fnam,
-                      "` -> `", utilTranslations[[fnam]], "`\n"))
-        #copy direct, but don't translate; fns marked "utility"
-        #are "bound locally" but not "defined locally."
-        #(i.e. not closed over the context state.)
-        dest.env[[utilTranslations[[fnam]]]] <- func
+        if (identical(environment(func), context)) {
+          trace_(paste0("   Companion function: `", contextName, "`$`", fnam,
+                        "` -> `", utilTranslations[[fnam]], "`\n"))
+          funcBody <- body(node)
+          transBody <- trans(funcBody, nms, nms)
+          dest.env[[nodeName]] <-
+            function_(formals(node), transBody, dest.env)
+        } else {
+          # copy direct, don't translate.
+          #browser()
+          trace_(paste0("   External function: `", contextName, "`$`", fnam,
+                        "` -> `", utilTranslations[[fnam]], "`\n"))
+          dest.env[[utilTranslations[[fnam]]]] <- func
+        }
+      }
+    }
+    if (length(varTranslations) > 0) {
+      trace_(" Moving state:\n")
+      for (varName in intersect(graph$contextProperties[[contextName]]$store,
+                                names(varTranslations))) {
+        newName <- varTranslations[[varName]]
+        move_value(graph, contextName, varName, dest.env, newName,
+                   varTranslations, callTranslations)
       }
     }
   }
@@ -137,14 +164,17 @@ move_value.function <- function(graph, contextName, varName, dest.env, newName,
     } else {
       trace_(paste0("   Static pointer?: `",
                     varName, "` -> `", newName, "`\n"))
-      browser()
     }
-    # in either case, translate to the new function.
+    # in either case, update the pointer.
     trace_(paste0("     with translated reference: `",
                   graph$nodeContexts[[key]],
                   "`$`", graph$nodeProperties[[key]]$localName,
                   "` -> `", key, "`\n"))
-    dest.env[[newName]] <- dest.env[[key]]
+    ##dest.env[[newName]] <- dest.env[[key]]
+    # Note that since we haven't moved all the nodes from all the
+    # contexts yet we will make this assignment lazy; by the time we get to
+    # _run_, we will have filled in the node.
+    set_arg_(quo_(newName, dest.env), quo_(as.name(key), dest.env))
   } else {
     # a function, but not a nonce nor recognized as one of the nodes?
     if (written) {

@@ -38,8 +38,8 @@ make_pump <- function(expr, ...,
                       windup=base::stop("unused"),
                       unwind=base::stop("unused"),
                       pause=base::stop("unused"),
-                      stop=base::stop,
-                      return=base::return,
+                      stop=function(val, ...) base::stop(val, ...),
+                      return=function(x)x,
                       trace=trace_,
                       eliminate.tailcalls = TRUE,
                       catch=TRUE) {
@@ -75,12 +75,11 @@ make_pump <- function(expr, ...,
     }
   }
 
-  stop_ <- function(err) {
-    trace(paste0("pump: stop: ", conditionMessage(err), "\n"))
-    err <<- err
+  stop_ <- function(val) {
+    trace(paste0("pump: stop: ", conditionMessage(val), "\n"))
+    err <<- val
     action <<- "stop"
-    stop(err) #"stop" is now getting picked up as a util function.
-    NULL #avoid appearance of tailcall for walk()
+    stop(val)
   }
 
   return_ <- function(val) {
@@ -89,7 +88,6 @@ make_pump <- function(expr, ...,
     value <<- val
     action <<- "finish"
     return(val)
-    NULL
   }
 
   # We maintain a list of "windings."

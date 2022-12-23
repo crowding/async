@@ -248,3 +248,70 @@ I did this with symlinks... is there a better way? Doing source or test-file ins
     debug(environment(x$nextElemOr)$`_1.do_.body.1.yield`)
     
 Ah, because the new environment is not enclosed in `async`, `method` is not finding methods I haven't exported. So `for_cps` calls `iteror` which was going to `iteror.default`, because I hadn't `@`exported `iteror.iteror <- identity`.
+
+## munging asyncs.
+
+Looks like munge.generator is _pulling in_ resolve and reject (the callbacks the promise ctor gives us). For compilation we want to swap in a new promise there, though. I changed resolve_ and reject_ so these are no longer tail calls.
+
+## `stop` is both a variable and a call
+
+    lapply(names(graph$contextNodes[[contextName]]), \(x)as.list(graph$nodeProperties[[x]]))
+
+Turns out I was doing a `tryCatch({}, error=stop)` i.e. passing _stop_ as a pointer; rewriting as
+`tryCatch({}, function(e) stop(e)` avoids confusing `walk` this way..
+
+## making async compile
+
+I needed some way to attach the new `resolve_` and `reject_` pointers. I put
+an accessor in the start set.
+
+And on to the inevitable failures;
+
+## compiled async can't find pumpCont
+
+    pump: run
+    pump: windup
+    pump: caught error by windup
+    pump: stop: could not find function "pump#pumpCont"
+    async: stop (rejecting)
+    pump: unwind
+    pump: pause
+    > Unhandled promise error: could not find function "pump#pumpCont"
+
+On inspection `pump#pumpCont` is bound to NULL. Whereas in the pre-compiled generator
+
+    environment(a$state$pump)$pumpCont
+
+If I turn on verbose, munge claims it was moved. What the hey? Okay, so the node is being moved _after_ the state pointer. I filled the state pointer with a lazy value to work around that.
+
+That moved the ball, now we have
+
+    Unhandled promise error: object 'key' not found
+
+Ah, this is because `delayedAssign` quotes its second argument. Lucky I wrote a whole package that will help me here!
+
+## conditionMessage
+
+Now the ball has moved to
+
+    no applicable method for 'conditionMessage' applied to an object of class "function"
+
+This was due to name collision between argument `err` and state variable `err`. Don't name arguments the same as state variables you use, is the immediate lesson.
+
+## Async executes but resolves with NULL
+
+The compiled promise is not resolving; it's resolving the original promise, somehow.
+
+I think the issue is that "utility" functions need to be translated _IF_ they are closed in context.
+
+But now I'm dealing with utility functions that are closed in other contexts.?
+
+Wait, why is `resolve`  not a node? What uses it? It's passed to `make_pump` as `return`.
+
+Oh. When I pass things to pump(return= and pump(stop=) they should be enumerated! Are they? They are now. But yet, it's hitting the wrong pump?
+
+I should break in the "await" and see what callbacks it's registering. So the `_1#await` callback is in a different environment. Hence 
+
+Okay yes so the `await_` utility function should just be a trampoline, that way it gets translated, and I can pass an anon function to it.
+
+Now after a bit more fussing I have a compiled async that did something! Still some errors though.

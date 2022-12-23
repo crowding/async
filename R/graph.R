@@ -35,9 +35,11 @@ make_dot <- function(nodeGraph,
                 pos="1,1"
                 ),
         stop_=,
+        reject=,
         STOP=c(shape="doubleoctagon", color="darkred", style="filled",
                fontcolor="pink",  margin="0,0", fixedsize="false"),
         return=,
+        resolve=,
         RETURN=c(shape="doubleoctagon", color="darkblue", style="filled",
                  fontcolor="lightblue", margin="0,0", fixedsize="false")))}
   node <- function(nodeGraph, nodeName) {

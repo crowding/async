@@ -1,4 +1,3 @@
-
 ## Fixing "switch"
 
 The current CPS version does not do branch fallthrough. To fix that I
@@ -39,7 +38,7 @@ There did appear to be some O(N^2) rearing their heads when walk()ing a graph. R
 
 I did something to make myself use hashbags more consistently and noticed a speedup! So there was def some list reallocation going on.
 
-Interestingly, using a list by index isn't much slower than using an env until you get past 100 elements or so. (see ) But s3 dispatch and going through `hashbag()` is quite a bit slower. See [map_timings.Rmd](). So I might want to just use lists instead of hashbags. If I can keep them from having to copy themselves all the time. 
+Interestingly, using a list by index isn't much slower than using an env until you get past 100 elements or so. (see ) But s3 dispatch and going through `hashbag()` is quite a bit slower. See [map_timings.Rmd](). So I might want to just use lists instead of hashbags. If I can keep them from having to copy themselves all the time.
 
 ### Munging names
 
@@ -47,7 +46,7 @@ So I've gathered all the nodes, or so I claim. I am trying to get a sense of wha
 
 ### Munging state pointers
 
-"state pointers" i.e. closed-over values that contain references to nodes in the graph. These need to be updated. 
+"state pointers" i.e. closed-over values that contain references to nodes in the graph. These need to be updated.
 
 
 ```{R}
@@ -73,7 +72,7 @@ Error in doWindup(runPump, ...) (from iteror.R#84) : could not find function "do
 
 On inspecting graph, I find that doWindup is listed as a "call" but not as a "utility"
 
-Now I'm in a process of trying to invoke nextElemOr and seeing what breaks next. 
+Now I'm in a process of trying to invoke nextElemOr and seeing what breaks next.
 
 `doWindup` should be translated as a node, though, no? It should be in the start set.
 Next we have "assert". I removed the call to assert in pump.r.
@@ -97,7 +96,7 @@ I know I need to fix the next things. It has been pretty difficult with the big 
 
 ## Emacs locking up when I pause in R debugger
 
-Aargh, something is happening in ess-mode that makes emacs lock up waiting for a response when it's in the debugger. Can be triggered by ess-whatever-completions mode. Is triggered by just having point in an R buffer for a few seconds. 
+Aargh, something is happening in ess-mode that makes emacs lock up waiting for a response when it's in the debugger. Can be triggered by ess-whatever-completions mode. Is triggered by just having point in an R buffer for a few seconds.
 
 ESS output window keeps saying "Disabling output delimiter because CMD failed to parse."
 
@@ -107,5 +106,7 @@ ESS output window keeps saying "Disabling output delimiter because CMD failed to
 that might be to not bother slapping context on the names of nodes in
 the special "first" context encountered.)
 
-## tryCatch failing in munged generators
+## tryCatch failing in munged asyncs/generators
+
+I'm interested to note that `base_winding` is not translated; It's kept in a list. Should it be? As well as other utility functions defined locally?
 

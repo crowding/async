@@ -33,3 +33,6 @@ g <- function(x, ...) tryCatch(
 
 g(g, f)
 
+  cnodes <- lapply(names(graphc$nodes),
+                   function(nodeName)
+                     graphc$nodeProperties[[nodeName]]$"localName")

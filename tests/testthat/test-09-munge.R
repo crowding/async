@@ -13,6 +13,43 @@ test_that("can compile generator and print it", {
   expect_output(print(gc))
 })
 
+expect_graph_names_are_graphc_locals <- function(graph, graphc) {
+  # the names assigned walking the graph should become local names of
+  # graphc.
+  cnodes <- vapply(names(graphc$nodes),
+                   function(nodeName)
+                     graphc$nodeProperties[[nodeName]]$"localName",
+                   "")
+  if (!setequal(unname(cnodes), names(graph$nodes))) browser()
+  expect_true(setequal(unname(cnodes), names(graph$nodes)))
+}
+
+expect_only_one_context <- function(graphc) {
+  # Walking gc should have only picked up one context
+  expect_equal(length(graphc$contexts), 1)
+  env <- as.list(graphc$contexts)[[1]]
+  con <- names(graphc$contexts)
+  # all nodes are closed in that context
+  for (nod in as.list(graphc$contextNodes[[con]])) {
+    expect_identical(environment(graphc$nodes[[nod]]), env)
+  }
+}
+
+expect_state_pointers_closed <- function(graphc) {
+  # and function pointers point to functions in the same context.
+  con <- names(graphc$contexts)
+  env <- as.list(graphc$contexts)[[1]]
+  for (var in unique(c(
+    graphc$contextProperties[[con, "read"]],
+    graphc$contextProperties[[con, "store"]]))) {
+    val <- graphc$contexts[[con]][[var]]
+    if (is.function(val) && !is.quotation(val) && !is.null(body(val))) {
+      if (!identical(environment(val), env)) browser()
+      expect_identical(environment(val), env)
+    }
+  }
+}
+
 test_that("name munging generators", {
 
   fg <- function() gen({
@@ -29,30 +66,9 @@ test_that("name munging generators", {
   # should be able to walk the same graph again...
   graphc <- walk(gc)
 
-  # the names assigned walking the graph should become local names of
-  # graphc.
-  cnodes <- vapply(names(graphc$nodes),
-                  function(nodeName)
-                    graphc$nodeProperties[[nodeName]]$"localName",
-                  "")
-  expect_true(setequal(unname(cnodes), names(graph$nodes)))
-
-  # Walking gc should have only picked up one context
-  expect_equal(length(graphc$contexts), 1)
-  env <- as.list(graphc$contexts)[[1]]
-  con <- names(graphc$contexts)
-  # all nodes are closed in that context
-  for (nod in as.list(graphc$contextNodes[[con]])) {
-    expect_identical(environment(graphc$nodes[[nod]]), env)
-  }
-
-  # and state pointers point to functions in the same context.
-  for (var in graphc$contextProperties[[con, "external"]]) {
-    val <- graphc$contexts[[con]][[var]]
-    if (is.function(val) && !is.quotation(val) && !is.null(body(val))) {
-      expect_identical(environment(val), env)
-    }
-  }
+  expect_graph_names_are_graphc_locals(graph, graphc)
+  expect_only_one_context(graphc)
+  expect_state_pointers_closed(graphc)
 
   # Can we pull a next element?
   nextElemOr(g)
@@ -86,5 +102,22 @@ test_that("nested loops", {
   g <- fg()
   gc <- compile(fg(), level=-1)
   expect_equal(as.list(g), as.list(gc))
+
+})
+
+test_that("munged async", {
+  p <- mock_promise()
+  fa <- function(...) async(await(p) + 1, ...)
+  munged <- munge(a)
+
+  a <- fa()
+  ac <- fa(compileLevel=-1)
+  graph <- walk(a)
+  # should be able to walk the same graph again...
+  graphc <- walk(ac)
+
+  expect_graph_names_are_graphc_locals(graph, graphc)
+  expect_only_one_context(graphc)
+  expect_state_pointers_closed(graphc)
 
 })

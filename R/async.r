@@ -11,19 +11,13 @@
 #' When an `async` object is activated, it will evaluate its expression
 #' until it reaches the keyword `await`. The `async` object will return
 #' to its caller and preserve the partial state of its evaluation.
-#' When the awaited value is resolved, evaluation continues from where
+#' When the awaited promise is resolved, evaluation continues from where
 #' the `async` left off.
 #'
 #' When an async block finishes (either by reaching the end, or using
 #' `return()`), the promise resolves with the resulting value. If the
 #' async block stops with an error, the promise is rejected with
 #' that error.
-#'
-#' The syntax rules for an `async` are analogous to those for [gen()];
-#' `await` must appear only within the arguments of functions for
-#' which there is a pausable implementation (See `[pausables()]`). By
-#' default `split_pipes=TRUE` is enabled and this will reorder some
-#' expressions to satisfy this requirement.
 #'
 #' Async blocks and generators are conceptually related and share much
 #' of the same underlying mechanism. You can think of one as "output"
@@ -32,26 +26,35 @@
 #' An async runs until it requires an external value, pauses until
 #' it receives the value, then continues.
 #'
+#' The syntax rules for an `async` are analogous to those for [gen()];
+#' `await` must appear only within the arguments of functions for
+#' which there is a pausable implementation (See `[pausables()]`). For
+#' `async` the default `split_pipes=TRUE` is enabled; this will
+#' rearrange some expressions to satisfy this requirement.
+#'
 #' When `split_pipes=FALSE`, `await()` can only appear in the
-#' arguments of [pausables] and not ordinary R functions.
-#' This is a inconvenience as it prevents using `await()` in a
-#' pipeline. `async` by default has `split_pipes=TRUE` which enables
-#' some syntactic sugar: if an `await()` appears in the leftmost,
-#' unnamed, argument of an R function, the pipe will be "split" at
-#' that call using a temporary variable. For instance,
+#' arguments of [pausables] and not ordinary R functions.  This is an
+#' inconvenience as it prevents using `await()` in a pipeline. With
+#' `split_pipes=TRUE` applies some syntactic sugar: if an `await()`
+#' appears in the leftmost, unnamed, argument of an R function, the
+#' pipe will be "split" at that call using a temporary variable. For
+#' instance, either
 #'
 #'     async(makeRequest() |> await() |> sort())
+#'
+#' or, equivalently,
+#'
+#'     async(sort(await(makeRequest())))
 #'
 #' will be effectively rewritten to something like
 #'
 #'     async({.tmp <- await(makeRequest()); sort(.tmp)})
 #'
-#' This works only so long as `await` appears in
-#' calls that evaluate their leftmost arguments
-#' normally. `split_pipes` can backfire if the outer call has other
-#' side effects; for instance `suppressWarnings(await(x))` will be
-#' rewritten as `{.tmp <- await(x); suppressWarnings(x)}`, which
-#' would defeat the purpose.
+#' This works only so long as `await` appears in calls that evaluate
+#' their leftmost arguments normally. `split_pipes` can backfire if
+#' the outer call has other side effects; for instance
+#' `suppressWarnings(await(x))` will be rewritten as `{.tmp <-
+#' await(x); suppressWarnings(x)}`, which would defeat the purpose.
 #'
 #' @param expr An expression, to be executed asynchronously.
 #' @param trace Enable verbose logging by passing a function to
@@ -66,9 +69,9 @@
 #' @param prefix A function to print debugging messages. `trace=cat`
 #'   will log async actions to the console; `trace=with_prefix("myPrefix")`
 #'   adds a prefix if you have more than one async to debug.
-#' @return `async()` returns an object with class "promise" as
-#'   described by the [promises] package (i.e. not the promises used
-#'   in R's lazy evaluation.)
+#' @return `async()` returns an object with class "promise," as
+#'   defined by the [promises] package (i.e., rather than the kind of
+#'   promise used in R's lazy evaluation.)
 #'
 #' @examples
 #' myAsync <- async(for (i in 1:4) {
@@ -77,7 +80,8 @@
 #' }, trace=with_prefix("myAsync"))
 #'
 #' @export
-async <- function(expr, ..., split_pipes=TRUE, trace=trace_) {
+async <- function(expr, ..., split_pipes=TRUE, trace=trace_,
+                  compileLevel=get("compileLevel", parent.env(environment()))) {
   expr_ <- arg(expr)
   force(trace)
   translated_ <- cps_translate(expr_, async_endpoints, split_pipes=split_pipes)
@@ -101,22 +105,26 @@ await_cps <- function(prom) { force(prom)
   function(cont, ..., await, pause, stop, trace) {
     if (missing_(arg(await))) base::stop("await used, but this is not an async")
     list(cont, ..., await, pause, stop, trace)
-    prom <- NULL
+    promis <- NULL
     success <- NULL
     value <- NULL
     then <- function() {
       trace("await: resolve\n")
       if(success) cont(value) else stop(value)
     }
+    awaited <- function() {
+      pause(then)
+    }
     await_ <- function(val) {
-      val <- tryCatch(as.promise(val), error=stop)
-      prom <<- val
+      val <- tryCatch(promises::as.promise(val),
+                      error=function(err)stop(err) )
+      promis <<- val
       if(verbose) trace("await: got promise\n")
       success <<- NULL
-      await(val,
-            function(val) {success <<- TRUE; prom <<- NULL; value <<- val},
-            function(err) {success <<- FALSE; prom <<- NULL; value <<- err})
-      pause(then)
+      await(awaited,
+            promis,
+            function(val) {success <<- TRUE; promis <<- NULL; value <<- val},
+            function(err) {success <<- FALSE; promis <<- NULL; value <<- err})
     }
     prom(await_, ..., pause=pause, await=await, stop=stop, trace=trace)
   }
@@ -131,12 +139,17 @@ make_async <- function(expr, orig=arg(expr), ..., trace=trace_) {
   awaiting <- nonce
   value <- nonce
   err <- nonce
+  resolve_ <- NULL
+  reject_ <- NULL
+
+  getState <- function() state
 
   resolve <- function(val) {
     trace("async: return (resolving)\n")
     state <<- "resolved"
     value <<- val
-    resolve_(val)
+    resolve_(val) # avoid gathering this as a tailcall
+    val
   }
 
   reject <- function(val) {
@@ -144,27 +157,33 @@ make_async <- function(expr, orig=arg(expr), ..., trace=trace_) {
     err <<- val
     state <<- "rejected"
     reject_(val)
+    val
   }
 
-  await_ <- function(promise, success, failure) {
+  replace <- function(resolve, reject) {
+    resolve_ <<- resolve
+    reject_ <<- reject
+  }
+
+  await_ <- function(cont, promise, success, failure, ...) {
     list(promise, success, failure)
     succ <- function(val) {
       trace("await: success\n")
       success(val)
+      # browser()
       pump()
     }
     fail <- function(err) {
       trace("await: fail\n")
       failure(err)
+      # browser()
       pump()
     }
     awaiting <<- promise
-    then(promise, succ, fail)
+    promises::then(promise, succ, fail)
     trace("await: registered\n")
+    cont(...)
   }
-
-  resolve_ <- NULL
-  reject_ <- NULL
 
   pr <- add_class(promise(function(resolve, reject) {
     resolve_ <<- resolve
@@ -173,9 +192,12 @@ make_async <- function(expr, orig=arg(expr), ..., trace=trace_) {
 
   pump <- make_pump(expr, ...,
                     return=resolve, stop=reject, await=await_, trace=trace)
-  pump()
   pr$orig <- orig
   pr$state <- environment()
+  if (compileLevel != 0) {
+    pr <- compile(pr, level=compileLevel)
+  }
+  pr$state$pump()
   pr
 }
 
@@ -191,9 +213,10 @@ getCurrent.async <- function(x) environment(x$state$pump)$cont
 getOrig.async <- function(x) x$orig
 #' @exportS3Method
 getStartSet.async <- function(x) {
-  list(START=getEntry(x),
-       STOP=getStop(x),
-       RETURN=getReturn(x),
+  list(entry=getEntry(x),
+       resolve=getReturn(x),
+       reject=getStop(x),
+       replace=x$state$replace,
        pump=get("pump", envir=x$state),
        runPump=environment(get("pump", (x$state)))$runPump,
        getState=get("getState", x$state))
@@ -213,4 +236,33 @@ format.async <- function(x, ...) {
   b <- format(env(x$orig))
   c <- NextMethod(x)
   c(a, b, c)
+}
+
+#' @export
+getState.async <- function(x) x$state$getState()
+
+compile.async <- function(x, level) {
+  if (abs(level) >= 1) {
+    munged <- munge( x )
+    munged$orig <- x$orig
+    if (abs(level) >= 3) {
+      stop("TODO: Aggressive inlining")
+    } else if (abs(level) >= 2) {
+      stop("TODO: Inlining")
+    }
+    # create a new promise with this
+    if (level <= -1) {
+      pr <- add_class(promise(function(resolve, reject) {
+        # assign "resolve_" and "reject_" callbacks in the base function...
+        then(x, \(x)print("You resolved the wrong promise!"),
+             \(x)print("Error went to the wrong promise!"))
+        munged$replace(resolve, reject)
+      }), "async")
+      pr$orig <- x$orig
+      pr$state <- munged
+      pr
+    } else if (level >= 1) {
+      stop("TODO: code generation")
+    }
+  } else x
 }
