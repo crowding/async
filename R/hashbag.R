@@ -21,6 +21,7 @@ hashbag <- function() {
 #' @export
 `[[<-.hashbag` <- function(x, ..., value) {
   indices <- list(...)
+  caller <- as.character(getSrcref(sys.call(0)))
   if (nullish(x)) x <- hashbag()
   if (length(indices) > 1) {
     if (exists(indices[[1]], envir=x)) {
@@ -28,7 +29,8 @@ hashbag <- function() {
     } else {
       val <- hashbag()
     }
-    val <- do.call("[[<-", c(quote(val), indices[-1], list(value=value)))
+    val <- do.call("[[<-", c(quote(val), indices[-1],
+                             list(value=call("quote", value))))
   } else {
     val <- value
   }

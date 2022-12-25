@@ -33,6 +33,59 @@ g <- function(x, ...) tryCatch(
 
 g(g, f)
 
-  cnodes <- lapply(names(graphc$nodes),
-                   function(nodeName)
-                     graphc$nodeProperties[[nodeName]]$"localName")
+lapply(names(graph$nodeProperties))
+
+cnodes <- lapply(names(graphc$nodes), function(nodeName) {
+  structure(list(graphc$nodeProperties[[nodeName]]$"localName"), names=nodeName)
+})
+
+name_my_context <- function() {
+  contextName <- name.my.context(a)
+  # up the frame stack from outer? Is it possible to determine?
+}
+
+# Illustrating the difference between parent.frame() and caller()
+where <- "global"
+
+test <- function() {
+  where <- "test"
+  f(g())
+  cat(where, "'s caller() is ", caller()$where,
+      ", and parent is ", sys.frame(-1)$where, "\n")
+}
+
+f <- function(x) {
+  x
+  where <- "f"
+  cat(where, "'s caller() is ", caller()$where,
+      ", and parent is ", sys.frame(-1)$where, "\n")
+}
+
+g <- function() {
+  where <- "g"
+  browser()
+  cat(where, "'s caller() is ", caller()$where,
+      ", and parent is ", sys.frame(-1)$where, "\n")
+}
+
+selfnamed <- function(x) structure(x, names=x)
+lapply(selfnamed(names(graph$nodes)), \(x)graph$nodeProperties[[x]]$localName)
+
+
+await <- function(promise, or=error(err), error=stop) {
+
+}
+
+# how to handle nextElem
+
+nextElem <- function(promise,
+                     or=error("StopIteration")) {
+
+}
+
+contextLabelMe <- function() {
+  # assemble together context labels from the parents?
+  parents <- lapply(sys.frames(), function(x) x$contextLabel) %||% character(0)
+  current <- as.character(get_call(caller()))
+  c(recursive=TRUE, parents, sep=".")
+}

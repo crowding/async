@@ -87,7 +87,7 @@ async <- function(expr, ..., split_pipes=TRUE, trace=trace_,
   translated_ <- cps_translate(expr_, async_endpoints, split_pipes=split_pipes)
   args <- c(translated_, orig=forced_quo(expr_), trace=quo(trace), dots(...))
   set_dots(environment(), args)
-  make_async(...)
+  make_async(..., compileLevel=compileLevel)
 }
 
 #' @export
@@ -131,7 +131,7 @@ await_cps <- function(prom) { force(prom)
 }
 
 #' @import promises
-make_async <- function(expr, orig=arg(expr), ..., trace=trace_) {
+make_async <- function(expr, orig=arg(expr), ..., compileLevel=0, trace=trace_) {
   list(expr, orig, ..., trace)
 
   nonce <- (function() function() NULL)()
@@ -248,18 +248,21 @@ compile.async <- function(x, level) {
     if (abs(level) >= 3) {
       stop("TODO: Aggressive inlining")
     } else if (abs(level) >= 2) {
-      stop("TODO: Inlining")
+      stop("TODO: Basic inlining/constant folding")
     }
     # create a new promise with this
     if (level <= -1) {
       pr <- add_class(promise(function(resolve, reject) {
         # assign "resolve_" and "reject_" callbacks in the base function...
-        then(x, \(x)print("You resolved the wrong promise!"),
-             \(x)print("Error went to the wrong promise!"))
+        then(x, \(x){browser(); stop("Result went to the wrong promise!")},
+                \(x){browser(); stop("Error went to the wrong promise!")})
         munged$replace(resolve, reject)
       }), "async")
       pr$orig <- x$orig
       pr$state <- munged
+      if (paranoid) {
+        expect_properly_munged(x, pr)
+      }
       pr
     } else if (level >= 1) {
       stop("TODO: code generation")

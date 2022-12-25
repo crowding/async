@@ -33,7 +33,7 @@ R_env <- function(f) {
 
 return_cps <- function(x) {
   maybe(x)
-  function(cont, ..., ret, return, trace=trace_) {
+  return_ <- function(cont, ..., ret, return, trace=trace_) {
     list(cont, ret, return, trace)
     if (missing_(arg(x))) {
       return_ <- function() return(NULL) # this is our "return" callback not base::return

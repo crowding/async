@@ -338,6 +338,7 @@ walk <- function(gen) {
     }
     if (exists(thisNodeName, envir=nodeProperties)) #already visited
       return(thisNodeName)
+    trace_(sprintf("  Node: %s\n", thisNodeName))
     nodeProperties[[thisNodeName, "name"]] <<- thisNodeName
     vars <- by_name(
       all_names(nodes[[thisNodeName]], types=varTypes))
@@ -361,22 +362,26 @@ walk <- function(gen) {
     for (i in seq_along(tails)) {
       tailcall <- tails[[i]]
       branchName <- as.character(tailcall[[1]][[1]])
-      if (branchName == "wind") browser()
       if (branchName %in% nodeProperties[[thisNodeName, "local"]]) next
       nextNode <- get(branchName, envir=environment(thisNode))
       nextNodeName <- doWalk(nextNode, c(path, branchName))
-      trace_(sprintf("%s:%s -> %s\n", thisNodeName, branchName, nextNodeName))
+      trace_(sprintf("  Edge: %s :: %s -> %s\n", thisNodeName, branchName, nextNodeName))
+      #if (thisNodeName == "_do_expr.1.awaited.then.1.ifTrue.1.do_finally.1") browser()
       reverseEdges[[nextNodeName]][[thisNodeName]] <<- TRUE
-      #"label" actually records the "local name" of an edge.
+      #OOF! If two exits from a node happen to go to the same place,
+      #one will overwrite the other and you will lose the translation.
+      #Of course this manifests with return callback or try/finally. FIXME.
       edgeProperties[[thisNodeName, nextNodeName]] <<-
-        list(label=branchName, call=tailcall, type=names(tails)[[i]])
+        list(localName=branchName, call=tailcall, type=names(tails)[[i]])
     }
     thisNodeName
   }
+  trace_("Walking graph:\n")
   doWalk(nodes[[nodeOrder[[1]]]], "") # use path from start to name nodes.
   for (i in nodeOrder[-1]) { # and walk the rest to be sure
     doWalk(nodes[[i]], i)
   }
+  trace_("Finding contexts:")
   # now we have collected a set of nodes and tables of
   # where each node can branch. Collect further information.
   # Contexts: what environment is each node in?
@@ -395,39 +400,37 @@ walk <- function(gen) {
     }
     contextNodes[[contextName,thisNodeName]] <- thisNodeName
     nodeContexts[[thisNodeName]] <- contextName
-
   }
+  trace_("Analyzing contexts:\n")
   for (contextName in names(contexts)) {
+    trace_(paste0("  Context: ", contextName, "\n"))
     # gather all nonlocal names used across this context
     for (kind in c("read", "store", "utility", "call", "tail", "tramp", "hand")) {
       contextProperties[[contextName, kind]] <-
         gatherVars(nodeProperties, contextNodes, contextName, kind)
     }
-
     context <- contexts[[contextName]]
     stores <- contextProperties[[contextName, "store"]]
-    # Does each node have a local name in its context?
-    # does the node have a name in its context?
-    nodeProperties[[thisNodeName, "localName"]] <- character(0)
     for (thisNodeName in names(contextNodes[[contextName]])) {
+      # does the node have a local name in its context?
+      nodeProperties[[thisNodeName, "localName"]] <- character(0)
       thisNode <- nodes[[thisNodeName]]
       for (nm in names(context)) {
         if (nm %in% stores) next # a state pointer isn't a stable name
         #watch out for unforced args like ifnotfound=stop("Not found")
         if (nm != "..." && is_forced_(nm, context)) {
           if (identical(context[[nm]], thisNode)) {
-            trace_(paste0("    Node ", contextName, "::", nm,
-                          " -> ", thisNodeName, "\n"))
-            nodeProperties[[thisNodeName]]$localName <- nm
+            trace_(sprintf("    Exit: %s -> %s\n", nm, thisNodeName))
+            nodeProperties[[thisNodeName, "localName"]] <- nm
             if(nm == "R_") {
-              nodeProperties[[thisNodeName]]$Rexpr <- expr(get("x", context))
+              nodeProperties[[thisNodeName, "Rexpr"]] <- expr(get("x", context))
             }
+            break
           }
         }
       }
     }
   }
-
 
   list(nodes = nodes,
        nodeProperties = nodeProperties,

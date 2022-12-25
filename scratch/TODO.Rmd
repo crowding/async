@@ -110,3 +110,81 @@ the special "first" context encountered.)
 
 I'm interested to note that `base_winding` is not translated; It's kept in a list. Should it be? As well as other utility functions defined locally?
 
+## Not all nodes in a compiled async find local names.
+
+Again it is leaking nodes, pulling in a node that should have been translated to its new environment?
+
+That definitely shouldn't happen. But if I draw a picture of the graph it might tell me where the leak is!
+
+But even before that the graph tells me it's before compilation that things don't have local names.
+So it looks like "then" is not getting a local name? But it has one???
+
+Lots of things are not getting a local name even when compilation is off.
+
+It seems like I'm putting a value into the hashbag but then it's not getting out???
+This was a dumb error.
+
+Next the problem I have is the state pointers are not closed. In particular, resolve and reject, which are non-closed pointers by design. But they should not be counted as state pointers because I don't tailcall into them?
+
+Munge calls them a: "State var with unknown function value(?)" I think that's correct. 
+
+I shouldn't care about these variables being closed. Only stuff that is tailcalled?
+
+## Perform a check for well-formedness of generator on all generators during unit test.
+
+I turned "paranoid" on for tests at compile level -1. It checks that everything really got moved over!. I turned up ONE problem in async.
+
+## Refactor so that trampoline handlers do not use `...` but either take a value or not..
+
+Okay, this `...` business in the handlers might be getting silly. I think for sanity's sake I might have to declare some trampolines take a `val` and others don't. That will be another refactoring (probably before I do codegen)
+
+## Awaiting on a "pr" that doesn't exist gives a "subscript out of bounds"
+
+In this:
+
+      async({
+        tryCatch({
+          if (await(pr)) {
+            return(5)
+            not_run <<- FALSE
+            5
+          } else 4
+        }, finally={
+          cleanup <<- TRUE
+        })
+      }
+
+It _should_ give a more comprehensible error. This particular error sounds like something wrong.
+
+## Walking compiled try/finally
+
+fails to walk() a compiled async containing try/finally upon finding a call to finally's `cont` that wasn't translated. It's counted as a tailcall in the compiled graph;.
+
+Sure enough it's not picked up as an edge....
+
+Let's look at the graph uncompiled. It's node "_do_expr.1.awaited.then.1.ifTrue.1.do_finally.1". It's got "cont" in the tail, sure enough. It's not translated why?  because `walk` didn't see the `cont` call for some reason. Except it does.
+
+branch name `cont` points to "_do_expr.1.awaited.then.1.ifTrue.1.do_finally.2", so it's not translated??? So let's see what munge does with this node.
+
+Sure enough "nms" does not contain "cont". Oh Problem was I forgot to change a reference of edgeProperties$label to localName. I'm just confused how the fuck anything worked like that. (how the fuck did anything work that way?)
+
+It sure would be nice if I had strong typing to check that I was using
+the same field name that it was created with.
+
+Nope, that didn't help it catch "cont." The edge to "cont" didn't make it into the graph edgeproperties?
+
+Let's turn on verbose for walk again.
+
+OHHHHHHH it's because both targets exit to the same node. In particular, both "cont" and "return" went to the same place.
+
+So I need to index edges by their local name(!) rather than their global name. Or else consolidate the local names. The former requires a bigger refactoring. The local names are unique and each _does_ make for a distinct edge. 
+
+But the latter seems trickier.
+
+Before I tackle this, make sure my graph isomorphism check works. I mean I'll have to rewrite it too. But rewriting from a good starting point should work.
+
+How about the rewrite comes with a change of name from "edgeProperties" to "nodeEdges"
+
+# better context/node labels
+
+Would be easier to understand if context / node labels were

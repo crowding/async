@@ -56,7 +56,8 @@ make_dot <- function(nodeGraph,
     # they say record-based nodes are obsoleted by html-style labels
     # but I'll start with this...
     varNames <- union(nodeGraph$contextProperties[[context]]$read,
-                      nodeGraph$contextProperties[[context]]$store)
+                      union(nodeGraph$contextProperties[[context]]$store,
+                            nodeGraph$contextProperties[[context]]$utility))
     if (length(varNames) == 0) NULL else {
       c(paste(
         quoted(paste0(context, "_", "var")),
@@ -71,6 +72,7 @@ make_dot <- function(nodeGraph,
           function(node) {
             reads <- nodeGraph$nodeProperties[[node]]$read
             stores <- nodeGraph$nodeProperties[[node]]$store
+            calls <- nodeGraph$nodeProperties[[node]]$utility
             ## edges for the storage
             c(
               if (length(reads) > 0)
@@ -81,6 +83,11 @@ make_dot <- function(nodeGraph,
               if (length(stores) > 0)
                 paste(store(node, paste0(context, "_var"), stores),
                       attrs(penwidth=1, color="orange3",
+                            arrowsize=0.5, arrowhead="dot",
+                            concentrate="true", constrain="false")),
+              if (length(calls) > 0)
+                paste(read(paste0(context, "_var"), calls, node),
+                      attrs(penwidth=1, color="darkgreen",
                             arrowsize=0.5, arrowhead="dot",
                             concentrate="true", constrain="false"))
             )})))}}
@@ -126,8 +133,8 @@ make_dot <- function(nodeGraph,
     # bolder if carrying a value
     # outgoing label.
     props <- nodeGraph$edgeProperties[[from, to]]
-    c(if (props$label=="cont" || length(nodeGraph$edgeProperties[[from]]) <= 1)
-      c(taillabel="") else c(taillabel=props$label),
+    c(if (props$localName=="cont" || length(nodeGraph$edgeProperties[[from]]) <= 1)
+      c(taillabel="") else c(taillabel=props$localName),
       if (length(props$call[[1]]) > 1)
         c(color="black") else c(color="gray50"),
       switch(props[["type"]],

@@ -234,7 +234,6 @@ switch_cps <- function(EXPR, ...) {
   args <- list(...)
   #args <- args[!(missing_(args))]
   function(cont, ...) {
-    if (missing(cont)) browser()
     force(cont)
     if (length(args) == 0) {
       function() cont(NULL)

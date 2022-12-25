@@ -26,15 +26,13 @@ munge <- function(# the async/generator to munge
     calls <- unlist(as.list(props)[c("tail", "tramp", "hand", "utility")],
                     use.names=FALSE)
 
-    # why is this looking at all the edges instead of what's collected in
-    # context props?
-    # because that's where the new labels are.
+    # The local labels for each edge are called here.
     callTranslations <- concat(lapply(
       names(graph$contextNodes[[contextName]]),
       function(nodeName) {
         props <- as.list(graph$edgeProperties[[nodeName]])
         structure(names(props) %||% character(0),
-                  names=vapply(props, function(x) x$label, ""))
+                  names=vapply(props, function(x) x$localName, ""))
       }))
 
     utils <- setdiff(setdiff(props$utility,
@@ -83,6 +81,7 @@ munge <- function(# the async/generator to munge
 
     for (nodeName in names(graph$contextNodes[[contextName]])) {
       # nodeName is the translated node name that walk() came up with
+      #if (nodeName == "_do_expr.1.awaited.then.1.ifTrue.1.do_finally.1") browser()
       node <- graph$nodes[[nodeName]]
       nodeBody <- body(node)
       transBody <- trans(nodeBody, nms, nms)
@@ -178,6 +177,8 @@ move_value.function <- function(graph, contextName, varName, dest.env, newName,
   } else {
     # a function, but not a nonce nor recognized as one of the nodes?
     if (written) {
+      if (varName %in% graph$contextProperties[[contextName, "tail"]])
+        stop("what")
       trace_(paste0("   State var with unknown function value(?): `",
                     varName, "` -> `", newName, "`\n"))
     } else {

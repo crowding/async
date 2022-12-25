@@ -65,8 +65,12 @@
 #'   appears in chained calls. See [async].
 #' @param trace Optional tracing function for debugging. See [async].
 #' @return `gen({...}) returns an [iteror].
+#' @param compileLevel Current levels are 0 (no compilation) or
+#' -1 (name munging only).
 #' @export
-gen <- function(expr, ..., split_pipes=FALSE, trace=trace_) { expr <- arg(expr)
+gen <- function(expr, ..., split_pipes=FALSE, trace=trace_,
+                compileLevel=get("compileLevel", parent.env(environment()))) {
+  expr <- arg(expr)
   args_ <- c(cps_translate(expr,
                            endpoints=gen_endpoints,
                            split_pipes=split_pipes),
@@ -289,7 +293,11 @@ compile.generator <- function(x, level) {
     }
     # create a new iteror with this munged generator's nextElemOr.
     if (level <= -1) {
-      add_class(iteror(munged$nextElemOr), c("generator"))
+      new <- add_class(iteror(munged$nextElemOr), c("generator"))
+      if (paranoid) { # enabled in unit tests
+        expect_properly_munged(x, new)
+      }
+      new
     } else if (level >= 1) {
       stop("TODO: code generation")
     }

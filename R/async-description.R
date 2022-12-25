@@ -21,6 +21,7 @@
 #' @author Peter Meilstrup
 NULL
 
+paranoid <- FALSE
 verbose <- FALSE
 trace_ <- function(x) if(verbose) cat(x)
 
@@ -29,10 +30,13 @@ compileLevel <- 0
 #' @export
 asyncOpts <- function(
     verbose=get("verbose", parent.env(environment())),
-    compileLevel=get("compileLevel", parent.env(environment()))) {
+    compileLevel=get("compileLevel", parent.env(environment())),
+    paranoid=get("paranoid", parent.env(environment()))) {
   list(verbose, compileLevel)
   unlockBinding("compileLevel", getNamespace("async"))
   unlockBinding("verbose", getNamespace("async"))
+  unlockBinding("paranoid", getNamespace("async"))
   list(verbose=verbose<<-verbose,
-       compileLevel=compileLevel<<-compileLevel)
+       compileLevel=compileLevel<<-compileLevel,
+       paranoid=paranoid<<-paranoid)
 }

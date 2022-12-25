@@ -233,7 +233,7 @@ test_that("Catch internal errors", {
 })
 
 test_that("try-catch-finally", {
-  
+
   g <- gen({
     yield(
       tryCatch({
@@ -411,4 +411,3 @@ test_that("break/next/return in trycatch", {
     "Razz", "Fizz", "Razz", "29", "RazzFizzBuzz", "---",
     "31")
 })
-

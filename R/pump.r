@@ -52,8 +52,11 @@ make_pump <- function(expr, ...,
   err <- nonce
 
   pause_ <- function(cont, ...) {
-    if(verbose) trace("pump: set unpause\n")
+    trace("pump: set unpause\n")
     list(cont, ...)
+    # this ... business is to carry the value from yield() into the next step,
+    # whereas "async" does not provide a value to pause.
+    # I may just have it be a state variable.
     pumpCont <<- function() cont(...)
     action <<- "pause"
   }
@@ -165,7 +168,7 @@ make_pump <- function(expr, ...,
       base::stop("pump asked to continue, but last action was ", action)
     pumpCont(...) # here's where you inject a return value into a yield?
     while(action == "continue") {
-      if(verbose) trace("pump: continue\n")
+      trace("pump: continue\n")
       action <<- "pause";
       list(pumpCont, pumpCont <<- NULL)[[1]]()
     }

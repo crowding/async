@@ -1,4 +1,3 @@
-
 test_that("test mock promise", {
   p <- mock_promise()
   resolved <- FALSE
@@ -105,7 +104,9 @@ test_that("async format", {
   then(pr, onFulfilled=function(val) {NULL},
        onRejected=function(err) {NULL})
   capture.output({pr$reject("oops"); wait_for_it()}, type="message")
+  wait_for_it()
   expect_output(print(as), "rejected")
+  ## why is this failing in test_all but not elsewhere...
 })
 
 test_that("async splits pipes by default", {
