@@ -47,9 +47,10 @@ expect_only_one_context <- function(graphc) {
   env <- as.list(graphc$contexts)[[1]]
   con <- names(graphc$contexts)
   # all nodes are closed in that context
-  for (nod in as.list(graphc$contextNodes[[con]])) {
-    expect_identical(environment(graphc$nodes[[nod]]), env)
-  }
+  envs <- lapply(as.list(graphc$contextNodes[[con]]),
+                 \(nod) environment(graphc$nodes[[nod]]))
+  cmp <- envs; cmp[] <- list(env)
+  expect_identical(cmp, envs)
 }
 
 expect_state_pointers_closed <- function(graphc) {
@@ -66,7 +67,7 @@ expect_state_pointers_closed <- function(graphc) {
         expect_identical(environment(val), env)
       } else {
         if (!is_child_of(environment(val), env)) {
-          cat("a non-tailcall, ", var, ", \n") #Hmm.
+#          cat("a non-tailcall, ", var, ", \n") #Hmm.
           # Functions that have been munged/translated, as well as
           # functions that should not be translated, should not
           # be under the async package namespace.

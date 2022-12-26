@@ -223,23 +223,49 @@ finally_cps_ <- function(expr, finally) {
 }
 
 try_cps <- function(expr, silent=R(FALSE),
-                    outfile=R(getOption("try.outFile", default = stderr()))) {
+                       outfile=R(getOption("try.outFile", default = stderr()))) {
   list(expr, silent, outfile)
-  function(cont, ..., ret) {
-
+  function(cont, ..., ret, stop, brk, nxt, windup, unwind, return, trace=trace_) {
+    list(cont, ret, stop, maybe(brk), maybe(nxt), windup, unwind, return, trace)
+    # Remember, flow of the handlers goes from bottom to top
+    result <- NULL
     outfile_ <- NULL
     silent_ <- NULL
 
-    try_handler <- function(err) {
+    stop_ <- function(err) {
+      trace("try: stop\n")
+      result <<- err
+      unwind(try_handler)
+    }
+    return_ <- function(val) {
+      trace("try: return\n")
+      unwind(return, val)
+    }
+    brk_ <- function() {
+      trace("try: break\n")
+      unwind(brk)
+    }
+    nxt_ <- function() {
+      trace("try: next\n")
+      unwind(nxt)
+    }
+    after <- function(val) {
+      force(val) #need to to prevent us lazily
+      #propagating an error past the unwind
+      trace("try: success\n")
+      unwind(cont, val)
+    }
+    try_handler <- function() {
       # (copied from base::try) {{{
-      call <- conditionCall(err)
+      trace("try: handler\n")
+      call <- conditionCall(result)
       if (!is.null(call)) {
-        if (identical(call[[1L]], quote(doTryCatch)))
+        if (identical(call[[1L]], as.name("doTryCatch")))
           call <- sys.call(-4L)
         dcall <- deparse(call)[1L]
         prefix <- paste("Error in", dcall, ": ")
         LONG <- 75L
-        sm <- strsplit(conditionMessage(err), "\n")[[1L]]
+        sm <- strsplit(conditionMessage(result), "\n")[[1L]]
         w <- 14L + nchar(dcall, type = "w") + nchar(sm[1L],
                                                     type = "w")
         if (is.na(w))
@@ -249,20 +275,36 @@ try_cps <- function(expr, silent=R(FALSE),
           prefix <- paste0(prefix, "\n  ")
       }
       else prefix <- "Error : "
-      msg <- paste0(prefix, conditionMessage(err), "\n")
+      msg <- paste0(prefix, conditionMessage(result), "\n")
       if (!silent_ && isTRUE(getOption("show.error.messages"))) {
         cat(msg, file = outfile_)
       }
-      retval <- invisible(structure(msg, class = "try-error", condition = err))
+      retval <- invisible(structure(msg, class = "try-error", condition = result))
       # }}} (copied)
       ret(cont, retval)
     }
-
-    tc <- tryCatch_cps(expr, error=R(try_handler))(cont, ..., ret=ret)
-
-    gotSilent <- function(val) {silent_ <<- val; tc()}
+    do_expr <- expr(after, ...,
+                    ret=ret, stop=stop_, brk=brk_, nxt=nxt_,
+                    windup=windup, unwind=unwind, return=return_, trace=trace)
+    do_windup <- function(cont, ...) {
+      list(cont, ...)
+      trace("try: windup\n")
+      on.exit(trace("try: unwind\n"))
+      tryCatch(cont(...), error=function(e) {
+        trace("try: caught error by windup\n")
+        stop_(e)
+      })
+      NULL
+    }
+    try_ <- function() {
+      result <<- NULL
+      trace("try: begin\n")
+      windup(do_expr, do_windup)
+    }
+    gotSilent <- function(val) {silent_ <<- val; try_()}
     getSilent <- silent(gotSilent, ..., ret=ret)
     gotOutfile <- function(val) {outfile_ <<- val; getSilent()}
     getOutfile <- outfile(gotOutfile, ..., ret=ret)
+    getOutfile
   }
 }

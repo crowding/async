@@ -173,9 +173,9 @@ make_async <- function(expr, orig=arg(expr), ..., compileLevel=0, trace=trace_) 
       # browser()
       pump()
     }
-    fail <- function(err) {
+    fail <- function(val) {
       trace("await: fail\n")
-      failure(err)
+      failure(val)
       # browser()
       pump()
     }
@@ -254,8 +254,8 @@ compile.async <- function(x, level) {
     if (level <= -1) {
       pr <- add_class(promise(function(resolve, reject) {
         # assign "resolve_" and "reject_" callbacks in the base function...
-        then(x, \(val){browser(); stop("Result went to the wrong promise!")},
-                \(err){browser(); stop("Error went to the wrong promise!")})
+        then(x, \(val){stop("Result went to the wrong promise!")},
+                \(err){stop("Error went to the wrong promise!")})
         munged$replace(resolve, reject)
       }), "async")
       pr$orig <- x$orig

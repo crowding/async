@@ -1,7 +1,5 @@
 #' @import nseval
 
-`%is%` <- expect_equal
-
 test_that("pasting together names", {
 
   paste.dropping.empty(
@@ -31,6 +29,7 @@ test_that("function inspection with all_names", {
   g1 <- function(val) NULL
   g2 <- function(val, cont, ...) NULL
   g3 <- function(val) NULL
+  g4 <- function(val) NULL
   delayedAssign("cont", stop("don't look at me!"))
   cont <- function(val, cont, ...) "wrong, don't look this up"
 
@@ -42,6 +41,15 @@ test_that("function inspection with all_names", {
     externVar2[arg1] <<- temp[2]
     switch("foo", a=, b=, NULL)
     package::doThing(arg2, foo=temp)
+    ff <- function(val) {
+      #interior lambda might update and tailcall.
+      #Treatment of "local variables" for substitution
+      #is tricky though, since no environments to export
+      temperature <- val+arg1
+      externVar <<- arg2+1
+      if(FALSE) cont(12)
+      else g4(temperature)
+    }
     if (FALSE) { #selection of tailcalls
       if (TRUE)
         alichlkh(temp, arg1) # a tailcall to something you can't find...
@@ -58,17 +66,18 @@ test_that("function inspection with all_names", {
   by_role <- by_name(all_names(f))
   by_role$arg %is% c("arg1", "arg2", "cont")
   by_role$call %is% c( "+", "/", "*", "[<-", "[", "package::doThing",
-                      "alichlkh", "g1", "g2", "g3", "cont")
-  by_role$store %is% c("globalVar1", "externVar2")
-  by_role$local %is% c("arg1", "temp")
-  by_role$tail %is% c("alichlkh", "g1", "g2", "g3", "cont")
+                      "cont", "g4", "alichlkh", "g1", "g2", "g3")
+  by_role$store %is% c("globalVar1", "externVar2", "externVar")
+  by_role$local %is% c("arg1", "temp", "temperature",
+                       "ff") #local in the local function I guess...
+  by_role$tail %is% c("cont", "g4", "alichlkh", "g1", "g2", "g3")
   by_role$tramp %is% c("g3")
   by_role$var %is% c("arg1", "arg2", "temp", "externVar", "externConst",
-                     "externVar2")
+                     "externVar2", "temperature")
   unname(all_names(f, "var")) %is%
-    c("arg1", "arg2", "arg2", "arg1", "arg1", "arg2", "temp", "externVar",
-      "externConst", "temp", "externVar2", "arg1", "arg2", "temp",
-      "temp", "arg1", "temp", "arg1")
+    c("arg1", "arg2", "arg2", "arg1", "arg1", "arg2", "temp",
+      "externVar", "externConst", "temp", "externVar2", "arg1", "arg2",
+      "temp", "arg1", "arg2", "temperature", "temp", "arg1", "temp", "arg1")
 
   all_names(f, c("tailcall", "trampoline", "handler")) %is%
     list(tailcall=alist(alichlkh(temp, arg1)),
@@ -85,7 +94,7 @@ test_that("function inspection with all_names", {
             "globalVar1", "externVar2", "externVar", "externConst")
 
   locals <- sort(union(by_role$local, by_role$arg))
-  locals %is% c("arg1", "arg2", "cont", "temp")
+  locals %is% c("arg1", "arg2", "cont", "ff", "temp", "temperature")
   stores <- by_role$store
   reads <- sort(setdiff(by_role$var, locals))
   reads %is% c("externConst", "externVar", "externVar2")
@@ -256,6 +265,7 @@ test_that("Async with try-finally", {
     not_run <<- FALSE
     5
   })
+
   ## wait_for_it()
   ## expect_true(not_run)
   ## expect_false(cleanup)

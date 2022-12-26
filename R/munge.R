@@ -106,9 +106,11 @@ munge <- function(# the async/generator to munge
           dest.env[[nodeName]] <-
             function_(formals(node), transBody, dest.env)
         } else {
+          newName <- utilTranslations[[fnam]]
           trace_(paste0("   External function: `", contextName, "`$`", fnam,
-                        "` -> `", utilTranslations[[fnam]], "`\n"))
-          dest.env[[utilTranslations[[fnam]]]] <- func
+                        "` -> `", newName, "`\n"))
+          move_value(graph, contextName, fnam, dest.env, newName,
+                     varTranslations, callTranslations)
         }
       }
     }

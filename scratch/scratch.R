@@ -113,3 +113,20 @@ g <- gen({
   })
   not_run <<- FALSE
 })
+
+asyncOpts(verbose=TRUE)
+g <- gen({
+  try({
+    yield(5)
+    stop("foo")
+    yield(6)
+  }, silent=TRUE)
+  yield(7)
+  stop("bar")
+  yield(8)
+}, compileLevel=-1)
+
+expect_equal(nextElem(g), 5)
+expect_equal(nextElem(g), 7)
+expect_error(nextElem(g), "bar")
+expect_error(nextElem(g), "StopIteration")

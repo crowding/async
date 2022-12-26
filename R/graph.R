@@ -133,7 +133,7 @@ make_dot <- function(nodeGraph,
     # bolder if carrying a value
     # outgoing label.
     props <- nodeGraph$nodeEdgeProperties[[from, local]]
-    c(if (props$localName=="cont" || length(nodeGraph$nodeEdgeProperties[[local]]) <= 1)
+    c(if (local=="cont" || length(nodeGraph$nodeEdgeProperties[[local]]) <= 1)
       c(taillabel="") else c(taillabel=props$localName),
       if (length(props$call[[1]]) > 1)
         c(color="black") else c(color="gray50"),

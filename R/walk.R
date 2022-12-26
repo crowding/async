@@ -83,9 +83,15 @@ all_names <- function(fn,
                                 inTail=FALSE)))
   }
   collect_lambda <- function(expr, inTail, orig=NULL) {
-    tmp <- collect_arg(expr[[3]], inTail=inTail)
+    # I use lambdas in a couple places still.
+    # This is very a hack,
+    # and would fail at arguments shadowing names etc.
+    # I would have to thread more information through these
+    # functions in order to track scope properly.
+    # But really, the answer is turn those lambdas into regular nodes?
+    tmp <- collect_arg(expr[[3]], inTail=TRUE) #!
     tmp <- tmp[!(tmp %in% names(expr[[2]]))]
-    tmp <- tmp[!(names(tmp) %in% c("local"))]
+    #tmp <- tmp[!(names(tmp) %in% c("local", "arg"))]
     tmp
   }
   collect_ordinary_call <- function(expr, inTail, orig=NULL) {

@@ -81,18 +81,14 @@ test_that("munged async with a try/finally", {
       print("cleaned up")
     })
   }, ...)
-  
 
-  
   a <- fa(compileLevel=0)
   ac <- fa(compileLevel=-1)
-
   expect_properly_munged(a, ac)
+  expect_output(
+    expect_resolves_with(
+      a, 5, expect_resolves_with(
+        ac, 5, pr$resolve(100))),
+    "cleaned up")
 
-  pr$resolve(100)
-
-  expect_resolves_with(a,
-                       expect_resolves_with(ac, 5, pr$resolve(100))
-                       )
 })
-
