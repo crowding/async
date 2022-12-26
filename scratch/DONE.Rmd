@@ -315,3 +315,38 @@ I should break in the "await" and see what callbacks it's registering. So the `_
 Okay yes so the `await_` utility function should just be a trampoline, that way it gets translated, and I can pass an anon function to it.
 
 Now after a bit more fussing I have a compiled async that did something! Still some errors though.
+
+## Perform a check for well-formedness of generator on all generators during unit test.
+
+I turned "paranoid" on for tests at compile level -1. It checks that everything really got moved over!. I turned up ONE problem in async.
+
+## Walking compiled try/finally
+
+fails to walk() a compiled async containing try/finally upon finding a call to finally's `cont` that wasn't translated. It's counted as a tailcall in the compiled graph;.
+
+Sure enough it's not picked up as an edge....
+
+Let's look at the graph uncompiled. It's node "_do_expr.1.awaited.then.1.ifTrue.1.do_finally.1". It's got "cont" in the tail, sure enough. It's not translated why?  because `walk` didn't see the `cont` call for some reason. Except it does.
+
+branch name `cont` points to "_do_expr.1.awaited.then.1.ifTrue.1.do_finally.2", so it's not translated??? So let's see what munge does with this node.
+
+Sure enough "nms" does not contain "cont". Oh Problem was I forgot to change a reference of edgeProperties$label to localName. I'm just confused how the fuck anything worked like that. (how the fuck did anything work that way?)
+
+It sure would be nice if I had strong typing to check that I was using
+the same field name that it was created with.
+
+Nope, that didn't help it catch "cont." The edge to "cont" didn't make it into the graph edgeproperties?
+
+Let's turn on verbose for walk again.
+
+OHHHHHHH it's because both targets exit to the same node. In particular, both "cont" and "return" went to the same place.
+
+So I need to index edges by their local name(!) rather than their global name. Or else consolidate the local names. The former requires a bigger refactoring. The local names are unique and each _does_ make for a distinct edge. 
+
+But the latter seems trickier.
+
+Before I tackle this, make sure my graph isomorphism check works. I mean I'll have to rewrite it too. But rewriting from a good starting point should work.
+
+How about the rewrite comes with a change of name from "edgeProperties" to "nodeEdges"?
+
+Okay I think that went easier than I was expecting.

@@ -89,3 +89,27 @@ contextLabelMe <- function() {
   current <- as.character(get_call(caller()))
   c(recursive=TRUE, parents, sep=".")
 }
+
+
+   a <- async({
+      tryCatch({
+        if(FALSE) await(NULL)
+        return(2)
+        not_run <<- FALSE
+      }, finally={
+        cleanup <<- TRUE
+      })
+      not_run <<- FALSE
+      5
+   })
+
+g <- gen({
+  tryCatch({
+    if(FALSE) yield(NULL)
+    return(2)
+    not_run <<- FALSE
+  }, finally={
+    cleanup <<- TRUE
+  })
+  not_run <<- FALSE
+})

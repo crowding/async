@@ -151,6 +151,7 @@ test_that("async return", {
 })
 
 test_that("async try-finally with return", {
+
   cleanup <- FALSE
   result <- NULL
   not_run <- TRUE

@@ -176,7 +176,6 @@ make_generator <- function(expr, orig=arg(expr), ..., trace=trace_) { list(expr,
         trace("generator: stop\n")
         err <<- val
         state <<- "stopped"
-        stop(val)
       }
 
       yield_ <- function(val, cont, ...) {
@@ -208,7 +207,7 @@ make_generator <- function(expr, orig=arg(expr), ..., trace=trace_) { list(expr,
                           state <<- "finished"
                           base::stop("Generator finished unexpectedly")
                         },
-                        stopped = stop(err),
+                        stopped = base::stop(err),
                         finished = or,
                         yielded = {
                           if (identical(yielded, nonce)) {

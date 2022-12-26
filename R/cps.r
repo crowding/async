@@ -48,7 +48,8 @@
 # This code is directly executed for interpreted asyncs (with
 # `asyncOpts(compileLevel 0)`, but these functions also the input for
 # compiled asyncs. Compiling R generally is impossible, so
-# therefore there are some rules on how they are written:
+# therefore there are some rules on how they are written, call these
+# restrictions `R--`:
 #
 # * Generally avoid non-standard evaluation. Anything that "looks like" variable
 #   references or function calls should actually correspond to
@@ -63,6 +64,11 @@
 # * Any calls in tail position or using trampoline handlers are treated as part
 #   of the graph. Don't put a call in tail position unless you intend that
 #   function to be "included" in the graph.
+# * You can have helper functions (i.e. that you don't tailcall) defined in
+#   the same context as your regular functions, and they will be carried to a
+#   new scope. However, the graph walker does not inspect them to see what
+#   variables a helper function uses, unless you explicitly put that function
+#   in the sart set.
 
 
 `(_cps` <- function(expr) {

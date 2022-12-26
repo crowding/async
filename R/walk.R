@@ -82,6 +82,12 @@ all_names <- function(fn,
       if(nonTail) concat(lapply(unname(expr[-1]), collect_arg,
                                 inTail=FALSE)))
   }
+  collect_lambda <- function(expr, inTail, orig=NULL) {
+    tmp <- collect_arg(expr[[3]], inTail=inTail)
+    tmp <- tmp[!(tmp %in% names(expr[[2]]))]
+    tmp <- tmp[!(names(tmp) %in% c("local"))]
+    tmp
+  }
   collect_ordinary_call <- function(expr, inTail, orig=NULL) {
     c(if (tailcall && inTail) list(tailcall=c(list(expr), orig)),
       collect_weird_call(expr, inTail, orig))
@@ -130,7 +136,9 @@ all_names <- function(fn,
                               if(inTail || nonTail) concat(
                                 lapply(unname(expr[-1]), collect_arg,
                                        inTail=inTail))),
-                   "function"=character(0),
+                   "function"={
+                     collect_lambda(expr, inTail=inTail)
+                   },
                    #some other primitive?
                    collect_ordinary_call(expr, inTail, orig)
                  )
@@ -141,19 +149,30 @@ all_names <- function(fn,
                    handl <- match.call(peek, expr, expand.dots=FALSE,
                                        envir=as.environment(list(`...`=NULL)))
                    trampolined <- as.call(c(list(handl$cont), handl$...))
+                   windup <- FALSE
+                   if ("winding" %in% names(handl)) {
+                     # windup takes TWO function pointers
+                     woundup <- as.call(list(handl$winding))
+                     windup <- TRUE
+                     handl$winding <- NULL
+                   }
                    handl$cont <- NULL
                    handl$... <- NULL
                    c(
                      if (tramp) c(tramp=as.character(trampolined[[1]])),
+                     if (tramp && windup) c(tramp=as.character(woundup[[1]])),
                      if (hand) c(hand=as.character(expr[[1]])),
                      if (handler) list(handler=c(list(handl, expr), orig)),
                      collect_weird_call(handl, inTail,
                                         c(list(expr), orig)),
+                     if (windup) collect_weird_call(woundup, inTail,
+                                                     c(list(expr), orig)),
                      if (trampoline &&
                            # passing along "cont" from yield_ to pause_
                            # is not a new trampoline
                            !(as.character(trampolined[[1]]) %in% args))
-                       c(list(trampoline=c(list(trampolined, expr), orig))),
+                       c(list(trampoline=c(list(trampolined, expr), orig)),
+                         if (windup) list(windup=c(list(woundup, expr), orig))),
                      collect_weird_call(trampolined, inTail,
                                         c(list(expr), orig)))
                  } else {
@@ -289,22 +308,23 @@ nullish <- function(x) length(x)==0
 # Output is a named list of data structures:
 #
 # * `nodes`: hash table of ID (generated) to node (function objects)
-# * `nodeProperties`: hash by node ID of list:
+# * `nodeProperties`: hash by node ID of list containing (at least)
 #   * `reads`: nonlocal variables read from
-#   * `writes`: nonlocal variables written to (with <<-)
+#   * `writes`: nonlocal variables written to with <<-
 #   * `calls`: closed-over functions called
-#
-# * `edgeProperties`:
-#   * double hash table, "from" node name and "to" node name
+#   * `tail`: functions called in tail position
+#   * `args`: names in teh node's arg list
+#   * `local`: variables updated with <-
+# * `nodeEdgeProperties`: double hash table on node name and _local_ edge name
 #     data is named list:
-#     * `label`: (local branch name)
+#     * `to`: Full name of destination node
 #     * `type`: "tailcall" or "trampoline" or "handler"
 #     * `call`: list of 1 element, tailcall verbatim
 #       OR list of 2+ elements:
 #          tailcall as interpreted
 #          original trampoline call
 # * `reverseEdges`: double hash table "to" then "from" node name
-#                 data is TRUE
+#                 data is local name
 #
 # * `contexts`: hash table (by generated name) of environment objects
 # * `contextProperties`: hash by name of list:
@@ -323,7 +343,7 @@ walk <- function(gen) {
   iter <- icount()
   nodeProperties <- hashbag()
   reverseEdges <- hashbag()
-  edgeProperties <- hashbag()
+  nodeEdgeProperties <- hashbag()
   nodeProperties <- hashbag()
   #do a DFS to collect the graph:
   # what storage used by each node / each context?
@@ -367,12 +387,9 @@ walk <- function(gen) {
       nextNodeName <- doWalk(nextNode, c(path, branchName))
       trace_(sprintf("  Edge: %s :: %s -> %s\n", thisNodeName, branchName, nextNodeName))
       #if (thisNodeName == "_do_expr.1.awaited.then.1.ifTrue.1.do_finally.1") browser()
-      reverseEdges[[nextNodeName]][[thisNodeName]] <<- TRUE
-      #OOF! If two exits from a node happen to go to the same place,
-      #one will overwrite the other and you will lose the translation.
-      #Of course this manifests with return callback or try/finally. FIXME.
-      edgeProperties[[thisNodeName, nextNodeName]] <<-
-        list(localName=branchName, call=tailcall, type=names(tails)[[i]])
+      reverseEdges[[nextNodeName]][[thisNodeName]] <<- branchName
+      nodeEdgeProperties[[thisNodeName, branchName]] <<-
+        list(to=nextNodeName, call=tailcall, type=names(tails)[[i]])
     }
     thisNodeName
   }
@@ -434,7 +451,7 @@ walk <- function(gen) {
 
   list(nodes = nodes,
        nodeProperties = nodeProperties,
-       edgeProperties = edgeProperties,
+       nodeEdgeProperties = nodeEdgeProperties,
        reverseEdges = reverseEdges,
        contexts = contexts,
        contextProperties = contextProperties,

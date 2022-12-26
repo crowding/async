@@ -128,12 +128,12 @@ make_dot <- function(nodeGraph,
       )
     )
   }
-  edgeAttrs <- function(nodeGraph, from, to) {
+  edgeAttrs <- function(nodeGraph, from, local) {
     # edge properties.
     # bolder if carrying a value
     # outgoing label.
-    props <- nodeGraph$edgeProperties[[from, to]]
-    c(if (props$localName=="cont" || length(nodeGraph$edgeProperties[[from]]) <= 1)
+    props <- nodeGraph$nodeEdgeProperties[[from, local]]
+    c(if (props$localName=="cont" || length(nodeGraph$nodeEdgeProperties[[local]]) <= 1)
       c(taillabel="") else c(taillabel=props$localName),
       if (length(props$call[[1]]) > 1)
         c(color="black") else c(color="gray50"),
@@ -157,15 +157,15 @@ make_dot <- function(nodeGraph,
                  unwind=c(headlabel="⤼", fontsize=20)))
       }
       )}
-  edge <- function(nodeGraph, from, to) {
-    concat(lapply(to, function(edgeTo) {
-      edge <- nodeGraph$edgeProperties[[from, to]]
+  edge <- function(nodeGraph, from, local) {
+    concat(lapply(local, function(edgeLocal) {
+      edge <- nodeGraph$nodeEdgeProperties[[from, local]]
       if (edge[["type"]] != "hand" ||
             ((edge[["type"]] == "hand") && handlers)) {
-        paste(quoted(from), "->", quoted(edgeTo),
-              attrs(edgeAttrs(nodeGraph, from, to)))}}))}
+        paste(quoted(from), "->", quoted(edge$to),
+              attrs(edgeAttrs(nodeGraph, from, local)))}}))}
   edges <- function(nodeGraph) {
-    concat(lapply(all_indices(nodeGraph$edgeProperties),
+    concat(lapply(all_indices(nodeGraph$nodeEdgeProperties),
                   function(i) edge(nodeGraph, i[1], i[2])))}
   graph <- block("graph")
   digraph <- block("digraph")

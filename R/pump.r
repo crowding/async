@@ -103,8 +103,6 @@ make_pump <- function(expr, ...,
       if(verbose) trace("pump: windup\n")
       tryCatch(cont(...), error=function(err){
         trace("pump: caught error by windup\n")
-        # assign("browseOnError", TRUE, envir=getNamespace("async"))
-        if(browseOnError) browser()
         stop_(err)
       }, finally=if(verbose) trace("pump: unwind\n"))
     }
@@ -115,16 +113,19 @@ make_pump <- function(expr, ...,
   }
   windings <- list(base_winding)
 
-  windup_ <- function(f, cont, ...) {
-    list(f, cont, ...)
+  # this needs special handling in walk() because there are TWO
+  # function pointers and both need to be treated as nodes.
+  windup_ <- function(cont, winding, ...) {
+    list(cont, winding, ...)
     if(verbose) trace("pump: Adding to windup list\n")
     outerWinding <- windings[[1]]
     g <- function(...) {
-      outerWinding(f, ...)
+      outerWinding(winding, ...)
     }
     windings <<- c(list(g), windings)
-    pumpCont <<- function() {
-      if(verbose) trace("pump: continuing after windup\n")
+    pumpCont <<- cont
+      function() {
+      trace("pump: continuing after windup\n")
       cont(...)
     }
     action <<- "rewind"

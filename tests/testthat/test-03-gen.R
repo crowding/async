@@ -51,7 +51,6 @@ test_that("a generator", {
 
 test_that("for loop over an iterator", {
   x <- gen(for (i in icount()) {yield(i)})
-  drawGraph(x)
 
   as.numeric(as.list(ilimit(x, 10))) %is% 1:10
 

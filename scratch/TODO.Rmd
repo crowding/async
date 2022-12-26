@@ -106,34 +106,6 @@ ESS output window keeps saying "Disabling output delimiter because CMD failed to
 that might be to not bother slapping context on the names of nodes in
 the special "first" context encountered.)
 
-## tryCatch failing in munged asyncs/generators
-
-I'm interested to note that `base_winding` is not translated; It's kept in a list. Should it be? As well as other utility functions defined locally?
-
-## Not all nodes in a compiled async find local names.
-
-Again it is leaking nodes, pulling in a node that should have been translated to its new environment?
-
-That definitely shouldn't happen. But if I draw a picture of the graph it might tell me where the leak is!
-
-But even before that the graph tells me it's before compilation that things don't have local names.
-So it looks like "then" is not getting a local name? But it has one???
-
-Lots of things are not getting a local name even when compilation is off.
-
-It seems like I'm putting a value into the hashbag but then it's not getting out???
-This was a dumb error.
-
-Next the problem I have is the state pointers are not closed. In particular, resolve and reject, which are non-closed pointers by design. But they should not be counted as state pointers because I don't tailcall into them?
-
-Munge calls them a: "State var with unknown function value(?)" I think that's correct. 
-
-I shouldn't care about these variables being closed. Only stuff that is tailcalled?
-
-## Perform a check for well-formedness of generator on all generators during unit test.
-
-I turned "paranoid" on for tests at compile level -1. It checks that everything really got moved over!. I turned up ONE problem in async.
-
 ## Refactor so that trampoline handlers do not use `...` but either take a value or not..
 
 Okay, this `...` business in the handlers might be getting silly. I think for sanity's sake I might have to declare some trampolines take a `val` and others don't. That will be another refactoring (probably before I do codegen)
@@ -154,37 +126,109 @@ In this:
         })
       }
 
-It _should_ give a more comprehensible error. This particular error sounds like something wrong.
+It _should_ give a more comprehensible error. This particular error sounds like something wrong with tryCatch.
 
-## Walking compiled try/finally
+## better context/node labels
 
-fails to walk() a compiled async containing try/finally upon finding a call to finally's `cont` that wasn't translated. It's counted as a tailcall in the compiled graph;.
+Would aid debugging comprehension if context / node labels followed the syntax tree more,
+were like (try.body.1, try.body,3, try.catch.R) and the like. How
 
-Sure enough it's not picked up as an edge....
+## tryCatch is screwing something up
 
-Let's look at the graph uncompiled. It's node "_do_expr.1.awaited.then.1.ifTrue.1.do_finally.1". It's got "cont" in the tail, sure enough. It's not translated why?  because `walk` didn't see the `cont` call for some reason. Except it does.
+In compiled mode this generator screws up:
 
-branch name `cont` points to "_do_expr.1.awaited.then.1.ifTrue.1.do_finally.2", so it's not translated??? So let's see what munge does with this node.
+      g <- gen({
+        tryCatch({
+          yield(5)
+          stop("foo")
+          yield(6)
+        }, error=identity)
+        yield(7)
+        stop("bar")
+        yield(8)
+      })
 
-Sure enough "nms" does not contain "cont". Oh Problem was I forgot to change a reference of edgeProperties$label to localName. I'm just confused how the fuck anything worked like that. (how the fuck did anything work that way?)
 
-It sure would be nice if I had strong typing to check that I was using
-the same field name that it was created with.
+Okay when I try to walk this graph I get fucky things? What's this whole do_expr.n? Okay it looks fine actually. Let's enable verbose and see where it breaks.
 
-Nope, that didn't help it catch "cont." The edge to "cont" didn't make it into the graph edgeproperties?
+Okay it's "finished unexpectedly" after pause. Which means it didn't set the state after getting to pause.
 
-Let's turn on verbose for walk again.
+    > > expect_equal(nextElem(g), 7)
+    generator: nextElemOr
+    pump: run
+    catch: windup
+    R: stop("foo")
+    catch: catch in windup
+    catch: stop
+    pump: removing from windup list
+    catch: unwind
+    pump: pause ***********************************************
+    Error in obj$nextElemOr(or, ...) : Generator finished unexpectedly
 
-OHHHHHHH it's because both targets exit to the same node. In particular, both "cont" and "return" went to the same place.
+    whereas in non-compiled code it did:
 
-So I need to index edges by their local name(!) rather than their global name. Or else consolidate the local names. The former requires a bigger refactoring. The local names are unique and each _does_ make for a distinct edge. 
+    > > expect_equal(nextElem(g), 7)
+    generator: nextElemOr
+    pump: run
+    catch: windup
+    R: stop("foo")
+    catch: catch in windup
+    catch: stop
+    pump: removing from windup list
+    catch: unwind
+    pump: continuing after unwind ********************************************
+    R: identity
+    catch: calling error handler
+    pump: set continue
+    pump: continue
+    R: 7
+    yield
+    generator: yield
+    pump: set unpause
+    pump: pause
 
-But the latter seems trickier.
+I think this is a case of `do_windup` not being translated, printf showing me that. Yeah, `do_windup` should be a node but the graph draws it as a variable. `windup` is a trampoline that takes _two_ pointers, one to add to the windup list and another to continue.
 
-Before I tackle this, make sure my graph isomorphism check works. I mean I'll have to rewrite it too. But rewriting from a good starting point should work.
+stop: could not find function "_do_windup.tryCatch#parent.frame"
 
-How about the rewrite comes with a change of name from "edgeProperties" to "nodeEdges"
+okay, but _then_ it _also_ resolves the wrong promise.
 
-# better context/node labels
+Okay now we're at "could not find function `stop_`.
 
-Would be easier to understand if context / node labels were
+Also, error text is not being propagated somehow. I guess that's because it's an internal error. But the tryCatch should still get it.
+
+Okay a couple things aren't right when we get to `_return`. Here's how `do_windup` is being translated:
+
+    function (cont, ...)
+    {
+        list(`_do_expr.1.awaited.then.2.ifTrue.1.do_finally.2`, ...)
+        `entry#trace`("finally: windup\n")
+        on.exit(`entry#trace`("finally: unwind\n"))
+        tryCatch(`_do_expr.1.awaited.then.2.ifTrue.1.do_finally.2`(...),
+            error = function(err) {
+                `entry#trace`("finally: catch in windup\n")
+                stop_(err)
+            })
+        NULL
+    }
+
+surely that should be list(cont, ...), and stop_ is not being translated as a call either. And the function is apparently being invoked as cont(cont=cont)??
+
+
+So I think the issue is I'm not walking into anonymous functions.
+
+Okay we're back to the wrong "resolve" being called.
+
+Whick means we're passing the wrong handler to register...
+
+So it looks like munged `resolve#pump` goes to the old pump.
+
+Okay, when we are walking over a compiled "async" it thinks its "pump" is an external function and it copies it over. I changed it to `move_value` which at least checks fora  node pointer.
+
+Now, however, my generator is failing to find corresponding local names `stop_` in the munged graph. The compiled graph gives it a local name of "nextElemOr#stop." That's definitely not its local name. nextElemOr#stop should be translated to "stop" during munge?
+
+So I think this is a consequence of not deduping. Two identical `stop_` functions are winding up transferred. Doing a direct move hid this -- nextElemOr#stop was a leaky pointer so it did not previously show up when scanning for a local name for "stop".
+
+Also, it was because I used "stop" instead of "base::stop" in one spot. So no need to dedupe yet,
+
+And the same thing is happening with "resolve#pump". in the async. Which points to...

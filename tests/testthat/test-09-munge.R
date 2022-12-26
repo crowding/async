@@ -67,26 +67,32 @@ test_that("can compile and print async", {
   expect_output(print(a))
 })
 
-test_that("munged async", {
+test_that("munged async with a try/finally", {
 
   pr <- mock_promise()
   # async(await(p) + 1, ...)
   fa <- function(...) async({
     tryCatch({
-      if (await(pr)) {
+      if (val <- await(pr)) {
         return(5)
-        5
+        val
       } else 4
     }, finally={
       print("cleaned up")
     })
   }, ...)
+  
 
+  
   a <- fa(compileLevel=0)
   ac <- fa(compileLevel=-1)
 
   expect_properly_munged(a, ac)
 
-  expect_resolves_with(ac, 101, p$resolve(100))
+  pr$resolve(100)
+
+  expect_resolves_with(a,
+                       expect_resolves_with(ac, 5, pr$resolve(100))
+                       )
 })
 

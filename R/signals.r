@@ -102,19 +102,20 @@ catch_cps_ <- function(expr, error) {
     do_expr <- expr(after, ...,
                     ret=ret, stop=stop_, brk=brk_, nxt=nxt_,
                     windup=windup, unwind=unwind, return=return_, trace=trace)
-    do_windup <- function(f, ...) {
-      list(f, ...)
-      if (verbose) trace("catch: windup\n")
-      on.exit(if (verbose) trace("catch: unwind\n"))
-      tryCatch(f(...), error=function(e) {
+    do_windup <- function(cont, ...) {
+      list(cont, ...)
+      trace("catch: windup\n")
+      on.exit(trace("catch: unwind\n"))
+      tryCatch(cont(...), error=function(e) {
         trace("catch: catch in windup\n")
         stop_(e)
       })
+      NULL
     }
     try_ <- function() {
       result <<- NULL
       trace("catch: begin\n")
-      windup(do_windup, do_expr)
+      windup(do_expr, do_windup)
     }
     try_
   }
@@ -201,20 +202,21 @@ finally_cps_ <- function(expr, finally) {
     do_expr <- expr(finally_then, ...,
                     ret=ret, stop=stop_, brk=brk_, nxt=nxt_,
                     windup=windup, unwind=unwind, return=return_, trace=trace)
-    do_windup <- function(f, ...) {
-      list(f, ...)
-      if (verbose) trace("finally: windup\n")
-      on.exit(if(verbose) trace("finally: unwind\n"))
-      tryCatch(f(...), error=function(err) {
+    do_windup <- function(cont, ...) {
+      list(cont, ...)
+      trace("finally: windup\n")
+      on.exit(trace("finally: unwind\n"))
+      tryCatch(cont(...), error=function(err) {
         trace("finally: catch in windup\n")
         stop_(err)
       })
+      NULL
     }
     try_ <- function() {
       after <<- NULL
       result <<- NULL
       trace("finally: begin\n")
-      windup(do_windup, do_expr)
+      windup(do_expr, do_windup)
     }
     try_
   }

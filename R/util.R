@@ -57,22 +57,33 @@ expect_state_pointers_closed <- function(graphc) {
   # in the same context.
   con <- names(graphc$contexts)
   env <- as.list(graphc$contexts)[[1]]
-  for (var in unique(c(
-    graphc$contextProperties[[con, "read"]],
-    graphc$contextProperties[[con, "store"]]))) {
+  for (var in unique(c(graphc$contextProperties[[con, "read"]],
+                       graphc$contextProperties[[con, "store"]]))) {
     val <- graphc$contexts[[con]][[var]]
     if (is.function(val) && !is.quotation(val) && !is.null(body(val))) {
       #is it tailcalled?
       if (var %in% graphc$contextProperties[[con, "tail"]]) {
-        cat("a tailcall\n")
         expect_identical(environment(val), env)
       } else {
-        if (!identical(environment(val), env)) {
-          cat("a non-tailcall, ", var, ", \n") # pumpCont is a state pointer and we should check it
+        if (!is_child_of(environment(val), env)) {
+          cat("a non-tailcall, ", var, ", \n") #Hmm.
+          # Functions that have been munged/translated, as well as
+          # functions that should not be translated, should not
+          # be under the async package namespace.
+          e <- environment(graphc$contexts[[con]][[var]])
+          expect_false(is_child_of(e, getNamespace("async")))
         }
       }
     }
   }
+}
+
+is_child_of <- function(child, parent) {
+  while(!identical(child, emptyenv())) {
+    if (identical(child, parent)) return(TRUE)
+    child <- parent.env(child)
+  }
+  return(FALSE)
 }
 
 expect_graph_names_are_graphc_locals <- function(graph, graphc) {
@@ -83,37 +94,38 @@ expect_graph_names_are_graphc_locals <- function(graph, graphc) {
                      graphc$nodeProperties[[nodeName, "localName"]],
                    "")
   if (!setequal(unname(cnodes), names(graph$nodes))) browser()
-  expect_true(setequal(unname(cnodes), names(graph$nodes)))
+  expect_setequal(unname(cnodes), names(graph$nodes))
 }
 
 expect_edges_isomorphic <- function(graph, graphc) {
-  # Also using the property that node names assigned in walk become locals
-  fromcs <- names(graphc$edgeProperties)
-  fromclocals <- vapply(
-    fromcs, function(nodeName) graphc$nodeProperties[[nodeName,"localName"]], "")
-  edgecs <- (structure(fromcs, names=fromclocals)
+  # Also using the property that node names assigned in walk become local names
+  # after compilation
+  fromcs <- names(graphc$nodeEdgeProperties)
+  fromclocals <- (fromcs
+    |> vapply( \(nodeName)graphc$nodeProperties[[nodeName, "localName"]], "" ))
+  edgecs <- (structure(fromcs, names=paste0(fromclocals, "->"))
     |> lapply(function(fromc) {
-      tocs <- names(graphc$edgeProperties[[fromc]])
-      toclocals <- vapply(
-        tocs, function(nodeName) graphc$nodeProperties[[nodeName, "localName"]], "")
+      toclocals <- names(graphc$nodeEdgeProperties[[fromc]])
+      tocs <- toclocals |> vapply(
+        \(local) graphc$nodeEdgeProperties[[fromc, local]]$to, "")
       structure(tocs, names=toclocals)
     })
     |> c(recursive=TRUE)
   )
 
-  froms <- names(graph$edgeProperties)
-  edges <- (structure(froms, names=froms)
-    |> lapply(function(from) (
-      names(graph$edgeProperties[[from]]) %||% character(0)
-      |> (\(.)structure(., names=.))()
-    ))
+  froms <- names(graph$nodeEdgeProperties)
+  edges <- (structure(froms, names=paste0(froms, "->"))
+    |> lapply( \(from)
+      as.list(graph$nodeEdgeProperties[[from]])
+      |> vapply(\(x) x$to, "")
+      |> (\(.)structure(names(.), names=.))())
     |> c(recursive=TRUE)
   )
 
   expect_setequal(names(edges), names(edgecs))
 }
 
-expect_resolves_with <- function(prom, expected, trigger, test=expect_equal) {
+expect_resolves_with <- function(prom, expected, trigger=NULL, test=expect_equal) {
   nonce <- function() NULL
   val <- nonce
   then(prom, onFulfilled=function(val) val <<- val, onRejected=stop)
@@ -121,4 +133,5 @@ expect_resolves_with <- function(prom, expected, trigger, test=expect_equal) {
   wait_for_it()
   if (identical(val, nonce)) stop("Promise did not resolve")
   test(val, expected)
+  val
 }

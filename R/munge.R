@@ -23,17 +23,18 @@ munge <- function(# the async/generator to munge
       as.character(paste0(contextName, contextVars, recycle0=TRUE)),
       names=contextVars)
 
-    calls <- unlist(as.list(props)[c("tail", "tramp", "hand", "utility")],
+    calls <- unlist(as.list(props)[c("tail", "tramp", "hand", "windup", "utility")],
                     use.names=FALSE)
 
-    # The local labels for each edge are called here.
-    callTranslations <- concat(lapply(
-      names(graph$contextNodes[[contextName]]),
-      function(nodeName) {
-        props <- as.list(graph$edgeProperties[[nodeName]])
-        structure(names(props) %||% character(0),
-                  names=vapply(props, function(x) x$localName, ""))
-      }))
+    # The local labels for each edge are collected in edges.
+    callTranslations <- (
+      names(graph$contextNodes[[contextName]])
+      |> lapply(
+        \(nodeName) (
+          graph$nodeEdgeProperties[[nodeName]]
+          |> as.list()
+          |> vapply(\(x) x$to, "")))
+      |> concat())
 
     utils <- setdiff(setdiff(props$utility,
                              names(callTranslations)),
@@ -81,10 +82,12 @@ munge <- function(# the async/generator to munge
 
     for (nodeName in names(graph$contextNodes[[contextName]])) {
       # nodeName is the translated node name that walk() came up with
-      #if (nodeName == "_do_expr.1.awaited.then.1.ifTrue.1.do_finally.1") browser()
+      #if (nodeName == "_do_windup") browser()
       node <- graph$nodes[[nodeName]]
       nodeBody <- body(node)
-      transBody <- trans(nodeBody, nms, nms)
+      locals <- names(formals(node))
+      gnms <- nms[!(names(nms) %in% locals)]
+      transBody <- trans(nodeBody, gnms, gnms)
       trace_(paste0("   Node: `", contextName, "`$`",
                     graph$nodeProperties[[nodeName]]$localName,
                     "` -> `", nodeName, "`\n"))
@@ -103,8 +106,6 @@ munge <- function(# the async/generator to munge
           dest.env[[nodeName]] <-
             function_(formals(node), transBody, dest.env)
         } else {
-          # copy direct, don't translate.
-          #browser()
           trace_(paste0("   External function: `", contextName, "`$`", fnam,
                         "` -> `", utilTranslations[[fnam]], "`\n"))
           dest.env[[utilTranslations[[fnam]]]] <- func
@@ -134,13 +135,12 @@ move_value.quotation <- function(graph, contextName, varName, dest.env, newName,
                                  varTranslations, callTranslations) {
   # quotations can be of mode "function," but should be moved directly
   # _without_ modifying their environment.
-  dest.env[[varTranslations[[varName]]]] <-
+  dest.env[[newName]] <-
     graph$contexts[[contextName]][[varName]]
 }
 
 move_value.function <- function(graph, contextName, varName, dest.env, newName,
                                 varTranslations, callTranslations) {
-
   written <- varName %in% graph$contextProperties[[contextName, "store"]]
   value <- get(varName, graph$contexts[[contextName]])
   isNonce <- is.null(body(value))
