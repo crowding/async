@@ -6,7 +6,13 @@
 \alias{yieldFrom}
 \title{Create an iterator using sequential code.}
 \usage{
-gen(expr, ..., split_pipes = FALSE, trace = trace_)
+gen(
+  expr,
+  ...,
+  split_pipes = FALSE,
+  trace = trace_,
+  compileLevel = get("compileLevel", parent.env(environment()))
+)
 
 yield(expr)
 
@@ -21,6 +27,9 @@ yieldFrom(it)
 appears in chained calls. See \link{async}.}
 
 \item{trace}{Optional tracing function for debugging. See \link{async}.}
+
+\item{compileLevel}{Current levels are 0 (no compilation) or
+-1 (name munging only).}
 
 \item{it}{A list, \link{iteror} or compatible object.}
 }
