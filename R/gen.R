@@ -96,15 +96,15 @@ yield <- function(expr) {
 }
 
 yield_cps <- function(expr) { force(expr)
-  function(cont, ..., ret, pause, yield, trace) {
+  function(cont, ..., pause, yield, trace) {
     if (missing_(arg(yield))) base::stop("yield used but this is not a generator")
-    list(cont, ret, pause, yield, trace)
+    list(cont, pause, yield, trace)
     `yield_` <- function(val) {
       force(val)
       trace("yield\n")
-      yield(val, cont, val)
+      yield(cont, val)
     }
-    expr(yield_, ..., ret=ret, pause=pause, yield=yield, trace=trace)
+    expr(yield_, ..., pause=pause, yield=yield, trace=trace)
   }
 }
 
@@ -139,7 +139,7 @@ yieldFrom_cps <- function(it) {
         trace("yieldFrom: stopping")
         cont(invisible(NULL))
       } else {
-        yield(val, yieldFrom_)
+        yield(yieldFrom_, val)
       }
     }
 
@@ -156,8 +156,8 @@ yieldFrom_cps <- function(it) {
 
 make_generator <- function(expr, orig=arg(expr), ..., trace=trace_) { list(expr, ...)
   gen_cps <- function(expr) { force(expr)
-    function(cont, ..., stop, return, pause, trace) {
-      list(stop, return, pause, trace)
+    function(cont, ..., stop, return, pause, pause_val, trace) {
+      list(stop, return, pause, pause_val, trace)
       nonce <- function() NULL
       yielded <- nonce
       err <- nonce
@@ -178,11 +178,11 @@ make_generator <- function(expr, orig=arg(expr), ..., trace=trace_) { list(expr,
         state <<- "stopped"
       }
 
-      yield_ <- function(val, cont, ...) {
+      yield_ <- function(cont, val) {
         trace("generator: yield\n")
-        yielded <<- val
         state <<- "yielded"
-        pause(cont, ...)
+        yielded <<- val
+        pause_val(cont, val)
       }
 
       nextElemOr_ <- function(or, ...) {
@@ -225,7 +225,7 @@ make_generator <- function(expr, orig=arg(expr), ..., trace=trace_) { list(expr,
 
       nextElemOr_ <<- nextElemOr_
       expr(return_, ..., stop=stop_, return=return_, yield=yield_,
-           pause=pause, trace=trace)
+           pause=pause, pause_val=pause_val, trace=trace)
     }
   }
 

@@ -1,7 +1,7 @@
 Package: async
-Title: Asynchronous Code Constructs: Generators, Yield, Async, Await
+Title: Generators, Yield, Async / Await, Streams
 Version: 0.2.99
-Date: 2022-12-09
+Date: 2022-12-26
 Authors@R: 
     person(given = "Peter",
            family = "Meilstrup",
@@ -22,7 +22,7 @@ Encoding: UTF-8
 LazyData: true
 Depends: R (>= 3.5.0)
 Imports:
-        nseval (>= 0.4),
+        nseval (>= 0.4.99),
         later,
         promises,
         iterators

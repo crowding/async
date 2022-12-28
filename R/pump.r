@@ -51,30 +51,46 @@ make_pump <- function(expr, ...,
   value <- nonce
   err <- nonce
 
-  pause_ <- function(cont, ...) {
-    trace("pump: set unpause\n")
-    list(cont, ...)
+  pause_ <- function(cont) {
+    trace("pump: pause (awaiting)\n")
     # this ... business is to carry the value from yield() into the next step,
     # whereas "async" does not provide a value to pause.
     # I may just have it be a state variable.
-    pumpCont <<- function() cont(...)
+    pumpCont <<- cont
+    action <<- "pause"
+  }
+
+  pause_val_ <- function(cont, val) {
+    trace("pump: pause (yielding)\n")
+    list(cont, val)
+    value <<- val
+    pumpCont <<- function() cont(value)
     action <<- "pause"
   }
 
   if (eliminate.tailcalls) {
-    ret_ <- function(cont, ...) {
-      list(cont, ...) #force
-      if(verbose) trace("pump: set continue\n")
+    bounce_ <- function(cont) {
+      if(verbose) trace("pump: bounce\n")
+      pumpCont <<- cont
+      action <<- "continue"
+    }
+    bounce_val_ <- function(cont, val) {
+      force(val) #force
+      if(verbose) trace("pump: bounce with value\n")
       pumpCont <<- function() {
-        cont(...)
+        cont(val)
       }
       action <<- "continue"
     }
   } else {
-    ret_ <- function(cont, ...) {
-      if(verbose) trace("pump: fake ret\n")
-      list(cont, ...) #force
-      cont(...)
+    bounce_ <- function(cont) {
+      if(verbose) trace("pump: fake bounce\n")
+      cont()
+    }
+    bounce_val_ <- function(cont, val) {
+      if(verbose) trace("pump: fake bounce with value\n")
+      list(cont, val) #force
+      cont(val)
     }
   }
 
@@ -149,8 +165,9 @@ make_pump <- function(expr, ...,
   # Our argument "expr" is a context constructor
   # that takes some branch targets ("our "ret" and "stop" etc) and
   # returns an entry continuation.
-  entry <- expr(return_, ..., ret=ret_, stop=stop_, return=return_,
-                windup=windup_, unwind=unwind_, pause=pause_, trace=trace)
+  entry <- expr(return_, ..., bounce=bounce_, bounce_val=bounce_val_,
+                stop=stop_, return=return_, windup=windup_,
+                unwind=unwind_, pause=pause_, pause_val=pause_val_, trace=trace)
   pumpCont <- entry
 
   pump <- function(...) {

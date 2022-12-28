@@ -27,7 +27,7 @@ test_that("function inspection with all_names", {
   externVar2 <- 5
   if (exists("alichlkh")) rm("alichlkh", inherits=TRUE)
   g1 <- function(val) NULL
-  g2 <- function(val, cont, ...) NULL
+  g2 <- function(cont, val) NULL
   g3 <- function(val) NULL
   g4 <- function(val) NULL
   delayedAssign("cont", stop("don't look at me!"))
@@ -57,7 +57,7 @@ test_that("function inspection with all_names", {
         g1(temp, arg1)
     } else {
       if(FALSE)
-        g2(12, g3, NULL) # a _trampolined_ tailcall
+        g2(g3, 12) # a _trampolined_ tailcall
       else
         cont(1) # "cont" is an argument, not the trampoline above
     }
@@ -82,8 +82,8 @@ test_that("function inspection with all_names", {
   all_names(f, c("tailcall", "trampoline", "handler")) %is%
     list(tailcall=alist(alichlkh(temp, arg1)),
          tailcall=alist(g1(temp, arg1)),
-         handler=alist(g2(val=12), g2(12, g3, NULL)),
-         trampoline=alist(g3(NULL), g2(12, g3, NULL)),
+         handler=alist(g2(), g2(g3, 12)),
+         trampoline=alist(g3(val=12), g2(g3, 12)),
          tailcall=alist(cont(1)))
 
   rm("cont")
@@ -102,7 +102,7 @@ test_that("function inspection with all_names", {
 
 test_that("all_names recognizes trampolines", {
 
-  trample <- function(cont, ...) NULL
+  trample <- function(cont, val) NULL
   y <- function(val) {
     force(val)
     trace("yield\n")
@@ -111,9 +111,9 @@ test_that("all_names recognizes trampolines", {
     trample(cont, val)
   }
   an <- all_names(y, c("tailcall", "trampoline", "handler"))
-
   an$handler %is% alist(trample(), trample(cont, val))
-  an$trampoline %is% alist(cont(val), trample(cont, val))
+  an$trampoline %is% alist(cont(val=val), trample(cont, val))
+  an$tailcall %is% NULL
 
   z <- function(err) {
     trace(paste0("pump: stop: ", conditionMessage(err), "\n"))
@@ -123,17 +123,21 @@ test_that("all_names recognizes trampolines", {
   }
   #stop is not a trampoline call bc no "cont"
   an <- all_names(z, c("tailcall", "trampoline", "handler"))
+  an$tailcall %is% alist(stop(err))
+  an$trampoline %is% NULL
+  an$handler %is% NULL
 
-  pause <- function(cont, ...) NULL
-  w <- function(val, cont, ...) {
+  pause <- function(cont) NULL
+  w <- function(val, cont) {
     trace("generator: yield\n")
     yielded <<- val
     state <<- "yielded"
-    pause(cont, ...)
+    pause(cont)
   }
-  #"cont" is not registered as a trampoline because it's indirect
+  #"cont" is not registered as a trampoline/tailcall because it's indirect
   #(i.e. cont is in the args)
-  all_names(w, c("tailcall", "trampoline", "handler"))
+  an <- all_names(w, c("tailcall", "trampoline", "handler"))
+  an$handler %is% alist(pause(), pause(cont))
 
 })
 

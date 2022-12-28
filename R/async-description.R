@@ -27,12 +27,22 @@ trace_ <- function(x) if(verbose) cat(x)
 
 compileLevel <- 0
 
+#' Get or set global options for the async package.
+#'
+#' If new settings are provided in arguments they take effect for any new
+#' generators or asyncs created.
+#' @param verbose If TRUE, coroutines will print an extremely chatty
+#'   play-by-play of the steps they are taking.
+#' @param compileLevel Default compile level for new generators. See [gen]().
+#' @param paranoid if TRUE, perform verious integrity checks on the
+#'   result of compilation. Meant to be enabled during testing.
+#' @return a list containing the current settings.
 #' @export
 asyncOpts <- function(
     verbose=get("verbose", parent.env(environment())),
     compileLevel=get("compileLevel", parent.env(environment())),
     paranoid=get("paranoid", parent.env(environment()))) {
-  list(verbose, compileLevel)
+  list(verbose, compileLevel, paranoid)
   unlockBinding("compileLevel", getNamespace("async"))
   unlockBinding("verbose", getNamespace("async"))
   unlockBinding("paranoid", getNamespace("async"))

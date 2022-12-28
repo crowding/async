@@ -109,6 +109,7 @@ test_that("Translating expressions", {
 })
 
 test_that("Makes fully qualified names when async package not attached", {
+
   if ("package:async" %in% search()) {
     on.exit({
       attachNamespace("async")

@@ -36,10 +36,10 @@
 # executing to extract the call graph.
 #
 # Because R does not have native tailcall elimination, nodes can
-# optionally tailcall into the "ret" callback, which takes a
-# continuation function as argument. This sets a thunk which allows
-# the stack to unwind and continue from the callback passed to it.
-# make_pump() operates a trampoline that makes this work.
+# optionally tailcall into the "bounce" callback, which takes a
+# destination node as argument. This allows the stack to unwind and
+# continue to the node passed to it.  make_pump() operates this
+# trampoline.
 #
 # "cps_" stood for "continuation passing style," but we are actually now
 # building a static graph, rather than passing continuations around as
@@ -47,8 +47,8 @@
 #
 # This code is directly executed for interpreted asyncs (with
 # `asyncOpts(compileLevel 0)`, but these functions also the input for
-# compiled asyncs. Compiling R generally is impossible, so
-# therefore there are some rules on how they are written, call these
+# compiled asyncs. Compiling R generally is impossible, so therefore
+# there are some rules on how the nodes below are written, call these
 # restrictions `R--`:
 #
 # * Generally avoid non-standard evaluation. Anything that "looks like" variable
@@ -57,18 +57,21 @@
 # * Avoid passing a function as an argument. In `tryCatch(stuff,
 #   err=myRecovery)` it looks to the compiler like myRecovery is a
 #   var.  Do `tryCatch(stuff, err=function(e) myRecovery(e))` instead.
-# * State may close over variables in the immediately enclosing environment, but
-#   you must fully qualify any package code references.
+# * Nodes may close over variables in the immediately enclosing environment
+#   (the nodes' "context"), any references to outside package code must be
+#   fully qualified.
 # * Trampoline handlers are recognized by having an argument called "cont."
+#   They should be called in "tail position".
 # * Don't make a local variable the same name as a variable you close over.
-# * Any calls in tail position or using trampoline handlers are treated as part
+# * Any calls in "tail position" or using trampoline handlers in tail position
+#   are treated as part
 #   of the graph. Don't put a call in tail position unless you intend that
 #   function to be "included" in the graph.
 # * You can have helper functions (i.e. that you don't tailcall) defined in
-#   the same context as your regular functions, and they will be carried to a
-#   new scope. However, the graph walker does not inspect them to see what
+#   the same context as your nodes, and they will be carried to the compiled
+#   scope. However, the graph walker does not inspect them to see what
 #   variables a helper function uses, unless you explicitly put that function
-#   in the sart set.
+#   in the start set.
 
 
 `(_cps` <- function(expr) {
@@ -110,8 +113,8 @@ make_store <- function(sym) { force(sym)
 `<<-_cps` <- make_store(`<<-`)
 
 `&&_cps` <- function(left, right) { list(left, right)
-  function(cont, ..., ret, trace=trace_) {
-    list(cont, ret, trace)
+  function(cont, ..., trace=trace_) {
+    list(cont, trace)
     leftVal <- NULL
     andRight <- function(val) {
       test <- leftVal && val
@@ -119,7 +122,7 @@ make_store <- function(sym) { force(sym)
       leftVal <<- NULL
       cont(test)
     }
-    ifTrue <- right(andRight, ..., ret=ret, trace=trace)
+    ifTrue <- right(andRight, ..., trace=trace)
     andLeft <- function(val) {
       if (isFALSE(val)) {
         trace("&&: FALSE (skip)\n")
@@ -129,21 +132,21 @@ make_store <- function(sym) { force(sym)
         ifTrue()
       }
     }
-    getLeft <- left(andLeft, ..., ret=ret, trace=trace)
+    getLeft <- left(andLeft, ..., trace=trace)
     getLeft
   }
 }
 
 `||_cps` <- function(left, right) { list(left, right)
-  function(cont, ..., ret, trace=trace_) {
-    list(cont, ret, trace)
+  function(cont, ..., trace=trace_) {
+    list(cont, trace)
     leftVal <- NULL
     orRight <- function(val) {
       test <- leftVal || val
       trace(paste0("||: ", deparse(test), "\n"))
       cont(test)
     }
-    ifFalse <- right(orRight, ..., ret=ret, trace=trace)
+    ifFalse <- right(orRight, ..., trace=trace)
     orLeft <- function(val) {
       if (isTRUE(val)) {
         trace("||: TRUE (skip)\n")
@@ -153,16 +156,16 @@ make_store <- function(sym) { force(sym)
         ifFalse()
       }
     }
-    getLeft <- left(orLeft, ..., ret=ret, trace=trace)
+    getLeft <- left(orLeft, ..., trace=trace)
     getLeft
   }
 }
 
 if_cps <- function(cond, cons.expr, alt.expr) {
   list(cond, cons.expr, maybe(alt.expr))
-  function(cont, ..., ret, stop, trace=trace_) {
-    list(cont, ret, stop, trace)
-    ifTrue <- cons.expr(cont, ..., ret=ret, stop=stop, trace=trace)
+  function(cont, ..., stop, trace=trace_) {
+    list(cont, stop, trace)
+    ifTrue <- cons.expr(cont, ..., stop=stop, trace=trace)
     if (missing_(arg(alt.expr))) {
       if_ <- function(val) {
         if(val) ifTrue() else cont(invisible(NULL))
@@ -174,7 +177,7 @@ if_cps <- function(cond, cons.expr, alt.expr) {
         ## } else stop("if: Invalid condition")
       }
     } else {
-      ifFalse <- alt.expr(cont, ..., ret=ret, stop=stop, trace=trace)
+      ifFalse <- alt.expr(cont, ..., stop=stop, trace=trace)
       if_ <- function(val) {
         if(val) ifTrue() else ifFalse()
         ## if (isTRUE(val)) {
@@ -185,16 +188,16 @@ if_cps <- function(cond, cons.expr, alt.expr) {
         ## } else stop("if: Invalid condition")
       }
     }
-    getCond <- cond(if_, ..., stop=stop, ret=ret, trace=trace)
+    getCond <- cond(if_, ..., stop=stop, trace=trace)
   }
 }
 
 
 switch_cps <- function(EXPR, ...) {
   force(EXPR); alts <- list(...)
-  function(cont, ..., ret, stop, trace=trace_) {
-    list(cont, ret, stop, trace)
-    alts <- lapply(alts, function(x) x(cont, ..., ret=ret, stop=stop, trace=trace))
+  function(cont, ..., stop, trace=trace_) {
+    list(cont, stop, trace)
+    alts <- lapply(alts, function(x) x(cont, ..., stop=stop, trace=trace))
 
     switch_ <- function(val) {
       if (is.numeric(val)) {
@@ -222,13 +225,13 @@ switch_cps <- function(EXPR, ...) {
         }
       }
     }
-    EXPR(switch_, ..., ret=ret, stop=stop, trace=trace)
+    EXPR(switch_, ..., stop=stop, trace=trace)
   }
 }
 
-`;_ctor` <- function(cont, ..., ret, trace=trace_) {
+`;_ctor` <- function(cont, ..., trace=trace_) {
   # a semicolon forces its input but discards it
-  list(cont, ret, trace)
+  list(cont, trace)
   `;` <- function(val) {
     force(val)
     val <- NULL #force, then discard
@@ -263,14 +266,14 @@ switch_cps <- function(EXPR, ...) {
 
 # Here's how signals and restarts are handled: context constructors
 # accept and pass down a list of handlers (...) through the right hand
-# side. Of these we have "cont" and "ret" always. If a CPS function
+# side. Of these we have "cont" and "bounce*" always. If a CPS function
 # wants a signal "next" or such, it does that by calling into its
 # `nxt` handler.
 
 next_cps <- function()
-  function(cont, ..., ret, nxt, trace=trace_) {
+  function(cont, ..., nxt, trace=trace_) {
     if (missing_(arg(nxt))) stop("call to next is not in a loop")
-    list(ret, nxt, trace)
+    list(nxt, trace)
     if (verbose) {
       next_ <- function() {
         trace("next\n")
@@ -280,9 +283,9 @@ next_cps <- function()
   }
 
 break_cps <- function()
-  function(cont, ..., ret, brk, trace=trace_) {
+  function(cont, ..., brk, trace=trace_) {
     if (missing_(arg(brk))) stop("call to break is not in a loop")
-    list(ret, brk, trace)
+    list(brk, trace)
     if(verbose) {
       break_ <- function() {
         trace("break\n")
@@ -312,14 +315,14 @@ nextElemOr_cps <- function(expr, or) {
 # If you want to establish a new target for "break" or "next" you
 # pass that down to constructor arguments:
 
-repeat_cps <- function(expr) { force(expr) #expr getting NULL???
-  function(cont, ..., ret, brk, nxt, trace=trace_) {
-    list(cont, ret, maybe(brk), maybe(nxt), trace)
+repeat_cps <- function(expr) { force(expr)
+  function(cont, ..., bounce, brk, nxt, trace=trace_) {
+    list(cont, maybe(brk), maybe(nxt), trace)
     repeat_ <- function(val) {
       trace("repeat: again\n")
       force(val)
       val <- NULL
-      ret(begin)
+      bounce(begin)
     }
     brk_ <- function() {
       trace("repeat: break\n")
@@ -327,31 +330,33 @@ repeat_cps <- function(expr) { force(expr) #expr getting NULL???
     }
     nxt_ <- function() {
       trace("repeat: next\n")
-      ret(begin)
+      bounce(begin)
     }
-    begin <- expr(repeat_, ..., ret=ret, brk=brk_, nxt=nxt_, trace=trace)
+    begin <- expr(repeat_, ..., bounce=bounce,
+                  brk=brk_, nxt=nxt_, trace=trace)
     begin
   }
 }
 
 while_cps <- function(cond, expr) {
   list(cond, expr)
-  function(cont, ..., ret, nxt, brk, trace=trace_) {
-    list(cont, ret, maybe(nxt), maybe(brk), trace)
+  function(cont, ..., bounce, bounce_val, nxt, brk, trace=trace_) {
+    list(cont, bounce, bounce_val, maybe(nxt), maybe(brk), trace)
     again <- function(val) {
       force(val)
       val <- NULL
-      ret(begin)
+      bounce(begin)
     }
     brk_ <- function() {
       trace("while: break\n")
-      ret(cont, invisible(NULL))
+      bounce_val(cont, invisible(NULL))
     }
     nxt_ <- function() {
       trace("while: next\n")
-      ret(begin)
+      bounce(begin)
     }
-    doExpr <- expr(again, ..., ret=ret, nxt=nxt_, brk=brk_, trace=trace)
+    doExpr <- expr(again, ..., bounce=bounce, bounce_val=bounce_val,
+                   nxt=nxt_, brk=brk_, trace=trace)
     while_ <- function(val) {
       if (val) {
         trace("while: do\n")
@@ -360,10 +365,11 @@ while_cps <- function(cond, expr) {
       } else {
         trace("while: end\n")
         val <- NULL
-        ret(cont, invisible(NULL))
+        bounce_val(cont, invisible(NULL))
       }
     }
-    begin <- cond(while_, ..., ret=ret, nxt=nxt_, brk=brk_, trace=trace)
+    begin <- cond(while_, ..., bounce=bounce, bounce_val=bounce_val,
+                  nxt=nxt_, brk=brk_, trace=trace)
   }
 }
 
@@ -371,11 +377,11 @@ while_cps <- function(cond, expr) {
 #' @import iterators
 for_cps <- function(var, seq, expr) {
   list(var, seq, expr)
-  function(cont, ..., ret, nxt, brk, stop, trace=trace_) {
-    list(cont, ret, maybe(nxt), maybe(brk), stop, trace)
-
+  function(cont, ..., bounce, bounce_val, nxt, brk, stop, trace=trace_) {
+    list(cont, bounce, bounce_val, maybe(nxt), maybe(brk), stop, trace)
     #quote the LHS at constuction time
-    var_ <- var(cont, ..., ret=ret, nxt=nxt, brk=brk, stop=stop, trace=trace) #not our brk
+    var_ <- var(cont, ..., bounce=bounce, bounce_val=bounce_val,
+                nxt=nxt, stop=stop, trace=trace) #not our brk
     if (!is_R(var_)) {
       stop("Unexpected stuff in for() loop variable")
     }
@@ -389,14 +395,15 @@ for_cps <- function(var, seq, expr) {
       cont(invisible(NULL))
     }
     nxt_ <- function() {
-      ret(do_)
+      bounce(do_)
     }
-    again_ <- function(val) {
+    again <- function(val) {
       force(val)
-      ret(do_)
+      bounce(do_)
     }
-    body <- expr(again_, ..., ret=ret, nxt=nxt_, brk=brk_, stop=stop,
-                 trace=trace) # our brk_
+    body <- expr(again, ..., bounce=bounce,
+                 bounce_val=bounce_val, nxt=nxt_, brk=brk_,
+                 stop=stop, trace=trace) # our brk_
     do_ <- function() {
       stopping <- FALSE
       trace(paste0("for ", var_, ": next\n"))
@@ -414,7 +421,8 @@ for_cps <- function(var, seq, expr) {
       seq_ <<- async::iteror(val)
       do_()
     }
-    getSeq <- seq(for_, ..., ret=ret, nxt=nxt, brk=brk, stop=stop, trace=trace) #not our brk
+    getSeq <- seq(for_, ..., bounce=bounce, bounce_val=bounce_val,
+                  nxt=nxt, brk=brk, stop=stop, trace=trace) #not our brk
   }
 }
 

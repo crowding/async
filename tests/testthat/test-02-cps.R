@@ -2,12 +2,6 @@
 
 `%is%` <- expect_equal
 
-test_that("R captures lazy arg", {
-  f <- function(x) {arg_expr(x)}
-  cp <- R(x+y)(f)
-  cp() %is% quote(x+y)
-})
-
 test_that("R causes scoped effects,", {
   x <- 10
   f <- function(x) {

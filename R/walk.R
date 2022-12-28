@@ -149,21 +149,22 @@ all_names <- function(fn,
                    collect_ordinary_call(expr, inTail, orig)
                  )
                } else {
-                 if (all(c("cont", "...") %in% names(formals(peek)))) {
+                 if (all(c("cont") %in% names(formals(peek)))) {
                    # A trampoline-indirect call! Register both the target and
                    # the indirect.
                    handl <- match.call(peek, expr, expand.dots=FALSE,
                                        envir=as.environment(list(`...`=NULL)))
-                   trampolined <- as.call(c(list(handl$cont), handl$...))
-                   windup <- FALSE
                    if ("winding" %in% names(handl)) {
                      # windup takes TWO function pointers
                      woundup <- as.call(list(handl$winding))
                      windup <- TRUE
                      handl$winding <- NULL
+                   } else {
+                     windup <- FALSE
                    }
-                   handl$cont <- NULL
-                   handl$... <- NULL
+                   trampoline_args <- names(handl) %in% c("cont", "val")
+                   trampolined <- as.call(handl[trampoline_args])
+                   handl <- handl[!trampoline_args]
                    c(
                      if (tramp) c(tramp=as.character(trampolined[[1]])),
                      if (tramp && windup) c(tramp=as.character(woundup[[1]])),
@@ -416,7 +417,8 @@ walk <- function(gen) {
     thisNode <- nodes[[thisNodeName]]
     context <- environment(nodes[[thisNodeName]])
     if (is.null(contextName <- contains(contexts, context))) {
-      contextName <- paste0(thisNodeName, "#")
+      contextName <- paste0(thisNodeName, "__")
+
       assert(!exists(contextName, envir=contexts))
       trace_(paste0("  Context: ", contextName, "\n"))
       contexts[[contextName]] <- context
