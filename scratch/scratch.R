@@ -61,6 +61,8 @@ f <- function(x) {
       ", and parent is ", sys.frame(-1)$where, "\n")
 }
 
+# JUST FUCKING NAME THEM DURING TRANSLATION!!! There!!!!
+
 g <- function() {
   where <- "g"
   browser()
@@ -72,61 +74,13 @@ selfnamed <- function(x) structure(x, names=x)
 lapply(selfnamed(names(graph$nodes)), \(x)graph$nodeProperties[[x]]$localName)
 
 
-await <- function(promise, or=error(err), error=stop) {
-
-}
-
 # how to handle nextElem
 
 nextElem <- function(promise,
-                     or=error("StopIteration")) {
+                     or=quote(.stopIteration.)error("StopIteration")) {
 
 }
 
-contextLabelMe <- function() {
-  # assemble together context labels from the parents?
-  parents <- lapply(sys.frames(), function(x) x$contextLabel) %||% character(0)
-  current <- as.character(get_call(caller()))
-  c(recursive=TRUE, parents, sep=".")
+await <- function(prom, or=reject(err), reject=function(err)) stop(err)) {
+
 }
-
-
-   a <- async({
-      tryCatch({
-        if(FALSE) await(NULL)
-        return(2)
-        not_run <<- FALSE
-      }, finally={
-        cleanup <<- TRUE
-      })
-      not_run <<- FALSE
-      5
-   })
-
-g <- gen({
-  tryCatch({
-    if(FALSE) yield(NULL)
-    return(2)
-    not_run <<- FALSE
-  }, finally={
-    cleanup <<- TRUE
-  })
-  not_run <<- FALSE
-})
-
-asyncOpts(verbose=TRUE)
-g <- gen({
-  try({
-    yield(5)
-    stop("foo")
-    yield(6)
-  }, silent=TRUE)
-  yield(7)
-  stop("bar")
-  yield(8)
-}, compileLevel=-1)
-
-expect_equal(nextElem(g), 5)
-expect_equal(nextElem(g), 7)
-expect_error(nextElem(g), "bar")
-expect_error(nextElem(g), "StopIteration")

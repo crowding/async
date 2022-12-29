@@ -497,3 +497,29 @@ Ohhh. the error handler is outside of "tryCatch"'s scope. Because it's just an "
 # Error in `execCallbacks(timeoutSecs, all, loop$id)`: Evaluation error: object of type 'closure' is not subsettable.
 
 This error showed up in async reject. Turns out to have been A name collision of lambda argument (err) with handler.
+
+## Awaiting on a "pr" that doesn't exist gives a "subscript out of bounds"
+
+In this:
+
+      async({
+        tryCatch({
+          if (await(pr)) {
+            return(5)
+            not_run <<- FALSE
+            5
+          } else 4
+        }, finally={
+          cleanup <<- TRUE
+        })
+      })
+
+It _should_ give a more comprehensible error. This particular error sounds like something wrong with tryCatch.
+
+## Refactor so that trampoline handlers do not use `...` but either take a value or not..
+
+Okay, this `...` business in the handlers might be getting silly. I think for sanity's sake I might have to declare some trampolines take a `val` and others don't. That will be another refactoring (probably before I do codegen)
+
+## Remove `...` from signal handlers
+
+Just use a local varable and another state if you want to return two things.

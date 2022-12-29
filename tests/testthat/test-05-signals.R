@@ -90,6 +90,7 @@ test_that("simple try-catch with yield in body", {
 })
 
 test_that("try-finally", {
+
   g <- gen({
     tryCatch({
       yield(1); stop("someError")
@@ -126,6 +127,7 @@ test_that("try/finally, stop and return", {
 })
 
 test_that("try-catch with error", {
+
   caught <- FALSE
   g <- gen({
     tryCatch({
@@ -139,6 +141,7 @@ test_that("try-catch with error", {
     })
     yield(3)
   })
+
   nextElem (g) %is% 1
   nextElem (g) %is% 2
   nextElem (g) %is% 3

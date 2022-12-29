@@ -274,3 +274,25 @@ test_that("tracing", {
                trace=with_prefix("one")),
     "one: R: TRUE.*R: 1.*async: return")
 })
+
+test_that("awaiting value that doesn't exist", {
+
+  as <- async({
+    tryCatch({
+      if (await(pr)) {
+        return(5)
+        not_run <<- FALSE
+        5
+      } else 4
+    }, finally={
+      cleanup <<- TRUE
+    })
+  })
+
+  result <- NULL
+  then(as, function(val) stop("should have failed!"),
+       function(err) result <<- err)
+  wait_for_it()
+  expect_match(as.character(result), "not found")
+
+})

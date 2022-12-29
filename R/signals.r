@@ -2,8 +2,8 @@
 R <- function(x) {
   x <- arg(x)
 
-  function(cont, ..., stop=base::stop, trace=trace_) {
-    list_missing(cont, stop)
+  function(cont, ..., trace=trace_) {
+    force(cont)
     x <- x
 
     R_ <- function() {
@@ -75,15 +75,27 @@ catch_cps_ <- function(expr, error) {
     }
     getErrHandler <- error(gotErrHandler, ..., stop=stop, brk=brk,
                            nxt=nxt, windup=windup, unwind=unwind,
-                           return=return, trace=trace)
-    stop_ <- function(err) {
-      trace("catch: stop\n")
-      result <<- err
-      unwind(getErrHandler)
+                           return=return_, trace=trace)
+    do_return <- function() {
+      return(list(result, result <<- NULL)[[1]])
+    }
+    do_continue <- function() {
+      cont(list(result, result <<- NULL)[[1]])
+    }
+    continue <- function(val) {
+      trace("catch: contin\n")
+      result <<- val
+      unwind(do_continue)
     }
     return_ <- function(val) {
       trace("catch: return\n")
-      unwind(return, val)
+      result <<- val
+      unwind(do_return)
+    }
+    stop_ <- function(val) {
+      trace("catch: stop\n")
+      result <<- val
+      unwind(getErrHandler)
     }
     brk_ <- function() {
       trace("catch: break\n")
@@ -93,15 +105,9 @@ catch_cps_ <- function(expr, error) {
       trace("catch: next\n")
       unwind(nxt)
     }
-    after <- function(val) {
-      force(val) #need to to prevent us lazily
-      #propagating an error past the unwind
-      trace("catch: success\n")
-      unwind(cont, val)
-    }
-    do_expr <- expr(after, ..., stop=stop_, brk=brk_, nxt=nxt_,
-                    windup=windup, unwind=unwind, return=return_,
-                    trace=trace)
+    do_expr <- expr(continue, ..., stop=stop_, brk=brk_, nxt=nxt_,
+                    windup=windup, unwind=unwind,
+                    return=return_, trace=trace)
     do_windup <- function(cont, ...) {
       list(cont, ...)
       trace("catch: windup\n")
@@ -155,9 +161,9 @@ finally_cps_ <- function(expr, finally) {
     }
     # if there is an uncaught error, then a return, break or next
     # from the finally block, throw the saved error instead.
-    finally_return <- function(...) {
+    finally_return <- function(val) {
       trace("finally: return in finally block\n")
-      if (after=="stop") stop(result) else return(...)
+      if (after=="stop") stop(result) else return(val)
     }
     finally_brk <- function() {
       trace("finally: break in finally block\n")
@@ -175,7 +181,7 @@ finally_cps_ <- function(expr, finally) {
       result <<- val
       after <<- "success"
       trace("finally: success\n")
-      do_finally() # val should be saved, discard it
+      unwind(do_finally) # val should be saved, discard it
     }
     stop_ <- function(err) {
       trace("finally: stop\n")
@@ -202,11 +208,11 @@ finally_cps_ <- function(expr, finally) {
     do_expr <- expr(finally_then, ..., stop=stop_, brk=brk_, nxt=nxt_,
                     windup=windup, unwind=unwind, return=return_,
                     trace=trace)
-    do_windup <- function(cont, ...) {
-      list(cont, ...)
+    do_windup <- function(cont) {
+      list(cont)
       trace("finally: windup\n")
       on.exit(trace("finally: unwind\n"))
-      tryCatch(cont(...), error=function(err) {
+      tryCatch(cont(), error=function(err) {
         trace("finally: catch in windup\n")
         stop_(err)
       })
@@ -237,9 +243,23 @@ try_cps <- function(expr, silent=R(FALSE),
       result <<- err
       unwind(try_handler)
     }
+    do_continue <- function() {
+      cont(list(result, result <<- NULL)[[1]])
+    }
+    do_return <- function() {
+      return(list(result, result <<- NULL)[[1]])
+    }
     return_ <- function(val) {
       trace("try: return\n")
-      unwind(return, val)
+      result <<- val
+      unwind(do_return)
+    }
+    continue <- function(val) {
+      force(val) #need to to prevent us lazily
+      #propagating an error past the unwind
+      trace("try: success\n")
+      result <<- val
+      unwind(do_continue)
     }
     brk_ <- function() {
       trace("try: break\n")
@@ -248,12 +268,6 @@ try_cps <- function(expr, silent=R(FALSE),
     nxt_ <- function() {
       trace("try: next\n")
       unwind(nxt)
-    }
-    after <- function(val) {
-      force(val) #need to to prevent us lazily
-      #propagating an error past the unwind
-      trace("try: success\n")
-      unwind(cont, val)
     }
     try_handler <- function() {
       # (copied from base::try) {{{
@@ -283,14 +297,14 @@ try_cps <- function(expr, silent=R(FALSE),
       # }}} (copied)
       cont(retval)
     }
-    do_expr <- expr(after, ...,
+    do_expr <- expr(continue, ...,
                     stop=stop_, brk=brk_, nxt=nxt_,
                     windup=windup, unwind=unwind, return=return_, trace=trace)
-    do_windup <- function(cont, ...) {
-      list(cont, ...)
+    do_windup <- function(cont) {
+      list(cont)
       trace("try: windup\n")
       on.exit(trace("try: unwind\n"))
-      tryCatch(cont(...), error=function(e) {
+      tryCatch(cont(), error=function(e) {
         trace("try: caught error by windup\n")
         stop_(e)
       })

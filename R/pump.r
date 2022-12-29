@@ -49,13 +49,9 @@ make_pump <- function(expr, ...,
   action <- "pause" # stopped, pause
   pumpCont <- nonce
   value <- nonce
-  err <- nonce
 
   pause_ <- function(cont) {
     trace("pump: pause (awaiting)\n")
-    # this ... business is to carry the value from yield() into the next step,
-    # whereas "async" does not provide a value to pause.
-    # I may just have it be a state variable.
     pumpCont <<- cont
     action <<- "pause"
   }
@@ -77,10 +73,9 @@ make_pump <- function(expr, ...,
     bounce_val_ <- function(cont, val) {
       force(val) #force
       if(verbose) trace("pump: bounce with value\n")
-      pumpCont <<- function() {
-        cont(val)
-      }
-      action <<- "continue"
+      value <<- val
+      pumpCont <<- cont
+      action <<- "continue_val"
     }
   } else {
     bounce_ <- function(cont) {
@@ -96,7 +91,7 @@ make_pump <- function(expr, ...,
 
   stop_ <- function(val) {
     trace(paste0("pump: stop: ", conditionMessage(val), "\n"))
-    err <<- val
+    value <<- val
     action <<- "stop"
     stop(val)
   }
@@ -110,56 +105,49 @@ make_pump <- function(expr, ...,
   }
 
   # We maintain a list of "windings."
-  # A "winding" is a function that must tailcall into its args like:
-  # null_winding <- function(cont, ...) cont(...)
+  # A "winding" is a function that must tailcall into its "cont" arg. like:
+  # null_winding <- function(cont) tryCatch(cont())
   # f(cont) that establishes a context,
   # and returning from f(cont), unwinds that context.
   if(catch) {
-    base_winding <- function(cont, ...) {
+    base_winding <- function(cont) {
       if(verbose) trace("pump: windup\n")
-      tryCatch(cont(...), error=function(err){
+      tryCatch(cont(), error=function(err){
         trace("pump: caught error by windup\n")
         stop_(err)
-      }, finally=if(verbose) trace("pump: unwind\n"))
+      }, finally=trace("pump: unwind\n"))
     }
   } else {
-    base_winding <- function(cont, ...) {
-      cont(...)
-    }
+    base_winding <- function(cont) cont()
   }
   windings <- list(base_winding)
 
   # this needs special handling in walk() because there are TWO
-  # function pointers and both need to be treated as nodes.
-  windup_ <- function(cont, winding, ...) {
-    list(cont, winding, ...)
-    if(verbose) trace("pump: Adding to windup list\n")
+  # function pointers and both need to be treated as nodes?
+  windup_ <- function(cont, winding) {
+    list(cont, winding)
+    trace("pump: Adding to windup list\n")
     outerWinding <- windings[[1]]
-    g <- function(...) {
-      outerWinding(winding, ...)
+    g <- function(cont) {
+      # Call outer winding first and have it continue to the
+      # new winding, which continues to 'cont'
+      outerWinding(function() winding(cont))
     }
     windings <<- c(list(g), windings)
     pumpCont <<- cont
-      function() {
-      trace("pump: continuing after windup\n")
-      cont(...)
-    }
     action <<- "rewind"
   }
 
-  unwind_ <- function(cont, ...) {
+  unwind_ <- function(cont) {
     if(verbose) trace("pump: removing from windup list\n")
     windings[[1]] <<- NULL
-    pumpCont <<- function() {
-      if(verbose) trace("pump: continuing after unwind\n")
-      cont(...)
-    }
+    pumpCont <<- cont
     action <<- "rewind"
   }
 
-  doWindup <- function(cont, ...) {
+  doWindup <- function(cont) {
     wind <- windings[[1]]
-    wind(cont, ...)
+    wind(cont)
   }
 
   # Our argument "expr" is a context constructor
@@ -170,9 +158,9 @@ make_pump <- function(expr, ...,
                 unwind=unwind_, pause=pause_, pause_val=pause_val_, trace=trace)
   pumpCont <- entry
 
-  pump <- function(...) {
+  pump <- function() {
     trace("pump: run\n")
-    doWindup(runPump, ...)
+    doWindup(runPump)
     while(action == "rewind") {
       action <<- "pause"
       doWindup(runPump)
@@ -181,15 +169,25 @@ make_pump <- function(expr, ...,
     if (!identical(value, nonce)) value
   }
 
-  runPump <- function(...) {
-    if (action != "pause")
-      base::stop("pump asked to continue, but last action was ", action)
-    pumpCont(...) # here's where you inject a return value into a yield?
-    while(action == "continue") {
-      trace("pump: continue\n")
-      action <<- "pause";
-      list(pumpCont, pumpCont <<- NULL)[[1]]()
-    }
+  runPump <- function() {
+    switch(action,
+           pause=pumpCont(),
+           pause_val=pumpCont(value),
+           base::stop("pump asked to continue, but last action was ", action))
+    repeat switch(action,
+             continue={
+               trace("pump: continue\n")
+               action <<- "xxx";
+               list(pumpCont, pumpCont <<- NULL)[[1]]()
+             },
+             continue_val={
+               trace("pump: continue with value\n")
+               action <<- "xxx";
+               list(pumpCont, pumpCont <<- NULL)[[1]](value)
+             },
+             break
+             )
+    value
   }
 
   pump

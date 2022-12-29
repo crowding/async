@@ -47,30 +47,7 @@ ESS output window keeps saying "Disabling output delimiter because CMD failed to
 that might be to not bother slapping context on the names of nodes in
 the special "first" context encountered.)
 
-## Refactor so that trampoline handlers do not use `...` but either take a value or not..
-
-Okay, this `...` business in the handlers might be getting silly. I think for sanity's sake I might have to declare some trampolines take a `val` and others don't. That will be another refactoring (probably before I do codegen)
-
-## Awaiting on a "pr" that doesn't exist gives a "subscript out of bounds"
-
-In this:
-
-      async({
-        tryCatch({
-          if (await(pr)) {
-            return(5)
-            not_run <<- FALSE
-            5
-          } else 4
-        }, finally={
-          cleanup <<- TRUE
-        })
-      }
-
-It _should_ give a more comprehensible error. This particular error sounds like something wrong with tryCatch.
-
 ## better context/node labels
 
 Would aid debugging comprehension if context / node labels followed the syntax tree more,
-were like (try.body.1, try.body,3, try.catch.R) and the like.
-
+were like (try.body.1, try.body,3, try.catch.R) and the like. This would also help node names be idempotent.
