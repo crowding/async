@@ -23,13 +23,13 @@ test_that("test mock promise", {
 })
 
 test_that("async with no await resolves immediately", {
-  p <- make_async(R(5))
+  p <- make_async(R("", 5))
   result <- NULL
   then(p, function(x) {result <<- x})
   wait_for_it()
   expect_equal(result, 5)
   e <- simpleError("wat")
-  then(make_async(R(stop("oops"))), onRejected=function(err) {e <<- err})
+  then(make_async(R("", stop("oops"))), onRejected=function(err) {e <<- err})
   wait_for_it()
   expect_equal(conditionMessage(e), "oops")
 })
@@ -37,9 +37,12 @@ test_that("async with no await resolves immediately", {
 test_that("async with one await", {
   pr <- mock_promise()
   a <- 0
-  as <- make_async(`{_cps`(
-    `<-_cps`(R(a), await_cps(R(pr))),
-    R(a + 5)))
+  as <- make_async(
+    `{_cps`("",
+            `<-_cps`("",
+                     R("", a),
+                     await_cps("", R("", pr))),
+    R("", a + 5)))
   result <- NULL
   then(as, function(x) result <<- x)
   pr$resolve(10)
@@ -48,11 +51,14 @@ test_that("async with one await", {
 })
 
 test_that("more than one await", {
+
   p1 <- mock_promise()
   p2 <- mock_promise()
-  asy <- make_async(`{_cps`(
-    `&&_cps`(await_cps(R(p1)),
-             await_cps(R(p2)))))
+  asy <- make_async(
+    `{_cps`("",
+            `&&_cps`("",
+                     await_cps("", R("", p1)),
+                     await_cps("", R("", p2)))))
   result <- NULL
   then(asy, function(x) result <<- x)
   p1$resolve(FALSE)
@@ -61,9 +67,10 @@ test_that("more than one await", {
 
   p1 <- mock_promise()
   p2 <- mock_promise()
-  asy <- make_async(`{_cps`(
-    `&&_cps`(await_cps(R(p1)),
-             await_cps(R(p2)))))
+  asy <- make_async(`{_cps`("",
+                            `&&_cps`("",
+                                     await_cps("", R("", p1)),
+                                     await_cps("", R("", p2)))))
   result <- NULL
   then(asy, function(x) result <<- x)
   p1$resolve(TRUE)
@@ -72,6 +79,7 @@ test_that("more than one await", {
   p2$resolve(FALSE)
   wait_for_it()
   expect_false(result)
+
 })
 
 test_that("async grammar", {

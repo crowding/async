@@ -95,16 +95,17 @@ yield <- function(expr) {
   stop("yield() called outside a generator")
 }
 
-yield_cps <- function(expr) { force(expr)
-  function(cont, ..., pause, yield, trace) {
+yield_cps <- function(.contextName, expr) {
+  list(.contextName, expr)
+  function(cont, ..., yield, trace) {
     if (missing_(arg(yield))) base::stop("yield used but this is not a generator")
-    list(cont, pause, yield, trace)
+    list(cont, yield, trace)
     `yield_` <- function(val) {
       force(val)
       trace("yield\n")
       yield(cont, val)
     }
-    expr(yield_, ..., pause=pause, yield=yield, trace=trace)
+    expr(yield_, ..., yield=yield, trace=trace)
   }
 }
 
@@ -127,7 +128,8 @@ yieldFrom <- function(it) {
   stop("yieldFrom() called outside a generator")
 }
 
-yieldFrom_cps <- function(it) {
+yieldFrom_cps <- function(.contextName, it) {
+  list(.contextName, it)
   function(cont, ..., yield, trace=trace) {
     list(cont, yield, trace)
 
@@ -154,8 +156,10 @@ yieldFrom_cps <- function(it) {
   }
 }
 
-make_generator <- function(expr, orig=arg(expr), ..., trace=trace_) { list(expr, ...)
-  gen_cps <- function(expr) { force(expr)
+make_generator <- function(expr, orig=arg(expr), ..., trace=trace_) {
+  list(expr, ...)
+  gen_cps <- function(.contextName, expr) {
+    list(.contextName, expr)
     function(cont, ..., stop, return, pause, pause_val, trace) {
       list(stop, return, pause, pause_val, trace)
       nonce <- function() NULL
@@ -230,7 +234,7 @@ make_generator <- function(expr, orig=arg(expr), ..., trace=trace_) { list(expr,
   }
 
   nextElemOr_ <- NULL
-  pump <- make_pump(gen_cps(expr), trace=trace, catch=FALSE)
+  pump <- make_pump(gen_cps(".gen", expr), trace=trace, catch=FALSE)
   g <- add_class(iteror(nextElemOr_), "generator")
   g
 }

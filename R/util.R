@@ -44,10 +44,10 @@ expect_properly_munged <- function(g, gc) {
 expect_only_one_context <- function(graphc) {
   # Walking gc should have only picked up one context
   expect_equal(length(graphc$contexts), 1)
-  env <- as.list(graphc$contexts)[[1]]
+  env <- as.list(graphc$contexts, all.names=TRUE)[[1]]
   con <- names(graphc$contexts)
   # all nodes are closed in that context
-  envs <- lapply(as.list(graphc$contextNodes[[con]]),
+  envs <- lapply(as.list(graphc$contextNodes[[con]], all.names=TRUE),
                  \(nod) environment(graphc$nodes[[nod]]))
   cmp <- envs; cmp[] <- list(env)
   expect_identical(cmp, envs)
@@ -57,7 +57,7 @@ expect_state_pointers_closed <- function(graphc) {
   # function pointers in "state" "tailcall" roles point to functions
   # in the same context.
   con <- names(graphc$contexts)
-  env <- as.list(graphc$contexts)[[1]]
+  env <- as.list(graphc$contexts, all.names=TRUE)[[1]]
   for (var in unique(c(graphc$contextProperties[[con, "read"]],
                        graphc$contextProperties[[con, "store"]]))) {
     val <- graphc$contexts[[con]][[var]]
@@ -117,7 +117,7 @@ expect_edges_isomorphic <- function(graph, graphc) {
   froms <- names(graph$nodeEdgeProperties)
   edges <- (structure(froms, names=paste0(froms, "->"))
     |> lapply( \(from)
-      as.list(graph$nodeEdgeProperties[[from]])
+      as.list(graph$nodeEdgeProperties[[from]], all.names=TRUE)
       |> vapply(\(x) x$to, "")
       |> (\(.)structure(names(.), names=.))())
     |> c(recursive=TRUE)
@@ -136,3 +136,4 @@ expect_resolves_with <- function(prom, expected, trigger=NULL, test=expect_equal
   test(val, expected)
   val
 }
+

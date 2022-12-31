@@ -523,3 +523,10 @@ Okay, this `...` business in the handlers might be getting silly. I think for sa
 ## Remove `...` from signal handlers
 
 Just use a local varable and another state if you want to return two things.
+
+## better context/node labels
+
+Would aid debugging comprehension if context / node labels followed the syntax tree more,
+were like (try.body.1, try.body,3, try.catch.R) and the like. This would also help node names be idempotent. This could also help communicate to the user "where" a particular async is.
+
+I looked at clever ways to pull the tree out of the graph but the thing is that after I construct the graph the original parse tree information is lost. So I decided the best way to do this was assign the context names while I'm parsing, every constructor had a name assigned to it.

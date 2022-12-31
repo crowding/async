@@ -61,7 +61,6 @@ f <- function(x) {
       ", and parent is ", sys.frame(-1)$where, "\n")
 }
 
-# JUST FUCKING NAME THEM DURING TRANSLATION!!! There!!!!
 
 g <- function() {
   where <- "g"
@@ -84,3 +83,16 @@ nextElem <- function(promise,
 await <- function(prom, or=reject(err), reject=function(err)) stop(err)) {
 
 }
+
+
+x <- for_cps("",
+                            try_cps("", R("", i)),
+                            R("", NULL),
+                            R("", NULL))
+debug(x)
+pump(x)
+
+  expect_error(pump(for_cps("",
+                            try_cps("", R("", i)),
+                            R("", NULL),
+                            R("", NULL))), "xpected")

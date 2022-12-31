@@ -43,6 +43,7 @@ make_pump <- function(expr, ...,
                       trace=trace_,
                       eliminate.tailcalls = TRUE,
                       catch=TRUE) {
+  .contextName <- "pump"
   list(expr, stop, return, trace)
   nonce <- (function() NULL)
 
@@ -111,7 +112,7 @@ make_pump <- function(expr, ...,
   # and returning from f(cont), unwinds that context.
   if(catch) {
     base_winding <- function(cont) {
-      if(verbose) trace("pump: windup\n")
+      trace("pump: windup\n")
       tryCatch(cont(), error=function(err){
         trace("pump: caught error by windup\n")
         stop_(err)

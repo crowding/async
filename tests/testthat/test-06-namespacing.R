@@ -19,9 +19,10 @@ test_that("Isolated env", {
 })
 
 test_that("custom CPS function in isolated env", {
+
   e <- new.env(parent=baseenv())
   with(e, {
-    identity_cps <- function(x) {force(x)
+    identity_cps <- function(.contextName, x) {force(x)
       function(cont, ret, ...) {
         x(cont, ret=ret, ...)
       }

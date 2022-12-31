@@ -72,6 +72,23 @@ test_that("nested for loops", {
     c(1,1,1,0,1,1,0,1,0,1,1,0,1,1,1,0,1,1,0,1,0,1,1,0)
 })
 
+test_that("generator with split pipes", {
+
+  x <- iseq(1, 55)
+  incomplete <- gen(split_pipes=TRUE, {
+    repeat {
+      sum <- 0
+      for (i in 1:10) {
+        sum <- nextElemOr(x, {yield(sum); return()}) + sum
+      }
+      yield(sum)
+    }
+  })
+
+  n <- as.numeric(as.list(incomplete))
+  n[6] %is% sum(51:55)
+})
+
 test_that("generators create local scope", {
   x <- 4
   g <- gen({
@@ -132,6 +149,7 @@ test_that("Dummy", {
 })
 
 test_that("tailcalls", {
+
   x <- gen({for (i in 1:10) if(FALSE) yield("no"); yield({sys.nframe()})},
            eliminate.tailcalls=TRUE)
   s1 <- nextElem(x)
@@ -139,7 +157,7 @@ test_that("tailcalls", {
            eliminate.tailcalls=FALSE)
   s2 <- nextElem(x)
 
-  # FIXME: this test doesn't work, sys.nframe() is getting "0"?
+  # FIXME: this test doesn't work, sys.nframe() is getting "0" somehow?
   expect_true(s2 >= s1)
 })
 

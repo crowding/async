@@ -253,10 +253,13 @@ by_class <- function(vec) {
 contains <- function(env, candidate, cmp=identical) {
   # FIXME: this should be a hashset or something?
   # maybe make something like memo::pointer_key(identity, list)("two")
-  for (key in names(env))
-    if (cmp(candidate, env[[key]]))
-      return(key)
-  return(NULL)
+  for (key in names(env)) {
+    if (key == "...") next
+    if (is_forced_(key, env))
+      if (cmp(candidate, env[[key]]))
+        return(key)
+  }
+  return(NA_character_)
 }
 
 # and I need an incremental make.unique?
@@ -357,8 +360,14 @@ walk <- function(gen) {
   varTypes <- c("call", "store", "local", "arg", "var", "utility",
                 "tail", "tramp", "hand")
   doWalk <- function(thisNode, path, recurse=TRUE) {
-    if (is.null(thisNodeName <- contains(nodes, thisNode))) {
-      thisNodeName <- paste0("_", condense.name(path))
+    if (is.na(thisNodeName <- contains(nodes, thisNode))) {
+      contextName <- get(".contextName", environment(thisNode))
+      localName <- find_local_name(thisNode)
+      if (is.na(localName)) {
+        thisNodeName <- paste0("_X_", condense.name(path))
+      } else {
+        thisNodeName <- paste0(contextName, "__", localName)
+      }
       assert(!exists(thisNodeName, envir=nodeProperties))
       nodes[[thisNodeName]] <<- thisNode
       nodeOrder <<- c(nodeOrder, thisNodeName)
@@ -405,7 +414,7 @@ walk <- function(gen) {
   for (i in nodeOrder[-1]) { # and walk the rest to be sure
     doWalk(nodes[[i]], i)
   }
-  trace_("Finding contexts:")
+  trace_("Finding contexts:\n")
   # now we have collected a set of nodes and tables of
   # where each node can branch. Collect further information.
   # Contexts: what environment is each node in?
@@ -416,15 +425,16 @@ walk <- function(gen) {
   for (thisNodeName in nodeOrder) {
     thisNode <- nodes[[thisNodeName]]
     context <- environment(nodes[[thisNodeName]])
-    if (is.null(contextName <- contains(contexts, context))) {
-      contextName <- paste0(thisNodeName, "__")
-
-      assert(!exists(contextName, envir=contexts))
+    contextName <- get(".contextName", context)
+    if (exists(contextName, envir=contexts)) {
+      if (!identical(contexts[[contextName]], context))
+        stop(paste0("Context name collision: ", contextName))
+    } else {
       trace_(paste0("  Context: ", contextName, "\n"))
       contexts[[contextName]] <- context
     }
-    contextNodes[[contextName,thisNodeName]] <- thisNodeName
     nodeContexts[[thisNodeName]] <- contextName
+    contextNodes[[contextName,thisNodeName]] <- thisNodeName
   }
   trace_("Analyzing contexts:\n")
   for (contextName in names(contexts)) {
@@ -468,7 +478,11 @@ walk <- function(gen) {
        orig = orig)
 }
 
+find_local_name <- function(fun) {
+  contains(environment(fun), fun)
+}
+
 gatherVars <- function(nodeProperties, contextNodes, contextName, key) {
-  unique(c(character(0), lapply(as.list(contextNodes[[contextName]]),
+  unique(c(character(0), lapply(as.list(contextNodes[[contextName]], all.names=TRUE),
                   function(x) {nodeProperties[[x]][[key]]}), recursive=TRUE))
 }

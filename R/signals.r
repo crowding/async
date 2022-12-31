@@ -1,34 +1,5 @@
-# R() wraps an R argument into an execution node
-R <- function(x) {
-  x <- arg(x)
-
-  function(cont, ..., trace=trace_) {
-    force(cont)
-    x <- x
-
-    R_ <- function() {
-      trace(paste0("R: ", deparse(nseval::expr(x)), "\n"))
-      val <- NULL
-      nseval::set_arg(val, x)
-      cont(val)
-    }
-  }
-}
-
-is_R <- function(f) {
-  exists("R_", environment(f), inherits=FALSE) &&
-    identical(f, get("R_", environment(f)))
-}
-
-R_expr <- function(f) {
-  expr(get("x", environment(f)))
-}
-
-R_env <- function(f) {
-  env(get("x", environment(f)))
-}
-
-return_cps <- function(x) {
+return_cps <- function(.contextName, x) {
+  force(.contextName)
   maybe(x)
   return_ <- function(cont, ..., return, trace=trace_) {
     list(cont, return, trace)
@@ -41,25 +12,30 @@ return_cps <- function(x) {
   }
 }
 
-tryCatch_cps <- function(expr, ..., error, finally) {
+tryCatch_cps <- function(.contextName, expr, ..., error, finally) {
+  list(.contextName, expr, maybe(error), maybe(finally))
   assert(length(list(...)) == 0, "Unsupported arguments to tryCatch_cps")
   if (missing_(arg(finally))) {
     if (missing_(arg(error))) {
       expr
     } else {
-      catch_cps_(expr, error)
+      catch_cps_(.contextName, expr, error)
     }
   } else {
     if (missing_(arg(error))) {
-      finally_cps_(expr, finally)
+      finally_cps_(.contextName,
+                   expr,
+                   finally)
     } else {
-      finally_cps_(catch_cps_(expr, error), finally)
+      finally_cps_(.contextName,
+                   catch_cps_(paste0(.contextName, ".catch"), expr, error),
+                   finally)
     }
   }
 }
 
-catch_cps_ <- function(expr, error) {
-  list(expr, error)
+catch_cps_ <- function(.contextName, expr, error) {
+  list(.contextName, expr, error)
   function(cont, ..., stop, brk, nxt, windup, unwind,
            return, trace=trace_) {
     list(cont, stop, maybe(brk), maybe(nxt), windup, unwind, return,
@@ -127,8 +103,8 @@ catch_cps_ <- function(expr, error) {
   }
 }
 
-finally_cps_ <- function(expr, finally) {
-  list(expr, finally)
+finally_cps_ <- function(.contextName, expr, finally) {
+  list(.contextName, expr, finally)
   function(cont, ..., stop, brk, nxt, windup, unwind, return, trace=trace_) {
     list(cont, stop, maybe(brk), maybe(nxt), windup, unwind, return, trace)
     # Deep breath. Remember, the handlers flow from bottom to top!
@@ -228,9 +204,11 @@ finally_cps_ <- function(expr, finally) {
   }
 }
 
-try_cps <- function(expr, silent=R(FALSE),
-                       outfile=R(getOption("try.outFile", default = stderr()))) {
-  list(expr, silent, outfile)
+try_cps <- function(.contextName, expr,
+                    silent=R(paste0(.contextName, ".silent"), FALSE),
+                    outfile=R(paste0(.contextName, ".outfile"),
+                              getOption("try.outFile", default = stderr()))) {
+  list(.contextName, expr, silent, outfile)
   function(cont, ..., stop, brk, nxt, windup, unwind, return, trace=trace_) {
     list(cont, stop, maybe(brk), maybe(nxt), windup, unwind, return, trace)
     # Remember, flow of the handlers goes from bottom to top

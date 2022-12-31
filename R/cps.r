@@ -73,9 +73,45 @@
 #   variables a helper function uses, unless you explicitly put that function
 #   in the start set.
 
+# R() wraps a user-level R expression into an execution node
+R <- function(.contextName, x) {
+  x <- arg(x)
 
-`(_cps` <- function(expr) {
-  force(expr)
+  function(cont, ..., trace=trace_) {
+    force(cont)
+    x <- x
+
+    R_ <- function() {
+      trace(paste0("R: ", deparse(nseval::expr(x)), "\n"))
+      val <- NULL
+      nseval::set_arg(val, x)
+      # where do we require a lazy
+      # value? I guess when it is missing maybe?
+      cont(val)
+    }
+  }
+}
+
+is_R <- function(f) {
+  exists("R_", environment(f), inherits=FALSE) &&
+    identical(f, get("R_", environment(f)))
+}
+
+R_expr <- function(f) {
+  expr(get("x", environment(f)))
+}
+
+R_env <- function(f) {
+  env(get("x", environment(f)))
+}
+
+R_cont <- function(f) {
+  get("cont", environment(f))
+}
+
+
+`(_cps` <- function(.contextName, expr) {
+  list(.contextName, expr)
   function(...) {
     # ()'s constructor just forwards to expr's constructor
     expr(...)
@@ -86,7 +122,7 @@ maybe <- function(x, if_missing=NULL)
   if (!missing_(arg(x))) x else if_missing
 
 make_store <- function(sym) { force(sym)
-  function(x, value) { list(x, value)
+  function(.contextName, x, value) { list(.contextName, x, value)
     function(cont, ..., trace=trace_) { list(cont, trace)
 
       #quote the LHS at constuction time
@@ -112,15 +148,16 @@ make_store <- function(sym) { force(sym)
 `<-_cps` <- make_store(`<-`)
 `<<-_cps` <- make_store(`<<-`)
 
-`&&_cps` <- function(left, right) { list(left, right)
+`&&_cps` <- function(.contextName, left, right) {
+  list(.contextName, left, right)
   function(cont, ..., trace=trace_) {
     list(cont, trace)
     leftVal <- NULL
     andRight <- function(val) {
-      test <- leftVal && val
-      trace(paste0("&&: ", deparse(test), "\n"))
+      val <- leftVal && val
+      trace(paste0("&&: ", deparse(val), "\n"))
       leftVal <<- NULL
-      cont(test)
+      cont(val)
     }
     ifTrue <- right(andRight, ..., trace=trace)
     andLeft <- function(val) {
@@ -137,14 +174,14 @@ make_store <- function(sym) { force(sym)
   }
 }
 
-`||_cps` <- function(left, right) { list(left, right)
+`||_cps` <- function(.contextName, left, right) { list(.contextName, left, right)
   function(cont, ..., trace=trace_) {
     list(cont, trace)
     leftVal <- NULL
     orRight <- function(val) {
-      test <- leftVal || val
-      trace(paste0("||: ", deparse(test), "\n"))
-      cont(test)
+      val <- leftVal || val
+      trace(paste0("||: ", deparse(val), "\n"))
+      cont(val)
     }
     ifFalse <- right(orRight, ..., trace=trace)
     orLeft <- function(val) {
@@ -161,8 +198,8 @@ make_store <- function(sym) { force(sym)
   }
 }
 
-if_cps <- function(cond, cons.expr, alt.expr) {
-  list(cond, cons.expr, maybe(alt.expr))
+if_cps <- function(.contextName, cond, cons.expr, alt.expr) {
+  list(.contextName, cond, cons.expr, maybe(alt.expr))
   function(cont, ..., stop, trace=trace_) {
     list(cont, stop, trace)
     ifTrue <- cons.expr(cont, ..., stop=stop, trace=trace)
@@ -193,11 +230,21 @@ if_cps <- function(cond, cons.expr, alt.expr) {
 }
 
 
-switch_cps <- function(EXPR, ...) {
-  force(EXPR); alts <- list(...)
+switch_cps <- function(.contextName, EXPR, ...) {
+  list(.contextName, EXPR); alts <- list(...)
   function(cont, ..., stop, trace=trace_) {
     list(cont, stop, trace)
+
+    #HOW THE FUCK IS THIS NOT LEAKING SCOPE I DON'T
+    #TRANSLATE ARRAYS OF POINTERS IN MUNGE
+    #WHY DIDN'T MY TESTS CATCH THIS
+    #MY GRAPH ISN'T WALKING THIS
+    #ETC
     alts <- lapply(alts, function(x) x(cont, ..., stop=stop, trace=trace))
+    defaults <- alts[names(alts) == ""]
+    if (length(defaults) > 1) {
+      stop("Duplicate 'switch' defaults")
+    }
 
     switch_ <- function(val) {
       if (is.numeric(val)) {
@@ -205,10 +252,6 @@ switch_cps <- function(EXPR, ...) {
         branch <- alts[[val]]
         branch()
       } else if (is.character(val)) {
-        defaults <- alts[names(alts) == ""]
-        if (length(defaults) > 1) {
-          stop("Duplicate 'switch' defaults")
-        }
         branch <- alts[[val]]
         if (is.null(branch)) {
           if (length(defaults) == 1) {
@@ -229,17 +272,21 @@ switch_cps <- function(EXPR, ...) {
   }
 }
 
-`;_ctor` <- function(cont, ..., trace=trace_) {
-  # a semicolon forces its input but discards it
-  list(cont, trace)
-  `;` <- function(val) {
-    force(val)
-    val <- NULL #force, then discard
-    cont()
+`;_ctor` <- function(.contextName) {
+  force(.contextName)
+  # a `semicolon` is a node that forces its input then discards it
+  function(cont, ...) {
+    force(cont)
+    `;` <- function(val) {
+      force(val)
+      val <- NULL #force, then discard
+      cont()
+    }
   }
 }
 
-`{_cps` <- function(...) {
+`{_cps` <- function(.contextName, ...) {
+  force(.contextName)
   args <- list(...)
   #args <- args[!(missing_(args))]
   function(cont, ...) {
@@ -250,12 +297,13 @@ switch_cps <- function(EXPR, ...) {
       # just use the inner arg's continuation, like ()
       args[[1]](cont, ...)
     } else {
-      # build a chain last to first
+      # build a chain last to first linked with "semicolons"
       entries <- rep(list(NULL), length(args))
       entries[[length(args)]] <- args[[length(args)]](cont, ...)
       for (i in rev(seq_len(length(args) - 1))) {
-        # link args together with semicolons
-        entries[[i]] <- args[[i]](`;_ctor`(entries[[i+1]], ...), ...)
+        semi <- `;_ctor`(paste0(.contextName, i, ";"))(entries[[i+1]], ...)
+        # each arg continues to a semicolon then its successor
+        entries[[i]] <- args[[i]](semi, ...)
       }
       entry <- entries[[1]]
       entries <- NULL
@@ -270,7 +318,8 @@ switch_cps <- function(EXPR, ...) {
 # wants a signal "next" or such, it does that by calling into its
 # `nxt` handler.
 
-next_cps <- function()
+next_cps <- function(.contextName) {
+  force(.contextName)
   function(cont, ..., nxt, trace=trace_) {
     if (missing_(arg(nxt))) stop("call to next is not in a loop")
     list(nxt, trace)
@@ -281,8 +330,10 @@ next_cps <- function()
       }
     } else nxt
   }
+}
 
-break_cps <- function()
+break_cps <- function(.contextName) {
+  force(.contextName)
   function(cont, ..., brk, trace=trace_) {
     if (missing_(arg(brk))) stop("call to break is not in a loop")
     list(brk, trace)
@@ -293,17 +344,18 @@ break_cps <- function()
       }
     } else brk
   }
+}
 
-
-nextElemOr_cps <- function(expr, or) {
-  list(expr, or)
+nextElemOr_cps <- function(.contextName, expr, or) {
+  list(.contextName, expr, or)
   function(cont, ..., trace=trace_) {
 
     or_ <- or(cont, ..., trace=trace_)
 
     getNext <- function(val) {
       stopping <- FALSE
-      val <- nextElemOr(val, stopping <- TRUE)
+      #when munged we had a name collision vs 'nextElemOr' in gen.r
+      val <- async::nextElemOr(val, stopping <- TRUE)
       if (stopping) or_() else cont(val)
     }
 
@@ -315,7 +367,7 @@ nextElemOr_cps <- function(expr, or) {
 # If you want to establish a new target for "break" or "next" you
 # pass that down to constructor arguments:
 
-repeat_cps <- function(expr) { force(expr)
+repeat_cps <- function(.contextName, expr) { list(.contextName, expr)
   function(cont, ..., bounce, brk, nxt, trace=trace_) {
     list(cont, maybe(brk), maybe(nxt), trace)
     repeat_ <- function(val) {
@@ -338,8 +390,8 @@ repeat_cps <- function(expr) { force(expr)
   }
 }
 
-while_cps <- function(cond, expr) {
-  list(cond, expr)
+while_cps <- function(.contextName, cond, expr) {
+  list(.contextName, cond, expr)
   function(cont, ..., bounce, bounce_val, nxt, brk, trace=trace_) {
     list(cont, bounce, bounce_val, maybe(nxt), maybe(brk), trace)
     again <- function(val) {
@@ -375,14 +427,14 @@ while_cps <- function(cond, expr) {
 
 
 #' @import iterators
-for_cps <- function(var, seq, expr) {
-  list(var, seq, expr)
+for_cps <- function(.contextName, var, seq, expr) {
+  list(.contextName, var, seq, expr)
   function(cont, ..., bounce, bounce_val, nxt, brk, stop, trace=trace_) {
     list(cont, bounce, bounce_val, maybe(nxt), maybe(brk), stop, trace)
     #quote the LHS at constuction time
     var_ <- var(cont, ..., bounce=bounce, bounce_val=bounce_val,
-                nxt=nxt, stop=stop, trace=trace) #not our brk
-    if (!is_R(var_)) {
+                stop=stop, trace=trace) #not our brk/nxt
+    if (!is_R(var_) || !identical(R_cont(var_), cont)) {
       stop("Unexpected stuff in for() loop variable")
     }
     env_ <- R_env(var_)

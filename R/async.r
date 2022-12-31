@@ -101,9 +101,9 @@ await <- function(prom) {
   stop("Await called outside of async")
 }
 
-await_cps <- function(prom) { force(prom)
+await_cps <- function(.contextName, prom) { force(prom)
   function(cont, ..., await, pause, stop, trace) {
-    if (missing_(arg(await))) base::stop("await used, but this is not an async")
+    if (missing(await)) base::stop("await used, but this is not an async")
     list(cont, ..., await, pause, stop, trace)
     promis <- NULL
     success <- NULL
@@ -132,6 +132,7 @@ await_cps <- function(prom) { force(prom)
 #' @import promises
 make_async <- function(expr, orig=arg(expr), ..., compileLevel=0, trace=trace_) {
   list(expr, orig, ..., trace)
+  .contextName <- "async"
 
   nonce <- (function() function() NULL)()
   state <- "pending" #print method uses this
@@ -169,13 +170,11 @@ make_async <- function(expr, orig=arg(expr), ..., compileLevel=0, trace=trace_) 
     succ <- function(val) {
       trace("await: success\n")
       success(val)
-      # browser()
       pump()
     }
     fail <- function(val) {
       trace("await: fail\n")
       failure(val)
-      # browser()
       pump()
     }
     awaiting <<- promise

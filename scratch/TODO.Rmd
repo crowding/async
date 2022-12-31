@@ -17,12 +17,6 @@ Apparently the reason I can't just tag a "class" attribute onto a closxp and cal
 
 # Name munging
 
-### duplication of trace() and such
-
-Okay, I apparently left off in the midst of munging names. Judging from where I left the `browser()` call, I was finding an argument that transfers "state variables" except that these variables are never updated. If they are never updated then I should be able to dedupe them. But not deduping them will not prevent me from reaching proof of concept with compilation. Deduping of unused variables is a future problem.
-
-However, the other problem with porting over utility variables is what variables are they closed over with? So one resolution might be to treat local functions found in non tail position as a kind of node, and thus capture the variables it itself refers to? Hopefully this doesn't lead to infinite regress? This would be at graph enumeration time.
-
 ### Switch in graphs
 
 I need to do something tricky to make my implementation of `switch` traversable by `walk`. Like bquote() out a custom switch_cps. See [switch.R]().
@@ -31,9 +25,11 @@ I need to do something tricky to make my implementation of `switch` traversable 
 
 There did appear to be some O(N^2) rearing their heads when walk()ing a graph. Run a profiler? There are definitely some O(n^2) data structures currently in there.
 
+Assigning context names at runtime helps, though there is still a `contains` in `walk` and in `munge`.
+
 I did something to make myself use hashbags more consistently and noticed a speedup! So there was def some list reallocation going on.
 
-Interestingly, using a list by index isn't much slower than using an env until you get past 100 elements or so. (see ) But s3 dispatch and going through `hashbag()` is quite a bit slower. See [map_timings.Rmd](). So I might want to just use lists instead of hashbags. If I can keep them from having to copy themselves all the time.
+Interestingly, using a list by index isn't much slower than using an env until you get past 100 elements or so. But s3 dispatch and going through `hashbag()` is quite a bit slower. See [map_timings.Rmd](). So I might want to just use lists instead of hashbags. If I can keep them from having to copy themselves all the time.
 
 ## Emacs locking up when I pause in R debugger
 
@@ -41,13 +37,29 @@ Aargh, something is happening in ess-mode that makes emacs lock up waiting for a
 
 ESS output window keeps saying "Disabling output delimiter because CMD failed to parse."
 
+This is likely because all my variable names in the compiled generators are fucky.
+
 ## it would be nice if name-munging twice were idempotent.
 
 (i.e. ended up with the names and translated functions.) One way to do
 that might be to not bother slapping context on the names of nodes in
 the special "first" context encountered.)
 
-## better context/node labels
+## Fixing graphviz output on compiled generators
 
-Would aid debugging comprehension if context / node labels followed the syntax tree more,
-were like (try.body.1, try.body,3, try.catch.R) and the like. This would also help node names be idempotent.
+Graphviz does not like the new labels (clearly). Spend some time making sure that compiled generator's graphs look okay.
+
+## Debugging tools
+
+Make some methods that allow single stepping the R code, as well as to allow single stepping the "interior" code.
+
+Setting "debugOnce" on pumpCont (whenever it's updated) would do it.
+
+And an option for user-level stepping, evaluating "browser()" in the
+target environment and single stepping.
+
+Meanwhile, it might be good to do R's "eval" via a handler, so as to condense references to the target environment.
+
+## Fix `switch` to work in compilation.
+
+How does the current implementation of switch() even pass unit test with compilation on. It's because I only have one unit test for it, because I was waffling on how to implement it.

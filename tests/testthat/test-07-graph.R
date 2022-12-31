@@ -177,6 +177,7 @@ test_that("Can extract graph of generator", {
   })
 
   expect_silent(drawGraph(genprimes, basename("genprimes")))
+
 })
 
 test_that("tryCatch", {

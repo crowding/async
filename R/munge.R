@@ -11,6 +11,7 @@ munge <- function(# the async/generator to munge
                   dest.env = new.env(parent = baseenv())) {
   # The graph data structure should give us most info we need.
   graph <- walk(g)
+  dest.env$.contextName <- "."
 
   # Collect information in the storage used by the functions in each context.
   for (contextName in names(graph$contexts)) {
@@ -20,10 +21,10 @@ munge <- function(# the async/generator to munge
     contextVars <- unique(c(props$read, props$store))
     # Make up translated names of variables and nodes
     varTranslations <- structure(
-      as.character(paste0(contextName, contextVars, recycle0=TRUE)),
+      as.character(paste0(contextName, "_v_", contextVars, recycle0=TRUE)),
       names=contextVars)
 
-    calls <- unlist(as.list(props)[c("tail", "tramp", "hand", "windup", "utility")],
+    calls <- unlist(as.list(props, all.names=TRUE)[c("tail", "tramp", "hand", "windup", "utility")],
                     use.names=FALSE)
 
     # The local labels for each edge are collected in edges.
@@ -32,7 +33,7 @@ munge <- function(# the async/generator to munge
       |> lapply(
         \(nodeName) (
           graph$nodeEdgeProperties[[nodeName]]
-          |> as.list()
+          |> as.list(all.names=TRUE)
           |> vapply(\(x) x$to, "")))
       |> concat())
 
@@ -40,7 +41,7 @@ munge <- function(# the async/generator to munge
                              names(callTranslations)),
                      contextVars)
     utilTranslations <- structure(
-      paste0(contextName, utils, recycle0=TRUE),
+      paste0(contextName, "_f_", utils, recycle0=TRUE),
       names=utils)
 
     # move_value may need to translate a state pointer, and so needs
@@ -82,7 +83,6 @@ munge <- function(# the async/generator to munge
 
     for (nodeName in names(graph$contextNodes[[contextName]])) {
       # nodeName is the translated node name that walk() came up with
-      #if (nodeName == "_do_windup") browser()
       node <- graph$nodes[[nodeName]]
       nodeBody <- body(node)
       locals <- names(formals(node))
@@ -156,7 +156,7 @@ move_value.function <- function(graph, contextName, varName, dest.env, newName,
                     varName, "` -> `", newName, "`\n"))
     }
     dest.env[[newName]] <- value
-  } else if (!is.null(key <- contains(graph$nodes, value))) {
+  } else if (!is.na(key <- contains(graph$nodes, value))) {
     # the var points to one of our (old) nodes.
     # Is it written to somewhere?
     if (written) {
