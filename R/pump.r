@@ -1,7 +1,5 @@
-# debugging constants....
+# pump.r implements the _base level_ loop common to all coroutines
 
-browseOnError <- FALSE
-# assign("browseOnError", TRUE, envir=getNamespace("async"))
 assert <- function(condition,
                    msg=c(
                      "assertion failed: ",
@@ -38,6 +36,7 @@ make_pump <- function(expr, ...,
                       windup=base::stop("unused"),
                       unwind=base::stop("unused"),
                       pause=base::stop("unused"),
+                      goto=base::stop("unused"),
                       stop=function(val, ...) base::stop(val, ...),
                       return=function(x)x,
                       trace=trace_,
@@ -50,6 +49,36 @@ make_pump <- function(expr, ...,
   action <- "pause" # stopped, pause
   pumpCont <- nonce
   value <- nonce
+  debugR <- FALSE
+  debugInternal <- FALSE
+  targetEnv <- NULL
+
+  setDebug <- function(R=debugR, internal=debugInternal) {
+    debugR <<- R
+    debugInternal <<- internal
+    x <- list(R=R, internal=internal)
+    x
+  }
+
+  eval_ <- function(val, cont) {
+    nseval::set_arg(val, quo(expr, targetEnv))
+  }
+
+  getCont <- function() {
+    # For display, return a string describing the current state.
+    context <- get0(".contextName", environment(pumpCont),
+                    ifnotfound="???")
+    name <- "???"
+    env <- environment(pumpCont)
+    for (i in names(env))
+      if (!(i %in% c("cont", "pumpCont")))
+        if (identical(env[[i]], pumpCont)) {
+          name <- i
+          break
+        }
+    x <- paste0(context, "__", name)
+    x
+  }
 
   pause_ <- function(cont) {
     trace("pump: pause (awaiting)\n")
@@ -59,10 +88,9 @@ make_pump <- function(expr, ...,
 
   pause_val_ <- function(cont, val) {
     trace("pump: pause (yielding)\n")
-    list(cont, val)
+    pumpCont <<- cont
     value <<- val
-    pumpCont <<- function() cont(value)
-    action <<- "pause"
+    action <<- "pause_val"
   }
 
   if (eliminate.tailcalls) {
@@ -147,16 +175,17 @@ make_pump <- function(expr, ...,
   }
 
   doWindup <- function(cont) {
-    wind <- windings[[1]]
-    wind(cont)
+    windings[[1]](cont)
   }
 
   # Our argument "expr" is a context constructor
   # that takes some branch targets ("our "ret" and "stop" etc) and
   # returns an entry continuation.
   entry <- expr(return_, ..., bounce=bounce_, bounce_val=bounce_val_,
-                stop=stop_, return=return_, windup=windup_,
-                unwind=unwind_, pause=pause_, pause_val=pause_val_, trace=trace)
+                stop=stop_, return=return_, eval=eval_,
+                windup=windup_, unwind=unwind_,
+                pause=pause_, pause_val=pause_val_,
+                trace=trace, setDebug=setDebug, getCont=getCont)
   pumpCont <- entry
 
   pump <- function() {
@@ -171,6 +200,7 @@ make_pump <- function(expr, ...,
   }
 
   runPump <- function() {
+    if (debugInternal) debugonce(pumpCont)
     switch(action,
            pause=pumpCont(),
            pause_val=pumpCont(value),
@@ -178,11 +208,13 @@ make_pump <- function(expr, ...,
     repeat switch(action,
              continue={
                trace("pump: continue\n")
+               if (debugInternal) debugonce(pumpCont)
                action <<- "xxx";
                list(pumpCont, pumpCont <<- NULL)[[1]]()
              },
              continue_val={
                trace("pump: continue with value\n")
+               if (debugInternal) debugonce(pumpCont)
                action <<- "xxx";
                list(pumpCont, pumpCont <<- NULL)[[1]](value)
              },

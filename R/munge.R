@@ -1,4 +1,3 @@
-
 munge <- function(# the async/generator to munge
                   g,
                   # What is the destination env?  In the interpreted

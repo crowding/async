@@ -1,9 +1,6 @@
 # Keywords which must always be CPS
 
-# (or do we want to do something more focused in the parsing stage where
-# we start with "yield" but on reaching a "while" we add "next" to the
-# watchlist?
-base_endpoints <- c("break", "next", "return")
+base_endpoints <- c("break", "next", "return", "for", "goto")
 async_endpoints <- c(base_endpoints, "await")
 gen_endpoints <- c(base_endpoints, "yield", "yieldFrom")
 

@@ -104,7 +104,7 @@ await <- function(prom) {
 await_cps <- function(.contextName, prom) { force(prom)
   function(cont, ..., await, pause, stop, trace) {
     if (missing(await)) base::stop("await used, but this is not an async")
-    list(cont, ..., await, pause, stop, trace)
+    list(cont, await, pause, stop, trace)
     promis <- NULL
     success <- NULL
     value <- NULL

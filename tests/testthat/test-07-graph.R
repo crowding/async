@@ -46,8 +46,8 @@ test_that("function inspection with all_names", {
       #Treatment of "local variables" for substitution
       #is tricky though, since no environments to export
       temperature <- val+arg1
-      externVar <<- arg2+1
-      if(FALSE) cont(12)
+      for (i in 1) externVar <<- arg2+i
+      if(FALSE) cont(i)
       else g4(temperature)
     }
     if (FALSE) { #selection of tailcalls
@@ -68,16 +68,17 @@ test_that("function inspection with all_names", {
   by_role$call %is% c( "+", "/", "*", "[<-", "[", "package::doThing",
                       "cont", "g4", "alichlkh", "g1", "g2", "g3")
   by_role$store %is% c("globalVar1", "externVar2", "externVar")
-  by_role$local %is% c("arg1", "temp", "temperature",
+  by_role$local %is% c("arg1", "temp", "temperature", "i",
                        "ff") #local in the local function I guess...
   by_role$tail %is% c("cont", "g4", "alichlkh", "g1", "g2", "g3")
   by_role$tramp %is% c("g3")
   by_role$var %is% c("arg1", "arg2", "temp", "externVar", "externConst",
-                     "externVar2", "temperature")
+                     "externVar2", "i", "temperature")
   unname(all_names(f, "var")) %is%
     c("arg1", "arg2", "arg2", "arg1", "arg1", "arg2", "temp",
       "externVar", "externConst", "temp", "externVar2", "arg1", "arg2",
-      "temp", "arg1", "arg2", "temperature", "temp", "arg1", "temp", "arg1")
+      "temp", "arg1", "arg2", "i", "i", "temperature", "temp", "arg1",
+      "temp", "arg1")
 
   all_names(f, c("tailcall", "trampoline", "handler")) %is%
     list(tailcall=alist(alichlkh(temp, arg1)),
@@ -94,7 +95,7 @@ test_that("function inspection with all_names", {
             "globalVar1", "externVar2", "externVar", "externConst")
 
   locals <- sort(union(by_role$local, by_role$arg))
-  locals %is% c("arg1", "arg2", "cont", "ff", "temp", "temperature")
+  locals %is% c("arg1", "arg2", "cont", "ff", "i", "temp", "temperature")
   stores <- by_role$store
   reads <- sort(setdiff(by_role$var, locals))
   reads %is% c("externConst", "externVar", "externVar2")
@@ -349,6 +350,37 @@ test_that("fizzbuzz", {
     )
   })
   expect_silent(drawGraph(nicebuzz, basename("nicebuzz"),
+                          handlers=TRUE, vars=TRUE, envs=FALSE))
+
+})
+
+
+test_that("graph of switch with goto", {
+
+  gotoN <- gen({
+    switch(x,
+           yield("one"),
+           goto(1),
+           goto(5),
+           yield("four"),
+           goto(4))
+    yield("done")})
+
+  expect_silent(drawGraph(gotoN, basename("gotoN"),
+                          handlers=TRUE, vars=FALSE, envs=TRUE))
+
+  gotoChar <- gen({
+      switch(x,
+             one=yield(1),
+             two=goto("one"),
+             three=goto("five"),
+             four=goto("somewhere else"),
+             five=yield(5),
+             yield("many"))
+      yield("done")
+  })
+
+  expect_silent(drawGraph(gotoChar, basename("gotoChar"),
                           handlers=TRUE, vars=TRUE, envs=FALSE))
 
 })

@@ -1,5 +1,5 @@
 Package: async
-Title: Generators, Yield, Async / Await, Streams
+Title: Generators, Coroutines, Streams, Async / Await and Yield
 Version: 0.2.99
 Date: 2022-12-26
 Authors@R: 

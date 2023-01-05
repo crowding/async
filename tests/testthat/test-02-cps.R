@@ -120,7 +120,7 @@ test_that("while", {
 
   out <- c()
   x <- 6
-  cps <- while_cps("", 
+  cps <- while_cps("",
     R("", x > 0),
     `{_cps`("", R("", x <- x - 1),
             if_cps("", R("", x %% 2 == 0),
@@ -139,7 +139,7 @@ test_that("for", {
   x <- 0
   pump(for_cps("", R("", i),
                R("", 1:10),
-               `{_cps`("", 
+               `{_cps`("",
                  R("", force(i)),
                  if_cps("", R("", i %% 3 == 0), next_cps("")),
                  if_cps("", R("", i %% 8 == 0), break_cps("")),
@@ -151,7 +151,7 @@ test_that("for", {
   #
   out <- c()
   x <- 6
-  cps <- for_cps("", 
+  cps <- for_cps("",
     R("", x),
     R("", 1:10),
     if_cps("", R("", x %% 2 == 0),
@@ -201,10 +201,15 @@ test_that("pump forces value or error", {
 })
 
 test_that("switch", {
-  expect_null(pump(switch_cps("", R("", "three"), four=R("", "wrong"))))
-  pump(switch_cps("", R("", "three"), four=R("", "wrong"), three=R("", "right"))) %is% "right"
+  expect_error(pump(switch_cps("", R("", "three"), four=R("", "wrong"))), "branch")
+  pump(switch_cps("", R("", "three"),
+                  four=R("", "wrong"),
+                  three=R("", "right"))) %is% "right"
   expect_error(
-    pump(switch_cps("", R("", "C"), R("", 0), R("", 0), three=R("", 0))),
+    pump(switch_cps("", R("", "C"),
+                    R("", 0),
+                    R("", 0),
+                    three=R("", 0))),
     "default")
 
   # variance from R: R will accept a numeric arg to a labeled `switch`

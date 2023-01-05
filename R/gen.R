@@ -18,7 +18,6 @@
 #'   }
 #' })
 #' ```
-#'
 #' On the "outside," that is, the object returned by `gen()`, a
 #' generator behaves like an iterator over an indefinite
 #' collection. So we can collect the first 100 values from the above
@@ -27,13 +26,12 @@
 #' ```r
 #' rwalk |> itertools2::take(100) |> as.numeric() |> mean()
 #' ```
-#'
 #' When `nextElem(rwalk)` is called, the generator executes its
 #' "inside" expression until it reaches a call to `yield().` THe
 #' generator 'pauses', preserving its execution state, and `nextElem`
 #' then returns what was passed to `yield`. The next time
 #' `nextElem(rwalk)` is called, the generator resumes executing its
-#' inside expression starting after the `yield()`
+#' inside expression starting after the `yield()`.
 #'
 #' The generator expression is evaluated in a local environment.
 #'
@@ -41,11 +39,12 @@
 #' run in the same R process where `nextElem` is called.
 #'
 #' A generator expression can use any R functions, but a call to
-#' `yield` may only appear in some positions. This package has several
-#' built-in [pausables], equivalents to R's base control flow
-#' functions, such as `if`, `while`, `tryCatch`, `<-`, `{}`, `||` and
-#' so on.  A call to `yield` may only appear in an argument of one of
-#' these pausable functions. So this random walk generator:
+#' `yield` may only appear in the arguments of a "pausable" function.
+#' The `async` package has several built-in pausable functions corresponding
+#' to base R's control flow functions, such as `if`, `while`, `tryCatch`,
+#' `<-`, `{}`, `||` and so on (see [pausables] for more details.)  A call
+#' to `yield` may only appear in an argument of one of these pausable
+#' functions. So this random walk generator:
 #'
 #' ```r
 #' rwalk <- gen({x <- 0; repeat {x <- yield(x + rnorm(1))}})
@@ -160,7 +159,8 @@ make_generator <- function(expr, orig=arg(expr), ..., trace=trace_) {
   list(expr, ...)
   gen_cps <- function(.contextName, expr) {
     list(.contextName, expr)
-    function(cont, ..., stop, return, pause, pause_val, trace) {
+    function(cont, ..., stop, return, pause, pause_val,
+             trace, setDebug, getCont) {
       list(stop, return, pause, pause_val, trace)
       nonce <- function() NULL
       yielded <- nonce
@@ -180,6 +180,7 @@ make_generator <- function(expr, orig=arg(expr), ..., trace=trace_) {
         trace("generator: stop\n")
         err <<- val
         state <<- "stopped"
+        stop(val)
       }
 
       yield_ <- function(cont, val) {
@@ -270,6 +271,7 @@ getCurrent.generator <- function(x)
 #' @exportS3Method
 getOrig.generator <- function(x)
   expr(get("orig", envir=environment(x$nextElemOr)))
+
 getStartSet.generator <- function(x) {
   #everything whose name you want to remain stable after munging,
   #for instance so the above accessors can find them.
@@ -280,6 +282,8 @@ getStartSet.generator <- function(x) {
        runPump=environment(get("pump", environment(x$nextElemOr)))$runPump,
        doWindup=environment(get("pump", environment(x$nextElemOr)))$doWindup,
        nextElemOr=x$nextElemOr,
+       setDebug=environment(get("pump", environment(x$nextElemOr)))$setDebug,
+       getCont=environment(get("pump", environment(x$nextElemOr)))$getCont,
        getState=get("getState", environment(x$nextElemOr)))
 }
 
@@ -312,25 +316,67 @@ print.generator <- function(x, ...) {
   cat(format(x, ...), sep="\n")
 }
 
+#' @export
 getState <- function(x, ...) {
   UseMethod("getState")
 }
 
+#' @exportS3Method
 getState.generator <- function(x, ...) {
   environment(x$nextElemOr)$getState()
 }
 
 #' @export
+#' @rdname format.generator
+getNode <- function(x, ...) {
+  UseMethod("getNode")
+}
+
+#' @exportS3Method
+getNode.generator <- function(x, ...) {
+  environment(get("pump", environment(x$nextElemOr)))$getCont()
+}
+
+#' Display information about coroutine state.
+#' `format.generator` displays the original code given
+#'   to construct the generator, its bound environment, whether it is running
+#'   or finished, and a label indicating it last known state.
+#'
+#' `getState.generator` retreives the current state of a
+#' generator. This might be "yielded", "running" (if nextElem is
+#' _currently_ being called), "stopped" (for generators that have
+#' stopped with an error) or "finished" (for generators that have
+#' finished normally.)
+#'
+#' `getState.async` might return "running", "awaiting", "resolved" or
+#' "rejected".
+#'
+#' `getNode` returns a string indicating where a coroutine's
+#' execution is paused. The string is constructed according to the
+#' parse tree of the coroutine expression.
+#' @exportS3method
 format.generator <- function(x, ...) {
   envir <- environment(x$nextElemOr)
   code <- get("orig", envir)
   a <- deparse(call("gen", expr(code)), backtick=TRUE)
   b <- format(env(code), ...)
   state <- getState(x)
+  cont <- getNode(x)
   c <- paste0(c("<Generator [",
-         if(state=="stopped")
-           c("stopped: ", capture.output(print(envir$err)))
-         else state,
-         "]>"), collapse="")
+                state, " at `", cont, "`",
+                if (state=="stopped")
+                  c(": ", capture.output(print(envir$err))),
+                "]>"), collapse="")
   c(a, b, c)
+}
+
+#' @export
+debugAsync <- function(x, internal=FALSE) {
+  UseMethod("debugAsync")
+}
+
+#' @exportS3Method
+debugAsync.generator <- function(x, R=current$R, internal=current$internal) {
+  current <- environment(x$nextElemOr)$setDebug()
+  environment(x$nextElemOr)$setDebug(R, internal)
 }

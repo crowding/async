@@ -83,12 +83,12 @@ all_names <- function(fn,
                                 inTail=FALSE)))
   }
   collect_lambda <- function(expr, inTail, orig=NULL) {
-    # I use lambdas in a couple places still.
+    # Lambdas making tailcalls that need to be traversed
+    # show up in e.g. the tryCatch windup.
     # This is very a hack,
     # and would fail at arguments shadowing names etc.
     # I would have to thread more information through these
     # functions in order to track scope properly.
-    # But really, the answer is turn those lambdas into regular nodes?
     tmp <- collect_arg(expr[[3]], inTail=TRUE) #!
     tmp <- tmp[!(tmp %in% names(expr[[2]]))]
     #tmp <- tmp[!(names(tmp) %in% c("local", "arg"))]
@@ -127,7 +127,7 @@ all_names <- function(fn,
                    "return" = collect_arg(expr[[2]], inTail=FALSE),
                    "while" = c(collect_arg(expr[[2]], inTail=FALSE),
                                collect_arg(expr[[3]], inTail=FALSE)),
-                   "for" = c(collect_arg(expr[[2]], inTail=FALSE),
+                   "for" = c(collect_store(expr[[2]], "local"),
                              collect_arg(expr[[3]], inTail=FALSE),
                              collect_arg(expr[[4]], inTail=FALSE)),
                    "("= collect_arg(expr[[1]], inTail=inTail),
@@ -143,7 +143,7 @@ all_names <- function(fn,
                                 lapply(unname(expr[-1]), collect_arg,
                                        inTail=inTail))),
                    "function"={
-                     collect_lambda(expr, inTail=inTail)
+                     collect_lambda(expr, inTail=TRUE)
                    },
                    #some other primitive?
                    collect_ordinary_call(expr, inTail, orig)
@@ -345,7 +345,7 @@ nullish <- function(x) length(x)==0
 # * `nodeContexts`: hash by node ID, data is context ID
 # * `orig`: the original call to async/gen
 #' @export
-walk <- function(gen) {
+walk <- function(gen, forGraph=FALSE) {
   nodes <- getStartSet(gen)
   nodeOrder <- names(nodes)
   nodes <- list2env(nodes, parent=emptyenv())
@@ -389,20 +389,41 @@ walk <- function(gen) {
     tails <- c(named(vars$hand, "hand"),
                named(vars$tramp, "tramp"),
                named(vars$tail, "tail"))
+
     locals <- c(named(vars$local, "local"),
                 named(vars$arg, "arg"))
-    # Don't try to follow a tailcall into an argument/local var;
+    # Don't try to follow a tailcall into an argument/local var (e.g. 'cont')
     tails <- tails[!tails %in% locals]
     tails <- tails[!duplicated(tails)]
-
+    if (forGraph) { # run another all_names to extract full calls
+      tailcalls <-
+        all_names(nodes[[thisNodeName]],
+                  types=c("trampoline", "tailcall", "handler", "windup"))
+      tails2 <- vapply(tailcalls, function(x) as.character(x[[1]][[1]]), "")
+      names(tails2) <- c(tailcall="tail", trampoline="tramp",
+                         windup="tramp", handler="hand")[names(tails2)]
+      keep <- !((tails2 %in% locals) | duplicated(tails2))
+      tailcalls <- tailcalls[keep]
+      tails2 <- tails2[keep]
+      if (  any(sort(tails)!=sort(tails2))
+          | any(names(sort(tails)) != names(sort(tails2))))
+        stop("Hey take a look at this")
+      tails <- tails2
+    } else {
+      tailcalls <- tails
+    }
     for (i in seq_along(tails)) {
-      tailcall <- tails[[i]]
+      tailcall <- tailcalls[[i]]
       branchName <- as.character(tailcall[[1]][[1]])
-      if (branchName %in% nodeProperties[[thisNodeName, "local"]]) next
+      if (branchName %in% nodeProperties[[thisNodeName, "local"]]) {browser(); next}
       nextNode <- get(branchName, envir=environment(thisNode))
+      if (!is.function(nextNode)) stop("walk: tailcall to non-function")
+      if (   is.null(environment(nextNode))
+          || isNamespace(environment(nextNode))) {
+        stop("walk: tailcall into package function")
+      }
       nextNodeName <- doWalk(nextNode, c(path, branchName))
       trace_(sprintf("  Edge: %s :: %s -> %s\n", thisNodeName, branchName, nextNodeName))
-      #if (thisNodeName == "_do_expr.1.awaited.then.1.ifTrue.1.do_finally.1") browser()
       reverseEdges[[nextNodeName]][[thisNodeName]] <<- branchName
       nodeEdgeProperties[[thisNodeName, branchName]] <<-
         list(to=nextNodeName, call=tailcall, type=names(tails)[[i]])

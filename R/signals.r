@@ -36,9 +36,9 @@ tryCatch_cps <- function(.contextName, expr, ..., error, finally) {
 
 catch_cps_ <- function(.contextName, expr, error) {
   list(.contextName, expr, error)
-  function(cont, ..., stop, brk, nxt, windup, unwind,
+  function(cont, ..., stop, brk, nxt, goto, windup, unwind,
            return, trace=trace_) {
-    list(cont, stop, maybe(brk), maybe(nxt), windup, unwind, return,
+    list(cont, stop, maybe(brk), maybe(nxt), maybe(goto), windup, unwind, return,
          trace)
     # Remember, flow of the handlers goes from bottom to top
     result <- NULL
@@ -73,15 +73,30 @@ catch_cps_ <- function(.contextName, expr, error) {
       result <<- val
       unwind(getErrHandler)
     }
-    brk_ <- function() {
-      trace("catch: break\n")
-      unwind(brk)
-    }
-    nxt_ <- function() {
-      trace("catch: next\n")
-      unwind(nxt)
-    }
-    do_expr <- expr(continue, ..., stop=stop_, brk=brk_, nxt=nxt_,
+    if(!is_missing(brk)) {
+      brk_ <- function() {
+        trace("catch: break\n")
+        unwind(brk)
+      }
+    } else brk_ <- missing_value()
+    if(!is_missing(nxt)) {
+      nxt_ <- function() {
+        trace("catch: next\n")
+        unwind(nxt)
+      }
+    } else nxt_ <- missing_value()
+    if (!is_missing(goto)) {
+      doGoto <- function() {
+        goto(result)
+      }
+      goto_ <- function(val) {
+        trace("catch: goto\n")
+        result <<- val
+        unwind(doGoto)
+      }
+    } else goto_ <- missing_value()
+    do_expr <- expr(continue, ...,
+                    stop=stop_, brk=brk_, nxt=nxt_, goto=goto_,
                     windup=windup, unwind=unwind,
                     return=return_, trace=trace)
     do_windup <- function(cont, ...) {
@@ -90,7 +105,7 @@ catch_cps_ <- function(.contextName, expr, error) {
       on.exit(trace("catch: unwind\n"))
       tryCatch(cont(...), error=function(e) {
         trace("catch: catch in windup\n")
-        stop_(e)
+        stop_(e) # a tailcall from a lambda, should be included in the graph
       })
       NULL
     }
@@ -105,52 +120,58 @@ catch_cps_ <- function(.contextName, expr, error) {
 
 finally_cps_ <- function(.contextName, expr, finally) {
   list(.contextName, expr, finally)
-  function(cont, ..., stop, brk, nxt, windup, unwind, return, trace=trace_) {
-    list(cont, stop, maybe(brk), maybe(nxt), windup, unwind, return, trace)
+  function(cont, ..., stop, brk, nxt, goto, windup, unwind, return, trace=trace_) {
+    list(cont, stop, maybe(brk), maybe(nxt), maybe(goto),
+         windup, unwind, return, trace)
     # Deep breath. Remember, the handlers flow from bottom to top!
     result <- NULL
     after <- NULL
 
-    if (missing(nxt)) {
-      #this is to keep the compiler from following a nonexistent path to brk/nxt
-      continue <- function(val) {
-        force(val)
-        trace(paste0("finally: continue with ", after, "\n"))
-        switch(after,
-               success=cont(result),
-               stop=stop(result),
-               return=return(result),
-               stop("Unexpected final action"))
-      }
-    } else {
-      continue <- function(val) {
-        force(val)
-        trace(paste0("finally: continue with ", after, "\n"))
-        switch(after,
-               success=cont(result),
-               stop=stop(result),
-               return=return(result),
-               `next`=nxt(),
-               `break`=brk(),
-               stop("Unexpected final action"))
-      }
-    }
-    # if there is an uncaught error, then a return, break or next
-    # from the finally block, throw the saved error instead.
+    #this bquoting stuff is to keep the compiler from following
+    #nonexistent path to brk/nxt/etc.
+    continue <- eval(bquote(splice=TRUE, function(val) {
+      force(val)
+      trace(paste0("finally: continue with ", after, "\n"))
+      switch(after,
+             success=cont(result),
+             stop=stop(result),
+             return=return(result),
+             ..(c(list(),
+               if (!is_missing(nxt)) alist(`next`=nxt()),
+               if (!is_missing(brk)) alist(`break`=brk()),
+               if (!is_missing(goto)) alist(goto=goto(result))
+             )),
+             stop(paste0("Unexpected after-finally action: ",
+                         as.character(after)))
+             )
+    }))
+    # if there is an uncaught saved error, then a jump out of
+    # the finally block, throw the saved error instead of jumping.
     finally_return <- function(val) {
       trace("finally: return in finally block\n")
       if (after=="stop") stop(result) else return(val)
     }
-    finally_brk <- function() {
-      trace("finally: break in finally block\n")
-      if (after=="failure") stop(result) else brk()
-    }
-    finally_nxt <- function() {
-      trace("finally: next in finally block\n")
-      if (after=="failure") stop(result) else nxt()
-    }
+    if(!is_missing(brk)) {
+      finally_brk <- function() {
+        trace("finally: break in finally block\n")
+        if (after=="failure") stop(result) else brk()
+      }
+    } else finally_brk <- missing_value()
+    if(!is_missing(nxt)) {
+      finally_nxt <- function() {
+        trace("finally: next in finally block\n")
+        if (after=="failure") stop(result) else nxt()
+      }
+    } else finally_nxt_ <- missing_value()
+    if(!is_missing(goto)) {
+      finally_goto <- function(val) {
+        trace("finally: goto in finally block")
+        if (after=="failure") stop(result) else goto(val)
+      }
+    } else finally_goto_ <- missing_value()
     do_finally <- finally(continue, ...,
                           stop=stop, brk=finally_brk, nxt=finally_nxt,
+                          goto=finally_goto,
                           windup=windup, unwind=unwind, return=finally_return,
                           trace=trace)
     finally_then <- function(val) {
@@ -171,17 +192,28 @@ finally_cps_ <- function(.contextName, expr, finally) {
       after <<- "return"
       unwind(do_finally)
     }
-    brk_ <- function() {
-      trace("finally: break\n")
-      after <<- "break"
-      unwind(do_finally)
-    }
-    nxt_ <- function() {
-      trace("finally: next\n")
-      after <<- "next"
-      unwind(do_finally)
-    }
-    do_expr <- expr(finally_then, ..., stop=stop_, brk=brk_, nxt=nxt_,
+    if (!is_missing(brk)) {
+      brk_ <- function() {
+        trace("finally: break\n")
+        after <<- "break"
+        unwind(do_finally)
+      }
+    } else brk_ <- missing_value()
+    if(!is_missing(nxt)) {
+      nxt_ <- function() {
+        trace("finally: next\n")
+        after <<- "next"
+        unwind(do_finally)
+      }
+     } else nxt_ <- missing_value()
+    if(!is_missing(goto)) {
+      goto_ <- function(val) {
+        result <<- val
+        after <<- "goto"
+        unwind(do_finally)
+      }
+    } else goto_ <- missing_value()
+    do_expr <- expr(finally_then, ..., stop=stop_, brk=brk_, nxt=nxt_, goto=goto_,
                     windup=windup, unwind=unwind, return=return_,
                     trace=trace)
     do_windup <- function(cont) {

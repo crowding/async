@@ -46,10 +46,10 @@
 # arguments at runtime.
 #
 # This code is directly executed for interpreted asyncs (with
-# `asyncOpts(compileLevel 0)`, but these functions also the input for
-# compiled asyncs. Compiling R generally is impossible, so therefore
-# there are some rules on how the nodes below are written, call these
-# restrictions `R--`:
+# `asyncOpts(compileLevel 0)`, but these functions are also the input
+# for compiled asyncs. Compiling R generally is impossible, so
+# therefore there are some rules on how the nodes below are written,
+# call these restrictions `R--`:
 #
 # * Generally avoid non-standard evaluation. Anything that "looks like" variable
 #   references or function calls should actually correspond to
@@ -64,14 +64,15 @@
 #   They should be called in "tail position".
 # * Don't make a local variable the same name as a variable you close over.
 # * Any calls in "tail position" or using trampoline handlers in tail position
-#   are treated as part
-#   of the graph. Don't put a call in tail position unless you intend that
-#   function to be "included" in the graph.
+#   are treated as part of the graph. Don't put a call in tail position unless
+#   you intend that function to be "included" in the graph.
 # * You can have helper functions (i.e. that you don't tailcall) defined in
 #   the same context as your nodes, and they will be carried to the compiled
 #   scope. However, the graph walker does not inspect them to see what
 #   variables a helper function uses, unless you explicitly put that function
 #   in the start set.
+# * No early returns -- a return() and stop() placed in the middle of a
+#   function doesn't do the same thing when functions are spliced together.
 
 # R() wraps a user-level R expression into an execution node
 R <- function(.contextName, x) {
@@ -81,20 +82,25 @@ R <- function(.contextName, x) {
     force(cont)
     x <- x
 
-    R_ <- function() {
-      trace(paste0("R: ", deparse(nseval::expr(x)), "\n"))
-      val <- NULL
-      nseval::set_arg(val, x)
-      # where do we require a lazy
-      # value? I guess when it is missing maybe?
-      cont(val)
+    if (!is.language(expr(x))) {
+      # it's just a constant, inline it
+      eval_ <- eval(bquote(function() cont(.(expr(x)))))
+    } else {
+      eval_ <- function() {
+        trace(paste0("R: ", deparse(nseval::expr(x)), "\n"))
+        val <- NULL
+        nseval::set_arg(val, x)
+        # where do we require a lazy
+        # value any more? I guess when it is missing maybe?
+        cont(val)
+      }
     }
   }
 }
 
 is_R <- function(f) {
-  exists("R_", environment(f), inherits=FALSE) &&
-    identical(f, get("R_", environment(f)))
+  exists("eval_", environment(f), inherits=FALSE) &&
+    identical(f, get("eval_", environment(f)))
 }
 
 R_expr <- function(f) {
@@ -206,23 +212,11 @@ if_cps <- function(.contextName, cond, cons.expr, alt.expr) {
     if (missing_(arg(alt.expr))) {
       if_ <- function(val) {
         if(val) ifTrue() else cont(invisible(NULL))
-        ## if (isTRUE(val)) {
-        ##   trace("if: TRUE\n")
-        ##   ifTrue()
-        ## } else if (isFALSE(val)) {
-        ##   cont(invisible(NULL))
-        ## } else stop("if: Invalid condition")
       }
     } else {
       ifFalse <- alt.expr(cont, ..., stop=stop, trace=trace)
       if_ <- function(val) {
         if(val) ifTrue() else ifFalse()
-        ## if (isTRUE(val)) {
-        ##   trace("if: TRUE\n")
-        ##   ifTrue()
-        ## } else if (isFALSE(val)) {
-        ##   ifFalse()
-        ## } else stop("if: Invalid condition")
       }
     }
     getCond <- cond(if_, ..., stop=stop, trace=trace)
@@ -231,44 +225,133 @@ if_cps <- function(.contextName, cond, cons.expr, alt.expr) {
 
 
 switch_cps <- function(.contextName, EXPR, ...) {
-  list(.contextName, EXPR); alts <- list(...)
-  function(cont, ..., stop, trace=trace_) {
-    list(cont, stop, trace)
+  list(.contextName, EXPR)
+  alts <- list(...)
+  function(cont, ..., stop, goto, bounce, bounce_val, trace=trace_) {
+    list(cont, stop, trace, bounce, bounce_val)
+    maybe(goto)
 
-    #HOW THE FUCK IS THIS NOT LEAKING SCOPE I DON'T
-    #TRANSLATE ARRAYS OF POINTERS IN MUNGE
-    #WHY DIDN'T MY TESTS CATCH THIS
-    #MY GRAPH ISN'T WALKING THIS
-    #ETC
-    alts <- lapply(alts, function(x) x(cont, ..., stop=stop, trace=trace))
-    defaults <- alts[names(alts) == ""]
-    if (length(defaults) > 1) {
-      stop("Duplicate 'switch' defaults")
+    goto_ <- function(val) {
+      if (is.null(val)) bounce(EXPR) else bounce_val(switch_, val)
     }
 
-    switch_ <- function(val) {
-      if (is.numeric(val)) {
-        trace(paste0("switch: ", val, "\n"))
-        branch <- alts[[val]]
-        branch()
-      } else if (is.character(val)) {
-        branch <- alts[[val]]
-        if (is.null(branch)) {
-          if (length(defaults) == 1) {
-            trace(paste0("switch: default (", deparse(val), ")", "\n"))
-            defaults[[1]]()
-          } else {
-            trace(paste0("switch: no branch taken (", deparse(val), ")"))
-            #this actually is what switch does? Wild.
-            cont(invisible(NULL))
+    # for the compiler to see the branches they need to be assigned names.
+    for (i in seq_along(alts)) {
+      alts[[i]] <- alts[[i]](cont, ..., stop=stop, trace=trace, goto=goto_)
+      assign(paste0("alt", i), alts[[i]])
+    }
+
+    if (is.null(names(alts))) {
+      # set up a numeric switch
+      branches <- seq_along(alts)
+
+      switch_ <- eval(bquote(splice=TRUE, function(val) {
+        trace_("switch: numeric\n")
+        if (!is.numeric(val))
+          stop(paste0("switch: expected numeric, got ", mode(val)))
+        else {
+          branch <- branches[[as.numeric(val)]]
+          if (is.null(branch))
+            stop(paste0("Switch: expected numeric, got ", mode(val)))
+          else switch(branch, ..(lapply(seq_along(branches),
+                                        function(i)call(paste0("alt", i)))))
+        }
+      }))
+    } else {
+      # Construct a character switch
+      branches <- new.env()
+      default <- NULL
+      last <- NULL
+      for (i in rev(seq_along(alts))) { # go back to front
+        branchName <- names(alts)[[i]]
+        if (names(alts)[[i]] == "") {
+          if (is.null(default)) {
+            default <- i
           }
+          else base::stop("Duplicate 'switch' defaults")
         } else {
-          trace(paste0("switch: ", deparse(val), "\n"))
-          branch()
+          branches[[names(alts)[[i]]]] <- i
+          if (is_R(alts[[i]])
+              && identical(R_expr(alts[[i]]), quote(expr=))
+              && !is.null(last)) {
+            # empty switch arg, fallthrough
+            branches[[names(alts)[[i]]]] <- last
+          } else {
+            branches[[names(alts)[[i]]]] <- i
+            last <- i
+          }
         }
       }
+
+      switchcall <- bquote(
+        splice=TRUE,
+        switch(branch, ..(lapply(seq_along(alts),
+                                 function(i)call(paste0("alt", i))))))
+      switch_ <- eval(bquote(function(val) {
+        trace_("switch: character\n")
+        if (!is.character(val))
+          stop(paste0("switch: expected character, got ", mode(val)))
+        else .(if (is.null(default)) bquote({
+          branch <- get0(val, branches, ifnotfound=NULL)
+          if (is.null(branch))
+            stop(paste0("Switch: branch not found, with no default: `",
+                        as.character(val), "`"))
+          else .(switchcall)
+        }) else bquote({
+          branch <- get0(val, branches, ifnotfound=.(default))
+          .(switchcall)
+        })
+        )
+      }))
     }
-    EXPR(switch_, ..., stop=stop, trace=trace)
+    EXPR <- EXPR(switch_, ..., stop=stop, trace=trace, goto=goto)
+  }
+}
+
+#' @export
+#' @rdname switch
+#' Coroutine switch with delimited goto.
+#'
+#' The `switch` function implemented for coroutines in the `async`
+#' package is more strict than the one in base R. Base R `switch` will
+#' silently return NULL if no branch matches the result of the switch
+#' expression. In `async()`, `switch` will always either take one of
+#' the given branches or throw an error. Otherwise, the same
+#' conventions (one unnamed argument for a default; fallthrough for
+#' empty arguments) apply as [base::switch]().
+#'
+#' Coroutine `switch` also supports a delimited form of `goto`. Within
+#' a branch, `goto("other_branch")` will stop executing the present
+#' branch and jump to the new branch named.  Calling `goto()` without
+#' arguments will jump back to re-evaluate the switch expression.
+#'
+#' If a `goto` appears in a `try` call, as in
+#'
+#'     switch("branch",
+#'        branch=try({...; goto("otherBranch")}, finally={cleanup()}),
+#'        otherBranch=... )
+#'
+#' the `finally` clause will be executed _before_ switching to the new branch.
+goto <- function(branch=NULL) {
+  stop("`goto` used outside of a 'gen` or `async`.")
+}
+
+goto_cps <- function(.contextName, branch=R(NULL)) {
+  force(.contextName)
+  function(cont, ..., goto) {
+    if(missing(goto)) stop("`goto` used outside of a `switch` statement.")
+    list(cont, goto)
+
+    goto_ <- function(val) {
+      goto(val)
+    }
+    branch <- branch(goto_)
+
+    if (is_R(branch) && identical(R_expr(branch), quote(expr=))) {
+      goto_ <- function() goto(NULL)
+    } else {
+      branch
+    }
   }
 }
 

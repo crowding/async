@@ -1,25 +1,9 @@
-## Fixing "switch"
-
-The current CPS version does not do branch fallthrough. To fix that I
-would need to know during construction which arguments are missing.
-
-R native "switch" does a thing where it can end up executing no arguments.
-
-    switch(-1, "one", "two", "three") #takes no branch and returns NULL.
-
-That behavior would be bad to use base R switch as a compiled version of switch, because it would end up falling off and not tailcalling.
-
-Let's see, what about if you initialize a "mapping" at run time and then switch based on a label you pull out of there?
 
 # ESS versus closxps?!
 
 Apparently the reason I can't just tag a "class" attribute onto a closxp and call that an iteror is.... ESS is fucking with me. If I evaluate a chunk in ESS, it is altering the environment of the resulting closxp. it comes back with the enclosing environment set to the package namespace, instead of the environment that _really_ enclosed it and has its variables. It's weird.
 
 # Name munging
-
-### Switch in graphs
-
-I need to do something tricky to make my implementation of `switch` traversable by `walk`. Like bquote() out a custom switch_cps. See [switch.R]().
 
 ### Speed of walking the graph.
 
@@ -60,6 +44,51 @@ target environment and single stepping.
 
 Meanwhile, it might be good to do R's "eval" via a handler, so as to condense references to the target environment.
 
-## Fix `switch` to work in compilation.
+## Fixing "switch"
 
-How does the current implementation of switch() even pass unit test with compilation on. It's because I only have one unit test for it, because I was waffling on how to implement it.
+The current CPS version does not do synonyms/branch fallthrough. To fix that I
+would need to know during construction which arguments are missing. `is_R` and `R_expr`
+help with this.
+
+R's native "switch" does a thing where it can end up executing no arguments.
+
+    switch(-1, "one", "two", "three") #takes no branch and returns NULL.
+
+That behavior would make it bad to use base R switch as a compiled version of switch, because it would end up falling off and not tailcalling.
+
+Let's see, what about if you initialize a "mapping" at run time and then switch based on a label you pull out of there?
+
+I also need to do something tricky to make my implementation of `switch` traversable by `walk`. Like bquote() out a custom switch_cps. that has visible graph labels
+
+Okay, now debugging my switch implementation.
+
+It works in interpreted mode but "paranoid" is showing me that the names of "goto" things aren't munged with the same names.
+
+The answer might be to spend some time cleaning up my graphs.
+
+Where are my edge labels? Esp for windup and unwind?
+
+Fixed the edge labels.
+
+Now this is my numeric "goto" test at compileLevel -1. It complains that after munging, two nodes are missing.
+
+     Browse[2]> setdiff(names(graph$nodes), unname(cnodes))
+     [1] ".switch6.goto__goto_" ".switch3.goto__goto_"
+
+And it looks like it's because those nodes were literally identical to other nodes. All the goto nodes are really identical, huh, because they don't know their sources and have been ripped out of their identical environments.
+
+So we really found a way that this paranoid graph isomorphism isn't always true! Can we relax the check and still retain value in it?
+
+Maybe check that reverse edges on the new graph correspond to reverse edges on old?
+
+i.e. if there is an edge from old[A] to old[B], then new[B] should (still) exist and it should be identical() to somthing that new[A]'s exit/
+
+## Collecting the graph has suddenly gotten slower.
+
+Or maybe it's been a slow from boil
+
+It's difficult to profile recursive algorithms, but I think from looking at profvis output,  that "contains" and is_forced are eating a lot of time. I sure wish that counted as "one" invocation. It's more useful to look at the flame graph and notice what's spending a lot of time on top.
+
+The solution for "contains" might be to just assign every node an attribute giving local name, and (perhaps) the result of all.names. Could call it `%<-%` and have it memoize on the function text.
+
+Or maybe with a reassignment function?

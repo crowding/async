@@ -1,6 +1,8 @@
 ## graph.R
 # Code for outputting a Graphviz DOT file given data collected in walk.R
 
+last <- function(x) x[[length(x)]]
+
 make_dot <- function(nodeGraph,
                      envs=TRUE,
                      vars=TRUE,
@@ -15,14 +17,23 @@ make_dot <- function(nodeGraph,
       paste0("[", paste0(names(x), "=", quoted(x), collapse=", "), "]")
     else character(0)}
   nodeAttrs <- function(nodeGraph, nodeName) {
-    label <- nodeGraph$nodeProperties[[nodeName]]$localName %||% ""
+    label <- nodeGraph$nodeProperties[[nodeName]]$localName %||% nodeName
+    short_label <- last(strsplit(label, "__")[[1]])
+    is_handler <- "cont" %in% names(formals(nodeGraph$nodes[[nodeName]]))
+
     c(switch(
-      label,
-      "R_"=c(label=paste0(deparse(expr(environment(nodeGraph$nodes[[nodeName]])$x)),
-                          collapse="\\l"),
-             fontname="DejaVu Sans Mono Bold", style="filled",
-             fontcolor="lightgreen", fontsize=13, color="gray20",
-             labeljust="l", nojustify="true"),
+      short_label,
+      "eval_"={
+        e <- environment(nodeGraph$nodes[[nodeName]])
+        if (exists("x", e)) {
+          lab <- expr(e$x)
+          c(label=paste0(deparse(lab),
+                         collapse="\\l"),
+            fontname="DejaVu Sans Mono Bold", style="filled",
+            fontcolor="lightgreen", fontsize=13, color="gray20",
+            labeljust="l", nojustify="true")
+        }
+      },
       ";"=c(shape="circle", style="filled", color="gray70",
             fixedsize="true",
             width=0.25, height=0.25, label=";"),
@@ -62,8 +73,8 @@ make_dot <- function(nodeGraph,
       c(paste(
         quoted(paste0(context, "_", "var")),
         attrs(shape="record",
-              label=paste0(
-                paste0("<", varNames, ">", varNames, collapse="|")),
+              label=paste0("{",
+                paste0("<", varNames, ">", varNames, collapse="|"), "}"),
               fontsize=11,
               fontname="DevaVu Sans Mono Bold", margin=0.08)),
         # "{", paste0("<", varNames, ">", varNames, collapse="|"), "}"))),
@@ -114,7 +125,9 @@ make_dot <- function(nodeGraph,
               subgraph(paste0("cluster1_", sgName), # dummy...
                        props(margin=6, style="invis"),
                        subgraph(paste0("cluster_", sgName),
-                                props(label="", shape="box", style="rounded",
+                                props(label=sgName, shape="box", style="rounded",
+                                      fontname="DejaVu Sans Bold",
+                                      fontcolor="gray50", fontsize=13,
                                       bgcolor="gray85",
                                       #rank="same",
                                       margin=12, penwidth=1, color="gray75"),
@@ -146,10 +159,10 @@ make_dot <- function(nodeGraph,
              stop("unknown edge type?")),
       ## if (identical(nodeGraph$nodeProperties[[to]]$localName, ";"))
       ##   c(arrowhead="none"),
-      if (props$type=="trampoline") { #"special" or trampolined tailcalls
+      if (props$type=="tramp" && length(props$call) > 1) { #"special" or trampolined tailcalls
         c(arrowhead="odot", taillabel=" ", labelangle=0, fontsize=15, arrowsize=2.25,
           labeldistance=.9, fontcolor="blue",
-          switch(as.character(props$call[[2]][[1]]),
+          switch({as.character(props$call[[2]][[1]])},
                  ret=c(headlabel="⮍"),
                  yield=,
                  pause=c(headlabel="⏸",labeldistance=0.8),
@@ -298,7 +311,7 @@ makeGraph <- function(x, file="", sep="\n", ...) {
 
 #' @exportS3Method
 makeGraph.generator <- function(x, file="", sep="\n", ...) {
-  graph <- walk(x)
+  graph <- walk(x, forGraph=TRUE)
   cat(make_dot(graph, ...), file=file, sep=sep)
   invisible(graph)
 }
