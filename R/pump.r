@@ -37,8 +37,9 @@ make_pump <- function(expr, ...,
                       unwind=base::stop("unused"),
                       pause=base::stop("unused"),
                       goto=base::stop("unused"),
-                      stop=function(val, ...) base::stop(val, ...),
-                      return=function(x)x,
+                      stop=structure(function(val, ...) base::stop(val, ...),
+                                     localName="stop"),
+                      return=structure(function(x)x, localName="return"),
                       trace=trace_,
                       eliminate.tailcalls = TRUE,
                       catch=TRUE) {
@@ -53,18 +54,18 @@ make_pump <- function(expr, ...,
   debugInternal <- FALSE
   targetEnv <- NULL
 
-  setDebug <- function(R=debugR, internal=debugInternal) {
+  setDebug <- structure(function(R=debugR, internal=debugInternal) {
     debugR <<- R
     debugInternal <<- internal
     x <- list(R=R, internal=internal)
     x
-  }
+  }, localName="setDebug", globalName="setDebug")
 
-  eval_ <- function(val, cont) {
+  eval_ %<-% function(val, cont) {
     nseval::set_arg(val, quo(expr, targetEnv))
   }
 
-  getCont <- function() {
+  getCont <- structure(function() {
     # For display, return a string describing the current state.
     context <- get0(".contextName", environment(pumpCont),
                     ifnotfound="???")
@@ -78,60 +79,49 @@ make_pump <- function(expr, ...,
         }
     x <- paste0(context, "__", name)
     x
-  }
+  }, localName="getCont", globalName="getCont")
 
-  pause_ <- function(cont) {
+  pause_ %<-% function(cont) {
     trace("pump: pause (awaiting)\n")
     pumpCont <<- cont
     action <<- "pause"
   }
 
-  pause_val_ <- function(cont, val) {
+  pause_val_ %<-% function(cont, val) {
     trace("pump: pause (yielding)\n")
     pumpCont <<- cont
     value <<- val
     action <<- "pause_val"
   }
 
-  if (eliminate.tailcalls) {
-    bounce_ <- function(cont) {
-      if(verbose) trace("pump: bounce\n")
-      pumpCont <<- cont
-      action <<- "continue"
-    }
-    bounce_val_ <- function(cont, val) {
-      force(val) #force
-      if(verbose) trace("pump: bounce with value\n")
-      value <<- val
-      pumpCont <<- cont
-      action <<- "continue_val"
-    }
-  } else {
-    bounce_ <- function(cont) {
-      if(verbose) trace("pump: fake bounce\n")
-      cont()
-    }
-    bounce_val_ <- function(cont, val) {
-      if(verbose) trace("pump: fake bounce with value\n")
-      list(cont, val) #force
-      cont(val)
-    }
+  bounce_ %<-% function(cont) {
+    if(verbose) trace("pump: bounce\n")
+    pumpCont <<- cont
+    action <<- "continue"
   }
 
-  stop_ <- function(val) {
+  bounce_val_ %<-% function(cont, val) {
+    force(val) #force
+    if(verbose) trace("pump: bounce with value\n")
+    value <<- val
+    pumpCont <<- cont
+    action <<- "continue_val"
+  }
+
+  stop_ <- structure(function(val) {
     trace(paste0("pump: stop: ", conditionMessage(val), "\n"))
     value <<- val
     action <<- "stop"
     stop(val)
-  }
+  }, localName="stop_", globalName="stop_")
 
-  return_ <- function(val) {
+  return_ <- structure(function(val) {
     trace("pump: return\n")
     force(val)
     value <<- val
     action <<- "finish"
     return(val)
-  }
+  }, localName="return_", globalName="return_")
 
   # We maintain a list of "windings."
   # A "winding" is a function that must tailcall into its "cont" arg. like:
@@ -139,7 +129,7 @@ make_pump <- function(expr, ...,
   # f(cont) that establishes a context,
   # and returning from f(cont), unwinds that context.
   if(catch) {
-    base_winding <- function(cont) {
+    base_winding %<-% function(cont) {
       trace("pump: windup\n")
       tryCatch(cont(), error=function(err){
         trace("pump: caught error by windup\n")
@@ -153,7 +143,7 @@ make_pump <- function(expr, ...,
 
   # this needs special handling in walk() because there are TWO
   # function pointers and both need to be treated as nodes?
-  windup_ <- function(cont, winding) {
+  windup_ %<-% function(cont, winding) {
     list(cont, winding)
     trace("pump: Adding to windup list\n")
     outerWinding <- windings[[1]]
@@ -167,16 +157,16 @@ make_pump <- function(expr, ...,
     action <<- "rewind"
   }
 
-  unwind_ <- function(cont) {
+  unwind_ %<-% function(cont) {
     if(verbose) trace("pump: removing from windup list\n")
     windings[[1]] <<- NULL
     pumpCont <<- cont
     action <<- "rewind"
   }
 
-  doWindup <- function(cont) {
+  doWindup %<-% structure(function(cont) {
     windings[[1]](cont)
-  }
+  }, localName="doWindup", globalName="doWindup")
 
   # Our argument "expr" is a context constructor
   # that takes some branch targets ("our "ret" and "stop" etc) and
@@ -188,7 +178,7 @@ make_pump <- function(expr, ...,
                 trace=trace, setDebug=setDebug, getCont=getCont)
   pumpCont <- entry
 
-  pump <- function() {
+  pump <- structure(function() {
     trace("pump: run\n")
     doWindup(runPump)
     while(action == "rewind") {
@@ -197,9 +187,9 @@ make_pump <- function(expr, ...,
     }
     trace(paste0("pump: ", action, "\n"))
     if (!identical(value, nonce)) value
-  }
+  }, localName="pump", globalName="pump")
 
-  runPump <- function() {
+  runPump <- structure(function() {
     if (debugInternal) debugonce(pumpCont)
     switch(action,
            pause=pumpCont(),
@@ -221,7 +211,7 @@ make_pump <- function(expr, ...,
              break
              )
     value
-  }
+  }, localName="runPump", globalName="runPump")
 
   pump
 }

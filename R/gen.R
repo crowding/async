@@ -99,7 +99,7 @@ yield_cps <- function(.contextName, expr) {
   function(cont, ..., yield, trace) {
     if (missing_(arg(yield))) base::stop("yield used but this is not a generator")
     list(cont, yield, trace)
-    `yield_` <- function(val) {
+    `yield_` %<-% function(val) {
       force(val)
       trace("yield\n")
       yield(cont, val)
@@ -132,7 +132,7 @@ yieldFrom_cps <- function(.contextName, it) {
   function(cont, ..., yield, trace=trace) {
     list(cont, yield, trace)
 
-    yieldFrom_ <- function(val) {
+    yieldFrom_ %<-% function(val) {
       stopping <- FALSE
       trace("yieldFrom: next")
       val <- nextElemOr(iter, stopping <- TRUE)
@@ -145,7 +145,7 @@ yieldFrom_cps <- function(.contextName, it) {
     }
 
     iter <- NULL
-    iter_ <- function(val) {
+    iter_ %<-% function(val) {
       iter <<- iteror(val)
       trace("yieldFrom: got iteror")
       yieldFrom_(NULL)
@@ -167,30 +167,30 @@ make_generator <- function(expr, orig=arg(expr), ..., trace=trace_) {
       err <- nonce
       state <- "yielded"
 
-      getState <- function() state
+      getState %<-% function() state
 
-      return_ <- function(val) {
+      return_ %<-% function(val) {
         force(val)
         trace("generator: return\n")
         state <<- "finished"
         return(val)
       }
 
-      stop_ <- function(val) {
+      stop_ %<-% function(val) {
         trace("generator: stop\n")
         err <<- val
         state <<- "stopped"
         stop(val)
       }
 
-      yield_ <- function(cont, val) {
+      yield_ %<-% function(cont, val) {
         trace("generator: yield\n")
         state <<- "yielded"
         yielded <<- val
         pause_val(cont, val)
       }
 
-      nextElemOr_ <- function(or, ...) {
+      nextElemOr_ <- structure(function(or, ...) {
         trace("generator: nextElemOr\n")
         val <- switch(state,
                stopped =,
@@ -226,7 +226,7 @@ make_generator <- function(expr, orig=arg(expr), ..., trace=trace_) {
                },
                base::stop("Generator in an unknown state"))
         val
-      }
+      }, localName="nextElemOr_", globalName="nextElemOr_")
 
       nextElemOr_ <<- nextElemOr_
       expr(return_, ..., stop=stop_, return=return_, yield=yield_,
@@ -281,7 +281,7 @@ getStartSet.generator <- function(x) {
        pump=get("pump", envir=environment(x$nextElemOr)),
        runPump=environment(get("pump", environment(x$nextElemOr)))$runPump,
        doWindup=environment(get("pump", environment(x$nextElemOr)))$doWindup,
-       nextElemOr=x$nextElemOr,
+       nextElemOr_=x$nextElemOr,
        setDebug=environment(get("pump", environment(x$nextElemOr)))$setDebug,
        getCont=environment(get("pump", environment(x$nextElemOr)))$getCont,
        getState=get("getState", environment(x$nextElemOr)))
@@ -300,7 +300,7 @@ compile.generator <- function(x, level) {
     }
     # create a new iteror with this munged generator's nextElemOr.
     if (level <= -1) {
-      new <- add_class(iteror(munged$nextElemOr), c("generator"))
+      new <- add_class(iteror(munged$nextElemOr_), c("generator"))
       if (paranoid) { # enabled in unit tests
         expect_properly_munged(x, new)
       }
@@ -333,11 +333,12 @@ getNode <- function(x, ...) {
 }
 
 #' @exportS3Method
+#' rdname format.generator
 getNode.generator <- function(x, ...) {
   environment(get("pump", environment(x$nextElemOr)))$getCont()
 }
 
-#' Display information about coroutine state.
+#' Query / display coroutine properties and state.
 #' `format.generator` displays the original code given
 #'   to construct the generator, its bound environment, whether it is running
 #'   or finished, and a label indicating it last known state.
@@ -354,12 +355,15 @@ getNode.generator <- function(x, ...) {
 #' `getNode` returns a string indicating where a coroutine's
 #' execution is paused. The string is constructed according to the
 #' parse tree of the coroutine expression.
+#'
+#' `getOrig` returns the original expression given to the generator
+#' constructor.
 #' @exportS3method
 format.generator <- function(x, ...) {
   envir <- environment(x$nextElemOr)
-  code <- get("orig", envir)
-  a <- deparse(call("gen", expr(code)), backtick=TRUE)
-  b <- format(env(code), ...)
+  code <- getOrig(x)
+  a <- deparse(call("gen", code), backtick=TRUE)
+  b <- format(envir, ...)
   state <- getState(x)
   cont <- getNode(x)
   c <- paste0(c("<Generator [",

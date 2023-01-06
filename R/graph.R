@@ -70,11 +70,12 @@ make_dot <- function(nodeGraph,
                       union(nodeGraph$contextProperties[[context]]$store,
                             nodeGraph$contextProperties[[context]]$utility))
     if (length(varNames) == 0) NULL else {
+      safeVarNames <- gsub("([][{}()| \\\\])", "\\\\\\1", varNames)
       c(paste(
         quoted(paste0(context, "_", "var")),
         attrs(shape="record",
               label=paste0("{",
-                paste0("<", varNames, ">", varNames, collapse="|"), "}"),
+                paste0("<", safeVarNames, ">", safeVarNames, collapse="|"), "}"),
               fontsize=11,
               fontname="DevaVu Sans Mono Bold", margin=0.08)),
         # "{", paste0("<", varNames, ">", varNames, collapse="|"), "}"))),

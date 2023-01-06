@@ -57,7 +57,7 @@ test_that("Namespace qualification", {
                                                  async:::R(".repeat.yield.R", 4))))())
 
   cps_translate(quo(base::`repeat`(async::yield(4))), gen_endpoints) %is%
-    quo((function() async:::repeat_cps(".repeat", async:::yield_cps(".repeat.yield", 
+    quo((function() async:::repeat_cps(".repeat", async:::yield_cps(".repeat.yield",
     async:::R(".repeat.yield.R", 4))))())
 
   cps_translate(quo({nseval::yield(1); base::yield(1); async::yield(1)}),
@@ -234,7 +234,7 @@ test_that("Nested split pipes", {
                                async:::R(".sort.await.open.with1.await.R",
                                          directory))),
                    async:::R(".sort.await.{2.R",
-                             open(with(..async.tmp, find_record(idCol))))))), 
+                             open(with(..async.tmp, find_record(idCol))))))),
       async:::R(".{2.R", sort(..async.tmp))))())
     ## cps_translate(quo({
     ##   ..async.tmp <- await({

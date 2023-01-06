@@ -347,6 +347,10 @@ nullish <- function(x) length(x)==0
 #' @export
 walk <- function(gen, forGraph=FALSE) {
   nodes <- getStartSet(gen)
+  # override the apparent global names e.g. for "entry" and "return"
+  # this is only necessary for graph drawing tho
+  nodeStartNames <- vapply(nodes, find_global_name, "", emptyenv())
+  nameOverrides <- list2env(structure(as.list(names(nodeStartNames)), names=nodeStartNames))
   nodeOrder <- names(nodes)
   nodes <- list2env(nodes, parent=emptyenv())
   orig <- getOrig(gen)
@@ -360,22 +364,17 @@ walk <- function(gen, forGraph=FALSE) {
   varTypes <- c("call", "store", "local", "arg", "var", "utility",
                 "tail", "tramp", "hand")
   doWalk <- function(thisNode, path, recurse=TRUE) {
-    if (is.na(thisNodeName <- contains(nodes, thisNode))) {
-      contextName <- get(".contextName", environment(thisNode))
-      localName <- find_local_name(thisNode)
-      if (is.na(localName)) {
-        thisNodeName <- paste0("_X_", condense.name(path))
-      } else {
-        thisNodeName <- paste0(contextName, "__", localName)
-      }
-      assert(!exists(thisNodeName, envir=nodeProperties))
-      nodes[[thisNodeName]] <<- thisNode
-      nodeOrder <<- c(nodeOrder, thisNodeName)
-    }
-    if (exists(thisNodeName, envir=nodeProperties)) #already visited
+    contextName <- get0(".contextName", environment(thisNode))
+    localName <- find_local_name(thisNode)
+    thisNodeName <- find_global_name(thisNode, nameOverrides)
+    if (exists(thisNodeName, envir=nodeProperties)) {
+      assert(identical(thisNode, nodes[[thisNodeName]]))
       return(thisNodeName)
+    }
     trace_(sprintf("  Node: %s\n", thisNodeName))
-    nodeProperties[[thisNodeName, "name"]] <<- thisNodeName
+    nodes[[thisNodeName]] <- thisNode
+    nodeProperties[[thisNodeName, "localName"]] <<- localName
+    nodeOrder <<- c(nodeOrder, thisNodeName)
     vars <- by_name(
       all_names(nodes[[thisNodeName]], types=varTypes))
     for (type in varTypes) {
@@ -500,7 +499,26 @@ walk <- function(gen, forGraph=FALSE) {
 }
 
 find_local_name <- function(fun) {
-  contains(environment(fun), fun)
+  if (is.null(name <- attr(fun, "localName"))) {
+    name <- contains(environment(fun), fun)
+    warning(paste0(get0(".contextName", environment(fun), ifnotfound="???"),
+                   "__", name, " did not have a localName attribute"))
+  } else {
+    if (!identical(fun, get0(name, envir=environment(fun), ifnotfound="???"))) {
+      stop(paste0(paste0(
+        get0(".contextName", environment(fun), ifnotfound="???"),
+        "__", name, "is misnamed?")))
+    }
+  }
+  name
+}
+
+find_global_name <- function(fun, nameOverrides) {
+  if (is.null(name <- attr(fun, "globalName"))) {
+    name <- paste0(get0(".contextName", environment(fun)),
+                   "__", find_local_name(fun))
+  }
+  get0(name, nameOverrides, ifnotfound=name)
 }
 
 gatherVars <- function(nodeProperties, contextNodes, contextName, key) {

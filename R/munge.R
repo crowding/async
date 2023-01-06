@@ -91,7 +91,8 @@ munge <- function(# the async/generator to munge
                     graph$nodeProperties[[nodeName]]$localName,
                     "` -> `", nodeName, "`\n"))
       dest.env[[nodeName]] <-
-        function_(formals(node), transBody, dest.env)
+        structure(function_(formals(node), transBody, dest.env),
+                  localName=nodeName, globalName=nodeName)
     }
     if (length(utilTranslations) > 0) {
       trace_(" Moving utils:\n")

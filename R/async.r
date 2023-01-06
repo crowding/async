@@ -108,14 +108,14 @@ await_cps <- function(.contextName, prom) { force(prom)
     promis <- NULL
     success <- NULL
     value <- NULL
-    then <- function() {
+    then %<-% function() {
       trace("await: resolve\n")
       if(success) cont(value) else stop(value)
     }
-    awaited <- function() {
+    awaited %<-% function() {
       pause(then)
     }
-    await_ <- function(val) {
+    await_ %<-% function(val) {
       val <- promises::as.promise(val)
       promis <<- val
       if(verbose) trace("await: got promise\n")
@@ -142,9 +142,9 @@ make_async <- function(expr, orig=arg(expr), ..., compileLevel=0, trace=trace_) 
   resolve_ <- NULL
   reject_ <- NULL
 
-  getState <- function() state
+  getState %<-% function() state
 
-  resolve <- function(val) {
+  resolve %<-% function(val) {
     trace("async: return (resolving)\n")
     state <<- "resolved"
     value <<- val
@@ -152,7 +152,7 @@ make_async <- function(expr, orig=arg(expr), ..., compileLevel=0, trace=trace_) 
     val
   }
 
-  reject <- function(val) {
+  reject %<-% function(val) {
     trace("async: stop (rejecting)\n")
     err <<- val
     state <<- "rejected"
@@ -160,12 +160,12 @@ make_async <- function(expr, orig=arg(expr), ..., compileLevel=0, trace=trace_) 
     val
   }
 
-  replace <- function(resolve, reject) {
+  replace %<-% function(resolve, reject) {
     resolve_ <<- resolve
     reject_ <<- reject
   }
 
-  await_ <- function(cont, promise, success, failure, ...) {
+  await_ %<-% function(cont, promise, success, failure, ...) {
     list(promise, success, failure)
     succ <- function(val) {
       trace("await: success\n")

@@ -74,6 +74,18 @@
 # * No early returns -- a return() and stop() placed in the middle of a
 #   function doesn't do the same thing when functions are spliced together.
 
+`%<-%` <- function(to, from) {
+  assign_with_name(as.character(arg_expr(to)), from, arg_env(to))
+}
+
+assign_with_name <- function(to, from, envir) {
+  if (!identical(envir, environment(from)))
+    stop(paste0("bad use of %<-% at ",
+                get0(".contextName", envir, ifnotfound="???"),
+                "__", to))
+  else assign(to, structure(from, localName=to), envir=envir)
+}
+
 # R() wraps a user-level R expression into an execution node
 R <- function(.contextName, x) {
   x <- arg(x)
@@ -84,14 +96,14 @@ R <- function(.contextName, x) {
 
     if (!is.language(expr(x))) {
       # it's just a constant, inline it
-      eval_ <- eval(bquote(function() cont(.(expr(x)))))
+      eval_ %<-% eval(bquote(function() cont(.(expr(x)))))
     } else {
-      eval_ <- function() {
+      eval_ %<-% function() {
         trace(paste0("R: ", deparse(nseval::expr(x)), "\n"))
         val <- NULL
         nseval::set_arg(val, x)
         # where do we require a lazy
-        # value any more? I guess when it is missing maybe?
+        # value any more?
         cont(val)
       }
     }
@@ -140,7 +152,7 @@ make_store <- function(sym) { force(sym)
       var_ <- R_expr(lhs)
       sym <- sym
 
-      store <- function(val) {
+      store %<-% function(val) {
         if (is.language(val))
           val <- call("quote", val)
         val <- do.call(sym, list(var_, val), envir=env_)
@@ -159,14 +171,14 @@ make_store <- function(sym) { force(sym)
   function(cont, ..., trace=trace_) {
     list(cont, trace)
     leftVal <- NULL
-    andRight <- function(val) {
+    andRight %<-% function(val) {
       val <- leftVal && val
       trace(paste0("&&: ", deparse(val), "\n"))
       leftVal <<- NULL
       cont(val)
     }
     ifTrue <- right(andRight, ..., trace=trace)
-    andLeft <- function(val) {
+    andLeft %<-% function(val) {
       if (isFALSE(val)) {
         trace("&&: FALSE (skip)\n")
         cont(FALSE)
@@ -184,13 +196,13 @@ make_store <- function(sym) { force(sym)
   function(cont, ..., trace=trace_) {
     list(cont, trace)
     leftVal <- NULL
-    orRight <- function(val) {
+    orRight %<-% function(val) {
       val <- leftVal || val
       trace(paste0("||: ", deparse(val), "\n"))
       cont(val)
     }
     ifFalse <- right(orRight, ..., trace=trace)
-    orLeft <- function(val) {
+    orLeft %<-% function(val) {
       if (isTRUE(val)) {
         trace("||: TRUE (skip)\n")
         cont(TRUE)
@@ -210,12 +222,12 @@ if_cps <- function(.contextName, cond, cons.expr, alt.expr) {
     list(cont, stop, trace)
     ifTrue <- cons.expr(cont, ..., stop=stop, trace=trace)
     if (missing_(arg(alt.expr))) {
-      if_ <- function(val) {
+      if_ %<-% function(val) {
         if(val) ifTrue() else cont(invisible(NULL))
       }
     } else {
       ifFalse <- alt.expr(cont, ..., stop=stop, trace=trace)
-      if_ <- function(val) {
+      if_ %<-% function(val) {
         if(val) ifTrue() else ifFalse()
       }
     }
@@ -231,22 +243,22 @@ switch_cps <- function(.contextName, EXPR, ...) {
     list(cont, stop, trace, bounce, bounce_val)
     maybe(goto)
 
-    goto_ <- function(val) {
+    goto_ %<-% function(val) {
       if (is.null(val)) bounce(EXPR) else bounce_val(switch_, val)
     }
 
     # for the compiler to see the branches they need to be assigned names.
     for (i in seq_along(alts)) {
       alts[[i]] <- alts[[i]](cont, ..., stop=stop, trace=trace, goto=goto_)
-      assign(paste0("alt", i), alts[[i]])
+      assign(paste0("alt", i), alts[[i]], envir=environment())
     }
 
     if (is.null(names(alts))) {
       # set up a numeric switch
       branches <- seq_along(alts)
 
-      switch_ <- eval(bquote(splice=TRUE, function(val) {
-        trace_("switch: numeric\n")
+      switch_ %<-% eval(bquote(splice=TRUE, function(val) {
+        trace("switch: numeric\n")
         if (!is.numeric(val))
           stop(paste0("switch: expected numeric, got ", mode(val)))
         else {
@@ -287,8 +299,8 @@ switch_cps <- function(.contextName, EXPR, ...) {
         splice=TRUE,
         switch(branch, ..(lapply(seq_along(alts),
                                  function(i)call(paste0("alt", i))))))
-      switch_ <- eval(bquote(function(val) {
-        trace_("switch: character\n")
+      switch_ %<-% eval(bquote(function(val) {
+        trace("switch: character\n")
         if (!is.character(val))
           stop(paste0("switch: expected character, got ", mode(val)))
         else .(if (is.null(default)) bquote({
@@ -332,6 +344,8 @@ switch_cps <- function(.contextName, EXPR, ...) {
 #'        otherBranch=... )
 #'
 #' the `finally` clause will be executed _before_ switching to the new branch.
+
+#' @export
 goto <- function(branch=NULL) {
   stop("`goto` used outside of a 'gen` or `async`.")
 }
@@ -342,13 +356,11 @@ goto_cps <- function(.contextName, branch=R(NULL)) {
     if(missing(goto)) stop("`goto` used outside of a `switch` statement.")
     list(cont, goto)
 
-    goto_ <- function(val) {
-      goto(val)
-    }
+    goto_ %<-% function(val) goto(val)
     branch <- branch(goto_)
 
     if (is_R(branch) && identical(R_expr(branch), quote(expr=))) {
-      goto_ <- function() goto(NULL)
+      goto_ %<-% function() goto(NULL)
     } else {
       branch
     }
@@ -360,11 +372,12 @@ goto_cps <- function(.contextName, branch=R(NULL)) {
   # a `semicolon` is a node that forces its input then discards it
   function(cont, ...) {
     force(cont)
-    `;` <- function(val) {
+    `;` %<-% function(val) {
       force(val)
       val <- NULL #force, then discard
       cont()
     }
+    `;`
   }
 }
 
@@ -375,7 +388,7 @@ goto_cps <- function(.contextName, branch=R(NULL)) {
   function(cont, ...) {
     force(cont)
     if (length(args) == 0) {
-      function() cont(NULL)
+      `{_` %<-% function() cont(NULL)
     } else if (length(args) == 1) {
       # just use the inner arg's continuation, like ()
       args[[1]](cont, ...)
@@ -407,7 +420,7 @@ next_cps <- function(.contextName) {
     if (missing_(arg(nxt))) stop("call to next is not in a loop")
     list(nxt, trace)
     if (verbose) {
-      next_ <- function() {
+      next_ %<-% function() {
         trace("next\n")
         nxt()
       }
@@ -421,7 +434,7 @@ break_cps <- function(.contextName) {
     if (missing_(arg(brk))) stop("call to break is not in a loop")
     list(brk, trace)
     if(verbose) {
-      break_ <- function() {
+      break_ %<-% function() {
         trace("break\n")
         brk()
       }
@@ -435,7 +448,7 @@ nextElemOr_cps <- function(.contextName, expr, or) {
 
     or_ <- or(cont, ..., trace=trace_)
 
-    getNext <- function(val) {
+    getNext %<-% function(val) {
       stopping <- FALSE
       #when munged we had a name collision vs 'nextElemOr' in gen.r
       val <- async::nextElemOr(val, stopping <- TRUE)
@@ -453,17 +466,17 @@ nextElemOr_cps <- function(.contextName, expr, or) {
 repeat_cps <- function(.contextName, expr) { list(.contextName, expr)
   function(cont, ..., bounce, brk, nxt, trace=trace_) {
     list(cont, maybe(brk), maybe(nxt), trace)
-    repeat_ <- function(val) {
+    repeat_ %<-% function(val) {
       trace("repeat: again\n")
       force(val)
       val <- NULL
       bounce(begin)
     }
-    brk_ <- function() {
+    brk_ %<-% function() {
       trace("repeat: break\n")
       cont(invisible(NULL))
     }
-    nxt_ <- function() {
+    nxt_ %<-% function() {
       trace("repeat: next\n")
       bounce(begin)
     }
@@ -477,22 +490,22 @@ while_cps <- function(.contextName, cond, expr) {
   list(.contextName, cond, expr)
   function(cont, ..., bounce, bounce_val, nxt, brk, trace=trace_) {
     list(cont, bounce, bounce_val, maybe(nxt), maybe(brk), trace)
-    again <- function(val) {
+    again %<-% function(val) {
       force(val)
       val <- NULL
       bounce(begin)
     }
-    brk_ <- function() {
+    brk_ %<-% function() {
       trace("while: break\n")
       bounce_val(cont, invisible(NULL))
     }
-    nxt_ <- function() {
+    nxt_ %<-% function() {
       trace("while: next\n")
       bounce(begin)
     }
     doExpr <- expr(again, ..., bounce=bounce, bounce_val=bounce_val,
                    nxt=nxt_, brk=brk_, trace=trace)
-    while_ <- function(val) {
+    while_ %<-% function(val) {
       if (val) {
         trace("while: do\n")
         val <- NULL
@@ -526,20 +539,20 @@ for_cps <- function(.contextName, var, seq, expr) {
     var_ <- as.character(var_)
     seq_ <- NULL
 
-    brk_ <- function() {
+    brk_ %<-% function() {
       cont(invisible(NULL))
     }
-    nxt_ <- function() {
+    nxt_ %<-% function() {
       bounce(do_)
     }
-    again <- function(val) {
+    again %<-% function(val) {
       force(val)
       bounce(do_)
     }
     body <- expr(again, ..., bounce=bounce,
                  bounce_val=bounce_val, nxt=nxt_, brk=brk_,
                  stop=stop, trace=trace) # our brk_
-    do_ <- function() {
+    do_ %<-% function() {
       stopping <- FALSE
       trace(paste0("for ", var_, ": next\n"))
       val <- async::nextElemOr(seq_, stopping <- TRUE)
@@ -552,7 +565,7 @@ for_cps <- function(.contextName, var, seq, expr) {
         body()
       }
     }
-    for_ <- function(val) {
+    for_ %<-% function(val) {
       seq_ <<- async::iteror(val)
       do_()
     }
