@@ -143,7 +143,7 @@ move_value.quotation <- function(graph, contextName, varName, dest.env, newName,
 
 move_value.function <- function(graph, contextName, varName, dest.env, newName,
                                 varTranslations, callTranslations) {
-  written <- varName %in% graph$contextProperties[[contextName, "store"]]
+  written <- varName %in% graph$contextProperties[[contextName]]$store
   value <- get(varName, graph$contexts[[contextName]])
   isNonce <- is.null(body(value))
   if (isNonce) {
@@ -179,7 +179,7 @@ move_value.function <- function(graph, contextName, varName, dest.env, newName,
   } else {
     # a function, but not a nonce nor recognized as one of the nodes?
     if (written) {
-      if (varName %in% graph$contextProperties[[contextName, "tail"]])
+      if (varName %in% graph$contextProperties[[contextName]]$tail)
         stop("what")
       trace_(paste0("   State var with unknown function value(?): `",
                     varName, "` -> `", newName, "`\n"))
@@ -193,7 +193,7 @@ move_value.function <- function(graph, contextName, varName, dest.env, newName,
 
 move_value.default <- function(graph, contextName, varName, dest.env, newName,
                                varTranslations, callTranslations) {
-  written <- varName %in% graph$contextProperties[[contextName, "external"]]
+  written <- varName %in% graph$contextProperties[[contextName]]$external
   if (written) {
     trace_(paste0("   State var: `", varName, "` -> `", newName, "`\n"))
   } else {

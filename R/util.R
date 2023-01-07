@@ -58,12 +58,12 @@ expect_state_pointers_closed <- function(graphc) {
   # in the same context.
   con <- names(graphc$contexts)
   env <- as.list(graphc$contexts, all.names=TRUE)[[1]]
-  for (var in unique(c(graphc$contextProperties[[con, "read"]],
-                       graphc$contextProperties[[con, "store"]]))) {
+  for (var in unique(c(graphc$contextProperties[[con]][["read"]],
+                       graphc$contextProperties[[con]][["store"]]))) {
     val <- graphc$contexts[[con]][[var]]
     if (is.function(val) && !is.quotation(val) && !is.null(body(val))) {
       #is it tailcalled?
-      if (var %in% graphc$contextProperties[[con, "tail"]]) {
+      if (var %in% graphc$contextProperties[[con]][["tail"]]) {
         expect_identical(environment(val), env)
       } else {
         if (!is_child_of(environment(val), env)) {
@@ -92,7 +92,7 @@ expect_graph_names_are_graphc_locals <- function(graph, graphc) {
   # graphc.
   cnodes <- vapply(names(graphc$nodes),
                    function(nodeName)
-                     graphc$nodeProperties[[nodeName, "localName"]],
+                     graphc$nodeProperties[[nodeName]][["localName"]],
                    "")
   if (!setequal(unname(cnodes), names(graph$nodes))) browser()
   expect_setequal(unname(cnodes), names(graph$nodes))
@@ -103,23 +103,28 @@ expect_edges_isomorphic <- function(graph, graphc) {
   # after compilation
   fromcs <- names(graphc$nodeEdgeProperties)
   fromclocals <- (fromcs
-    |> vapply( \(nodeName)graphc$nodeProperties[[nodeName, "localName"]], "" ))
+    |> vapply( \(nodeName)graphc$nodeProperties[[nodeName]][["localName"]], "" ))
   edgecs <- (structure(fromcs, names=paste0(fromclocals, "->"))
     |> lapply(function(fromc) {
       toclocals <- names(graphc$nodeEdgeProperties[[fromc]])
       tocs <- toclocals |> vapply(
-        \(local) graphc$nodeEdgeProperties[[fromc, local]]$to, "")
+        \(local) graphc$nodeEdgeProperties[[fromc]][[local]]$to, "")
       structure(tocs, names=toclocals)
     })
     |> c(recursive=TRUE)
   )
 
   froms <- names(graph$nodeEdgeProperties)
-  edges <- (structure(froms, names=paste0(froms, "->"))
-    |> lapply( \(from)
-      as.list(graph$nodeEdgeProperties[[from]], all.names=TRUE)
-      |> vapply(\(x) x$to, "")
-      |> (\(.)structure(names(.), names=.))())
+  edges <- (
+    structure(froms, names=paste0(froms, "->"))
+    |> lapply( \(from) {
+      tos <- as.list(graph$nodeEdgeProperties[[from]], all.names=TRUE)
+      if (length(tos) > 0) {
+        (tos
+          |> vapply(\(x) structure(names=x$to, x$to), "")
+          |> (\(.)structure(names(.), names=.))())
+      } else list()
+    })
     |> c(recursive=TRUE)
   )
 

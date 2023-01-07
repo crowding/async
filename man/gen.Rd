@@ -81,7 +81,7 @@ When \code{nextElem(rwalk)} is called, the generator executes its
 generator 'pauses', preserving its execution state, and \code{nextElem}
 then returns what was passed to \code{yield}. The next time
 \code{nextElem(rwalk)} is called, the generator resumes executing its
-inside expression starting after the \code{yield()}
+inside expression starting after the \code{yield()}.
 
 The generator expression is evaluated in a local environment.
 
@@ -89,11 +89,12 @@ Generators are \emph{not} based on forking or parallel OS processes; they
 run in the same R process where \code{nextElem} is called.
 
 A generator expression can use any R functions, but a call to
-\code{yield} may only appear in some positions. This package has several
-built-in \link{pausables}, equivalents to R's base control flow
-functions, such as \code{if}, \code{while}, \code{tryCatch}, \verb{<-}, \code{{}}, \code{||} and
-so on.  A call to \code{yield} may only appear in an argument of one of
-these pausable functions. So this random walk generator:
+\code{yield} may only appear in the arguments of a "pausable" function.
+The \code{async} package has several built-in pausable functions corresponding
+to base R's control flow functions, such as \code{if}, \code{while}, \code{tryCatch},
+\verb{<-}, \code{{}}, \code{||} and so on (see \link{pausables} for more details.)  A call
+to \code{yield} may only appear in an argument of one of these pausable
+functions. So this random walk generator:
 
 \if{html}{\out{<div class="sourceCode r">}}\preformatted{rwalk <- gen(\{x <- 0; repeat \{x <- yield(x + rnorm(1))\}\})
 }\if{html}{\out{</div>}}

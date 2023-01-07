@@ -13,13 +13,13 @@ test_that("can compile generator and print it", {
 
 test_that("name munging generators", {
 
-  fg <- function(compileLevel=0) gen({
+  fg <- function(...) gen({
     x <- 0
     for (i in 1:10)
               yield(x <- x + i)
-  }, compileLevel=compileLevel)
+  }, ...)
 
-  g <- fg()
+  g <- fg(compileLevel=0)
   gc <- fg(compileLevel=-1)
 
   # walk the graph before and after compile and compare them.

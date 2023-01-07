@@ -82,14 +82,13 @@ gen <- function(expr, ..., split_pipes=FALSE, trace=trace_,
   gen
 }
 
-#' @export
-#' @rdname gen
 #' @description
 #' When written inside a generator expression, `yield(expr)` causes the
 #' generator to return the given value, then pause until the next value is
 #' requested.
 #' @return `yield(x)` returns the same value x.
-#'
+#' @rdname gen
+#' @export
 yield <- function(expr) {
   stop("yield() called outside a generator")
 }
@@ -250,7 +249,7 @@ getReturn <- function(x) UseMethod("getReturn")
 #' @export
 getStop <- function(x) UseMethod("getStop")
 #' @export
-getCurrent <- function(x) UseMethod("getStop")
+getCurrent <- function(x) UseMethod("getCurrent")
 #' @export
 getOrig <- function(x) UseMethod("getOrig")
 #' @export
@@ -317,6 +316,7 @@ print.generator <- function(x, ...) {
 }
 
 #' @export
+#' @rdname format.generator
 getState <- function(x, ...) {
   UseMethod("getState")
 }
@@ -333,7 +333,7 @@ getNode <- function(x, ...) {
 }
 
 #' @exportS3Method
-#' rdname format.generator
+#' @rdname format.generator
 getNode.generator <- function(x, ...) {
   environment(get("pump", environment(x$nextElemOr)))$getCont()
 }
@@ -358,7 +358,7 @@ getNode.generator <- function(x, ...) {
 #'
 #' `getOrig` returns the original expression given to the generator
 #' constructor.
-#' @exportS3method
+#' @exportS3Method
 format.generator <- function(x, ...) {
   envir <- environment(x$nextElemOr)
   code <- getOrig(x)

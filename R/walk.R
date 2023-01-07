@@ -51,7 +51,7 @@ all_names <- function(fn,
   collect_head <- function(expr, inTail) {
     if (!inTail && !nonTail) return(character(0))
     switch(mode(expr),
-           call= {
+           call={
              switch(
                mode(expr[[1]]),
                name=, character= {
@@ -355,10 +355,9 @@ walk <- function(gen, forGraph=FALSE) {
   nodes <- list2env(nodes, parent=emptyenv())
   orig <- getOrig(gen)
   iter <- icount()
-  nodeProperties <- hashbag()
-  reverseEdges <- hashbag()
-  nodeEdgeProperties <- hashbag()
-  nodeProperties <- hashbag()
+  nodeProperties <- new.env(parent=emptyenv())
+  reverseEdges <- new.env(parent=emptyenv())
+  nodeEdgeProperties <- new.env(parent=emptyenv())
   #do a DFS to collect the graph:
   # what storage used by each node / each context?
   varTypes <- c("call", "store", "local", "arg", "var", "utility",
@@ -373,16 +372,18 @@ walk <- function(gen, forGraph=FALSE) {
     }
     trace_(sprintf("  Node: %s\n", thisNodeName))
     nodes[[thisNodeName]] <- thisNode
-    nodeProperties[[thisNodeName, "localName"]] <<- localName
+    nodeProperties[[thisNodeName]] <- new.env(parent=emptyenv())
+    nodeEdgeProperties[[thisNodeName]] <- new.env(parent=emptyenv())
+    nodeProperties[[thisNodeName]][["localName"]] <<- localName
     nodeOrder <<- c(nodeOrder, thisNodeName)
     vars <- by_name(
       all_names(nodes[[thisNodeName]], types=varTypes))
     for (type in varTypes) {
-      nodeProperties[[thisNodeName, type]] <<- sort(vars[[type]])
+      nodeProperties[[thisNodeName]][[type]] <<- sort(vars[[type]])
     }
     # "reads" being anything used that's not local to the node
     reads <- c(setdiff(vars$var, union(vars$local, vars$arg)))
-    nodeProperties[[thisNodeName, "read"]] <<- sort(reads)
+    nodeProperties[[thisNodeName]][["read"]] <<- sort(reads)
     named <- function(x, name) structure(x %||% character(0),
                                          names=rep(name, length(x)))
     tails <- c(named(vars$hand, "hand"),
@@ -414,7 +415,7 @@ walk <- function(gen, forGraph=FALSE) {
     for (i in seq_along(tails)) {
       tailcall <- tailcalls[[i]]
       branchName <- as.character(tailcall[[1]][[1]])
-      if (branchName %in% nodeProperties[[thisNodeName, "local"]]) {browser(); next}
+      if (branchName %in% nodeProperties[[thisNodeName]][["local"]]) {browser(); next}
       nextNode <- get(branchName, envir=environment(thisNode))
       if (!is.function(nextNode)) stop("walk: tailcall to non-function")
       if (   is.null(environment(nextNode))
@@ -423,8 +424,10 @@ walk <- function(gen, forGraph=FALSE) {
       }
       nextNodeName <- doWalk(nextNode, c(path, branchName))
       trace_(sprintf("  Edge: %s :: %s -> %s\n", thisNodeName, branchName, nextNodeName))
+      if (!exists(nextNodeName, envir=reverseEdges))
+        reverseEdges[[nextNodeName]]=new.env(parent=emptyenv())
       reverseEdges[[nextNodeName]][[thisNodeName]] <<- branchName
-      nodeEdgeProperties[[thisNodeName, branchName]] <<-
+      nodeEdgeProperties[[thisNodeName]][[branchName]] <<-
         list(to=nextNodeName, call=tailcall, type=names(tails)[[i]])
     }
     thisNodeName
@@ -440,8 +443,8 @@ walk <- function(gen, forGraph=FALSE) {
   # Contexts: what environment is each node in?
   contexts <- new.env(parent=emptyenv())
   nodeContexts <- new.env(parent=emptyenv())
-  contextProperties <- hashbag()
-  contextNodes <- hashbag()
+  contextProperties <- new.env(parent=emptyenv())
+  contextNodes <- new.env(parent=emptyenv())
   for (thisNodeName in nodeOrder) {
     thisNode <- nodes[[thisNodeName]]
     context <- environment(nodes[[thisNodeName]])
@@ -452,23 +455,24 @@ walk <- function(gen, forGraph=FALSE) {
     } else {
       trace_(paste0("  Context: ", contextName, "\n"))
       contexts[[contextName]] <- context
+      contextProperties[[contextName]] <- new.env(parent=emptyenv())
     }
     nodeContexts[[thisNodeName]] <- contextName
-    contextNodes[[contextName,thisNodeName]] <- thisNodeName
+    contextNodes[[contextName]][[thisNodeName]] <- thisNodeName
   }
   trace_("Analyzing contexts:\n")
   for (contextName in names(contexts)) {
     trace_(paste0("  Context: ", contextName, "\n"))
     # gather all nonlocal names used across this context
     for (kind in c("read", "store", "utility", "call", "tail", "tramp", "hand")) {
-      contextProperties[[contextName, kind]] <-
+      contextProperties[[contextName]][[kind]] <-
         gatherVars(nodeProperties, contextNodes, contextName, kind)
     }
     context <- contexts[[contextName]]
-    stores <- contextProperties[[contextName, "store"]]
+    stores <- contextProperties[[contextName]][["store"]]
     for (thisNodeName in names(contextNodes[[contextName]])) {
       # does the node have a local name in its context?
-      nodeProperties[[thisNodeName, "localName"]] <- character(0)
+      nodeProperties[[thisNodeName]][["localName"]] <- character(0)
       thisNode <- nodes[[thisNodeName]]
       for (nm in names(context)) {
         if (nm %in% stores) next # a state pointer isn't a stable name
@@ -476,9 +480,9 @@ walk <- function(gen, forGraph=FALSE) {
         if (nm != "..." && is_forced_(nm, context)) {
           if (identical(context[[nm]], thisNode)) {
             trace_(sprintf("    Exit: %s -> %s\n", nm, thisNodeName))
-            nodeProperties[[thisNodeName, "localName"]] <- nm
+            nodeProperties[[thisNodeName]][["localName"]] <- nm
             if(nm == "R_") {
-              nodeProperties[[thisNodeName, "Rexpr"]] <- expr(get("x", context))
+              nodeProperties[[thisNodeName]][["Rexpr"]] <- expr(get("x", context))
             }
             break
           }

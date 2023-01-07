@@ -320,8 +320,6 @@ switch_cps <- function(.contextName, EXPR, ...) {
   }
 }
 
-#' @export
-#' @rdname switch
 #' Coroutine switch with delimited goto.
 #'
 #' The `switch` function implemented for coroutines in the `async`
@@ -344,8 +342,8 @@ switch_cps <- function(.contextName, EXPR, ...) {
 #'        otherBranch=... )
 #'
 #' the `finally` clause will be executed _before_ switching to the new branch.
-
 #' @export
+#' @rdname switch
 goto <- function(branch=NULL) {
   stop("`goto` used outside of a 'gen` or `async`.")
 }

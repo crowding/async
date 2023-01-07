@@ -210,6 +210,8 @@ getCurrent.async <- function(x) environment(x$state$pump)$cont
 #' @exportS3Method
 getOrig.async <- function(x) x$orig
 #' @exportS3Method
+getCon.async <- function(x) x$orig
+#' @exportS3Method
 getStartSet.async <- function(x) {
   list(entry=getEntry(x),
        resolve=getReturn(x),
@@ -218,6 +220,12 @@ getStartSet.async <- function(x) {
        pump=get("pump", envir=x$state),
        runPump=environment(get("pump", (x$state)))$runPump,
        getState=get("getState", x$state))
+}
+
+#' @exportS3Method
+#' @rdname format.generator
+getNode.generator <- function(x, ...) {
+  environment(get("pump", environment(x$nextElemOr)))$getCont()
 }
 
 #' @export

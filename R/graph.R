@@ -70,7 +70,7 @@ make_dot <- function(nodeGraph,
                       union(nodeGraph$contextProperties[[context]]$store,
                             nodeGraph$contextProperties[[context]]$utility))
     if (length(varNames) == 0) NULL else {
-      safeVarNames <- gsub("([][{}()| \\\\])", "\\\\\\1", varNames)
+      safeVarNames <- gsub("([][{}()<>| \\\\])", "\\\\\\1", varNames)
       c(paste(
         quoted(paste0(context, "_", "var")),
         attrs(shape="record",
@@ -146,7 +146,7 @@ make_dot <- function(nodeGraph,
     # edge properties.
     # bolder if carrying a value
     # outgoing label.
-    props <- nodeGraph$nodeEdgeProperties[[from, local]]
+    props <- nodeGraph$nodeEdgeProperties[[from]][[local]]
     c(if (local=="cont" || length(nodeGraph$nodeEdgeProperties[[local]]) <= 1)
       c(taillabel="") else c(taillabel=props$localName),
       if (length(props$call[[1]]) > 1)
@@ -173,14 +173,17 @@ make_dot <- function(nodeGraph,
       )}
   edge <- function(nodeGraph, from, local) {
     concat(lapply(local, function(edgeLocal) {
-      edge <- nodeGraph$nodeEdgeProperties[[from, local]]
+      edge <- nodeGraph$nodeEdgeProperties[[from]][[local]]
       if (edge[["type"]] != "hand" ||
             ((edge[["type"]] == "hand") && handlers)) {
         paste(quoted(from), "->", quoted(edge$to),
               attrs(edgeAttrs(nodeGraph, from, local)))}}))}
   edges <- function(nodeGraph) {
-    concat(lapply(all_indices(nodeGraph$nodeEdgeProperties),
-                  function(i) edge(nodeGraph, i[1], i[2])))}
+    concat(lapply(all_indices(nodeGraph$nodeEdgeProperties, levels=2),
+                  function(i) {
+                    if (length(i) < 2) list()
+                    else edge(nodeGraph, i[1], i[2])
+                  }))}
   graph <- block("graph")
   digraph <- block("digraph")
 
