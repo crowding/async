@@ -36,3 +36,9 @@ make a custom node style for handlers, or maybe an out-and-back edge?
 An edge to a node in the middle of a trampoline edge might work too.
 
 Hey maybe rewrite drawGraph() in collector style?
+
+## move eval_ to a handler
+
+so as to inline everything better.
+
+loop({}, )

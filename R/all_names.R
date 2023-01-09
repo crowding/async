@@ -151,8 +151,10 @@ collect_function <- function(fn, yield, nonTail=TRUE, forGraph=FALSE) {
     # i.e. trampolines and handlers don't need to register as tailcalls
     # we've already collected the head.
     if(nonTail) {
-      for (i in unname(as.list(expr)[-1]))
-        collect_arg(i, inTail=inTail, yield=yield)
+      for (i in unname(as.list(expr)[-1])) {
+        if (!missing(i))
+          collect_arg(i, inTail=inTail, yield=yield)
+      }
     }
   }
   collect_ordinary_call <- function(expr, inTail, orig=NULL, yield) {

@@ -92,41 +92,38 @@ R <- function(.contextName, x) {
 
   function(cont, ..., trace=trace_) {
     force(cont)
-    x <- x
 
-    if (!is.language(expr(x))) {
-      # it's just a constant, inline it
+    if (missing_(x) || !is.language(expr(x))) {
       eval_ %<-% eval(bquote(function() cont(.(expr(x)))))
     } else {
+      expr_ <- expr(x)
+      envir <- env(x)
       eval_ %<-% function() {
-        trace(paste0("R: ", deparse(nseval::expr(x)), "\n"))
-        val <- NULL
-        nseval::set_arg(val, x)
-        # where do we require a lazy
-        # value any more?
+        trace(paste0("R: ", deparse(expr_), "\n"))
+        val <- eval(expr_, envir)
         cont(val)
       }
     }
   }
 }
 
+#these accessors are used during construction of `for` and `<-` nodes
 is_R <- function(f) {
   exists("eval_", environment(f), inherits=FALSE) &&
     identical(f, get("eval_", environment(f)))
 }
 
 R_expr <- function(f) {
-  expr(get("x", environment(f)))
+  expr(get0("x", environment(f)))
 }
 
 R_env <- function(f) {
-  env(get("x", environment(f)))
+  env(get0("x", environment(f)))
 }
 
 R_cont <- function(f) {
   get("cont", environment(f))
 }
-
 
 `(_cps` <- function(.contextName, expr) {
   list(.contextName, expr)

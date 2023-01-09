@@ -20,39 +20,35 @@ make_dot <- function(nodeGraph,
     label <- nodeGraph$nodeProperties[[nodeName]]$localName %||% nodeName
     short_label <- last(strsplit(label, "__")[[1]])
     is_handler <- "cont" %in% names(formals(nodeGraph$nodes[[nodeName]]))
-
-    c(switch(
-      short_label,
-      "eval_"={
-        e <- environment(nodeGraph$nodes[[nodeName]])
-        if (exists("x", e)) {
-          lab <- expr(e$x)
-          c(label=paste0(deparse(lab),
-                         collapse="\\l"),
-            fontname="DejaVu Sans Mono Bold", style="filled",
-            fontcolor="lightgreen", fontsize=13, color="gray20",
-            labeljust="l", nojustify="true")
-        }
-      },
-      ";"=c(shape="circle", style="filled", color="gray70",
-            fixedsize="true",
-            width=0.25, height=0.25, label=";"),
-      c(label=label, style="filled,rounded", color="gray70")),
-      switch(
-        nodeName,
-        entry=,
-        START=c(shape="doubleoctagon", color="darkgreen", style="filled",
-                fontcolor="lightgreen", margin="0,0", fixedsize="false",
-                pos="1,1"
-                ),
-        stop_=,
-        reject=,
-        STOP=c(shape="doubleoctagon", color="darkred", style="filled",
-               fontcolor="pink",  margin="0,0", fixedsize="false"),
-        return=,
-        resolve=,
-        RETURN=c(shape="doubleoctagon", color="darkblue", style="filled",
-                 fontcolor="lightblue", margin="0,0", fixedsize="false")))}
+    c(if (is_R(nodeGraph[[nodeName]])) {
+      ex <- R_expr(nodeGraph$nodes[[nodeName]])
+      c(label=paste0(deparse(ex),
+                     collapse="\\l"),
+        fontname="DejaVu Sans Mono Bold", style="filled",
+        fontcolor="lightgreen", fontsize=13, color="gray20",
+        labeljust="l", nojustify="true")
+    } else if (short_label == ";") {
+      c(shape="circle", style="filled", color="gray70",
+        fixedsize="true",
+        width=0.25, height=0.25, label=";")
+    } else {
+      c(label=label, style="filled,rounded", color="gray70")
+    },
+    switch(
+      nodeName,
+      entry=,
+      START=c(shape="doubleoctagon", color="darkgreen", style="filled",
+              fontcolor="lightgreen", margin="0,0", fixedsize="false",
+              pos="1,1"
+              ),
+      stop_=,
+      reject=,
+      STOP=c(shape="doubleoctagon", color="darkred", style="filled",
+             fontcolor="pink",  margin="0,0", fixedsize="false"),
+      return=,
+      resolve=,
+      RETURN=c(shape="doubleoctagon", color="darkblue", style="filled",
+               fontcolor="lightblue", margin="0,0", fixedsize="false")))}
   node <- function(nodeGraph, nodeName) {
     paste(quoted(nodeName),
           attrs(nodeAttrs(nodeGraph, nodeName)))}
