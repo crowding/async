@@ -322,7 +322,7 @@ makeGraph.generator <- function(x, file="", sep="\n", ...) {
 
 #' @exportS3Method
 makeGraph.async <- function(x, file="", sep="\n", ...) {
-  graph <- walk(x)
+  graph <- walk(x, forGraph=TRUE)
   cat(make_dot(graph, ...), file=file, sep=sep)
   invisible(graph)
 }

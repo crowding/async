@@ -366,7 +366,7 @@ format.generator <- function(x, ...) {
   b <- format(envir, ...)
   state <- getState(x)
   cont <- getNode(x)
-  c <- paste0(c("<Generator [",
+  c <- paste0(c("<generator [",
                 state, " at `", cont, "`",
                 if (state=="stopped")
                   c(": ", capture.output(print(envir$err))),

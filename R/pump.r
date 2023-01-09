@@ -42,7 +42,8 @@ make_pump <- function(expr, ...,
                       return=structure(function(x)x, localName="return"),
                       trace=trace_,
                       eliminate.tailcalls = TRUE,
-                      catch=TRUE) {
+                      catch=TRUE,
+                      targetEnv=NULL) {
   .contextName <- "pump"
   list(expr, stop, return, trace)
   nonce <- (function() NULL)
@@ -52,7 +53,6 @@ make_pump <- function(expr, ...,
   value <- nonce
   debugR <- FALSE
   debugInternal <- FALSE
-  targetEnv <- NULL
 
   setDebug <- structure(function(R=debugR, internal=debugInternal) {
     debugR <<- R

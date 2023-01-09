@@ -59,7 +59,7 @@ catch_cps_ <- function(.contextName, expr, error) {
       cont(list(result, result <<- NULL)[[1]])
     }
     continue %<-% function(val) {
-      trace("catch: contin\n")
+      trace("catch: continue\n")
       result <<- val
       unwind(do_continue)
     }

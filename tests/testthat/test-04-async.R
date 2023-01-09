@@ -105,6 +105,7 @@ test_that("async format", {
   expect_output(print(as), "x \\+ 5")
   pr$resolve(5)
   wait_for_it()
+  expect_output(print(as), "resolved at `")
   expect_output(print(as), "fulfilled: numeric")
 
   pr <- mock_promise()
@@ -235,6 +236,7 @@ if(FALSE) {
 
   test_that("tryCatch({..., return(x)}, finally={...}) resolves promise before 'finally'",
   {
+
     filename <- mock_promise()
     opened <- FALSE
     closed <- TRUE
@@ -289,6 +291,10 @@ test_that("tracing", {
 
 test_that("awaiting value that doesn't exist", {
 
+  if (exists("pr")) {
+    warning("removing global variable 'pr'");
+    rm(pr, inherits=TRUE)
+  }
   as <- async({
     tryCatch({
       if (await(pr)) {

@@ -85,10 +85,28 @@ i.e. if there is an edge from old[A] to old[B], then new[B] should (still) exist
 
 ## Collecting the graph has suddenly gotten slower.
 
-Or maybe it's been a slow from boil
+Or maybe it's been a slow frog boil.
 
 It's difficult to profile recursive algorithms, but I think from looking at profvis output,  that "contains" and is_forced are eating a lot of time. I sure wish that counted as "one" invocation. It's more useful to look at the flame graph and notice what's spending a lot of time on top.
 
 The solution for "contains" might be to just assign every node an attribute giving local name, and (perhaps) the result of all.names. Could call it `%<-%` and have it memoize on the function text.
 
 Or maybe with a reassignment function?
+
+Profiling also tells me that there's a long GC pause -- perhaps this has to do with all the stuff created by a non-compiled generator that is being cleaned up. ("munge" might remove things as it adds? Would that help?
+
+## Graph is not getting past a "try"
+
+It's doing something different in `forGraph=TRUE` than in `forGraph=FALSE` which I thought I put a lot of checks around. 
+
+It's failing to see the edge Node: `.{1.tryCatch__do_windup -> .{1.tryCatch__stop_`
+
+which is in a lambda. Why is all_names missing it...
+
+all_names on this node for not graph gives: 
+
+list(arg = c("cont", "..."), call = c("list", "trace", "on.exit", 
+"tryCatch", "cont", "stop_"), tail = "stop_", utility = "trace", 
+    var = c("cont", "..."))
+    
+Okay, the problem is that the "tryCatch" in catch_cps's do_windup is not in tail position?

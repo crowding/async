@@ -1,4 +1,4 @@
-# Utility functions, stuff used in testing
+# Utility functions, internal consistency checks used in testing
 
 `%is%` <- testthat::expect_equal
 
@@ -141,4 +141,3 @@ expect_resolves_with <- function(prom, expected, trigger=NULL, test=expect_equal
   test(val, expected)
   val
 }
-

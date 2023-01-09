@@ -210,22 +210,21 @@ getCurrent.async <- function(x) environment(x$state$pump)$cont
 #' @exportS3Method
 getOrig.async <- function(x) x$orig
 #' @exportS3Method
-getCon.async <- function(x) x$orig
-#' @exportS3Method
 getStartSet.async <- function(x) {
   list(entry=getEntry(x),
        resolve=getReturn(x),
        reject=getStop(x),
        replace=x$state$replace,
        pump=get("pump", envir=x$state),
+       getCont=environment(get("pump", (x$state)))$getCont,
        runPump=environment(get("pump", (x$state)))$runPump,
        getState=get("getState", x$state))
 }
 
 #' @exportS3Method
-#' @rdname format.generator
-getNode.generator <- function(x, ...) {
-  environment(get("pump", environment(x$nextElemOr)))$getCont()
+#' @rdname format
+getNode.async <- function(x, ...) {
+  environment(get("pump", environment(x$state$pump)))$getCont()
 }
 
 #' @export
@@ -233,18 +232,27 @@ print.async <- function(x, ...) {
   cat(format(x, ...), sep="\n")
 }
 
-#' @export
+#' @rdname format
+#' @exportS3Method
 format.async <- function(x, ...) {
-  if (is.null(x$orig)) {
-    a <- deparse(call("async(...)"))
-  }
-  a <- deparse(call("async", expr(x$orig)), backtick = TRUE)
-  b <- format(env(x$orig))
-  c <- NextMethod(x)
-  c(a, b, c)
+  envir <- environment(x$state$pump)
+  code <- getOrig(x)
+  a <- deparse(call("async", code), backtick=TRUE)
+  b <- format(envir, ...)
+  state <- getState(x)
+  cont <- getNode(x)
+  c <- paste0(c("<async [",
+                state,
+                " at `", cont, "`",
+                if (state=="stopped")
+                  c(": ", capture.output(print(envir$err))),
+                "]>"), collapse="")
+  d <- NextMethod()
+  c(a, b, c, d)
 }
 
 #' @export
+#' @rdname format
 getState.async <- function(x) x$state$getState()
 
 compile.async <- function(x, level) {
