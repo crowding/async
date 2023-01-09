@@ -293,7 +293,7 @@ test_that("awaiting value that doesn't exist", {
 
   if (exists("pr")) {
     warning("removing global variable 'pr'");
-    rm(pr, inherits=TRUE)
+    rm("pr", inherits=TRUE)
   }
   as <- async({
     tryCatch({

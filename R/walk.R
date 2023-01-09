@@ -8,237 +8,6 @@ by_name <- function(vec) {
                                   names=NULL))
 }
 
-# Scan a function and return all names used, labeled by their
-# (possibly overlapping) "roles":
-#
-# - arg: names defined as arguments
-# - var: names appearing in arguments of calls
-# - call: names appearing at head of calls
-# - local: names appearing as target of <-
-# - store: names appearing as target of <<-
-# - tail: names of calls in "tail position"
-# - hand: names that refer to functions(cont, ...) that are called with functions
-#         (i.e. trampoline handlers)
-# - tramp: names that are passed to "cont" of a trampoline handler
-# - utility: names of NON-tailcalls whose targets are bound in
-#            the same function's environment.
-# - tailcall: the entire calls in tail position.
-#             (a list, possibly with original form for trampolines)
-# - trampoline: entire trampolined calls
-#             (also a list with orginal forms)
-# - handler: the trampoline handler takes the continuation
-#             (also a list with original forms)
-all_names <- function(fn,
-                      types=c("call", "var", "arg", "local",
-                              "store", "tail", "tramp", "hand"),
-                      call="call" %in% types,
-                      var="var" %in% types,
-                      arg="arg" %in% types,
-                      local="local" %in% types,
-                      store="store" %in% types,
-                      tail="tail" %in% types,
-                      tramp="tramp" %in% types,
-                      tailcall="tailcall" %in% types,
-                      trampoline="trampoline" %in% types,
-                      hand="hand" %in% types,
-                      handler="handler" %in% types,
-                      utility="utility" %in% types) {
-  if (!is.function(fn)) stop("not a function")
-  env <- environment(fn)
-  args <- names(formals(fn)) %||% character(0)
-  # less recursion if we only look for tailcalls?
-  nonTail <- any(call, var, local, store, utility, trampoline)
-  collect_head <- function(expr, inTail) {
-    if (!inTail && !nonTail) return(character(0))
-    switch(mode(expr),
-           call={
-             switch(
-               mode(expr[[1]]),
-               name=, character= {
-                 # could be a "::" or ":::"
-                 if (as.character(expr[[1]]) %in% c("::", ":::")) {
-                   name <- paste0(as.character(expr[[2]]),
-                                  as.character(expr[[1]]),
-                                  as.character(expr[[3]]))
-                   c(if(call) c(call=name),
-                     if(inTail && tail) c(tail=name))
-                 } else {
-                   collect_call(expr, inTail=FALSE)
-                 }
-               },
-               collect_call(expr, inTail=FALSE)
-             )
-           },
-           character=,
-           name=c(
-             if(call) c(call=as.character(expr)),
-             if(inTail && tail) c(tail=as.character(expr))),
-           character(0)
-           )
-  }
-  collect_weird_call <- function(expr, inTail, orig=NULL) {
-    # i.e. trampolines and handlers don't need to register as tailcalls
-    c(collect_head(expr[[1]], inTail=inTail),
-      if(nonTail) concat(lapply(unname(expr[-1]), collect_arg,
-                                inTail=FALSE)))
-  }
-  collect_lambda <- function(expr, inTail, orig=NULL) {
-    # Lambdas making tailcalls that need to be traversed
-    # show up in e.g. the tryCatch windup.
-    # This is very a hack,
-    # and would fail at arguments shadowing names etc.
-    # I would have to thread more information through these
-    # functions in order to track scope properly.
-    tmp <- collect_arg(expr[[3]], inTail=TRUE) #!
-    tmp <- tmp[!(tmp %in% names(expr[[2]]))]
-    #tmp <- tmp[!(names(tmp) %in% c("local", "arg"))]
-    tmp
-  }
-  collect_ordinary_call <- function(expr, inTail, orig=NULL) {
-    c(if (tailcall && inTail) list(tailcall=c(list(expr), orig)),
-    collect_weird_call(expr, inTail, orig))
-  }
-  collect_call <- function(expr, inTail, orig=NULL) {
-    if (!inTail && !nonTail) return(character(0))
-    head <- expr[[1]]
-    switch(mode(head),
-           character=,
-           name={
-             if (as.character(head) %in% args) {
-               collect_weird_call(expr, inTail, c(list(expr), orig))
-             } else {
-               e <- locate_(head, env, mode="function", ifnotfound=NULL)
-               if (!is.null(e) && is_forced_(as.character(head), e)) {
-                 peek <- get(head, envir=e)
-                 if (is.primitive(peek)) {
-                   switch(
-                     as.character(head),
-                     "=" =, "<-" = c(collect_arg(expr[[3]], inTail=FALSE),
-                                     collect_store(expr[[2]], "local")),
-                     "<<-" = c(collect_arg(expr[[3]], inTail=FALSE),
-                               collect_store(expr[[2]], "store")),
-                     "if" = c(collect_arg(expr[[2]], inTail=FALSE),
-                              collect_arg(expr[[3]], inTail=inTail),
-                              if (length(expr) >= 4)
-                                collect_arg(expr[[4]], inTail=inTail)),
-                     # the argument to return() is not considered to be
-                     # in the tail because it wouldn't inline into a state
-                     # machine switch statement that way.
-                     "return" = collect_arg(expr[[2]], inTail=FALSE),
-                     "while" = c(collect_arg(expr[[2]], inTail=FALSE),
-                                 collect_arg(expr[[3]], inTail=FALSE)),
-                     "for" = c(collect_store(expr[[2]], "local"),
-                               collect_arg(expr[[3]], inTail=FALSE),
-                               collect_arg(expr[[4]], inTail=FALSE)),
-                     "("= collect_arg(expr[[1]], inTail=inTail),
-                     "{"= c(
-                       if(nonTail)
-                         concat(lapply(unname(expr[c(-1,-length(expr))]),
-                                       collect_arg, inTail=FALSE)),
-                       collect_arg(expr[[length(expr)]], inTail=inTail)),
-                     "||"=,"&&"=c(collect_arg(expr[[2]], inTail=FALSE),
-                                  collect_arg(expr[[3]], inTail=inTail)),
-                     "switch"=c(collect_arg(expr[[2]], inTail=FALSE),
-                                if(inTail || nonTail) concat(
-                                  lapply(unname(expr[-1]), collect_arg,
-                                         inTail=inTail))),
-                     "function"=collect_lambda(expr, inTail=TRUE),
-                     #some other primitive?
-                     collect_ordinary_call(expr, inTail, orig)
-                   )
-                 } else {
-                   if (all(c("cont") %in% names(formals(peek)))) {
-                     # A trampoline-indirect call! Register both the target and
-                     # the indirect.
-                     handl <- match.call(peek, expr, expand.dots=FALSE,
-                                         envir=as.environment(list(`...`=NULL)))
-                     if ("winding" %in% names(handl)) {
-                       # windup takes TWO function pointers
-                       woundup <- as.call(list(handl$winding))
-                       windup <- TRUE
-                       handl$winding <- NULL
-                     } else {
-                       windup <- FALSE
-                     }
-                     trampoline_args <- names(handl) %in% c("cont", "val")
-                     trampolined <- as.call(handl[trampoline_args])
-                     handl <- handl[!trampoline_args]
-                     c(
-                       if (tramp) c(tramp=as.character(trampolined[[1]])),
-                       if (tramp && windup) c(tramp=as.character(woundup[[1]])),
-                       if (hand) c(hand=as.character(expr[[1]])),
-                       if (handler) list(handler=c(list(handl, expr), orig)),
-                       collect_weird_call(handl, inTail,
-                                          c(list(expr), orig)),
-                       if (windup) collect_weird_call(woundup, inTail,
-                                                      c(list(expr), orig)),
-                       if (trampoline &&
-                             # passing along "cont" from yield_ to pause_
-                             # is not a new trampoline
-                             !(as.character(trampolined[[1]]) %in% args))
-                         c(list(trampoline=c(list(trampolined, expr), orig)),
-                           if (windup) list(windup=c(list(woundup, expr), orig))),
-                       collect_weird_call(trampolined, inTail,
-                                          c(list(expr), orig)))
-                   } else {
-                     # if it's bound in the same context, note it as a utility call.
-                     # an example is "trace"...
-                     # which is going to get many duplicate entries because it's
-                     # given as an argument to every constructor, hmm.
-
-                     c(
-                       if(utility && !inTail && identical(e, env)) {
-                         c(utility = as.character(head))
-                       },
-                       collect_ordinary_call(expr, inTail, orig))
-                   }
-                 }
-               } else {
-                 # name not found?
-                 collect_ordinary_call(expr, inTail, orig)
-               }
-             }
-           },
-           # something other than a name in a call head?
-           if(nonTail)
-             c(collect_head(expr[[1]], FALSE),
-               concat(lapply(unname(expr[-1]), collect_arg, inTail=FALSE))))
-  }
-  collect_arg <- function(expr, inTail) {
-    if (!inTail && !nonTail) return(character(0))
-    switch(mode(expr),
-           call=collect_call(expr, inTail),
-           name=if(var && !missing_(expr)) {
-             c(var=unname(as.character(expr)))
-           } else character(0),
-           character(0))
-  }
-  collect_store <- function(dest, how) {
-    switch(mode(dest),
-           call=c(
-             # In a complex assignment like foo[bar] <- baz;
-             # or equivalently `[`(foo, bar) <- baz;
-             # R effectively expands it to:
-             # foo <- `[<-`(foo, baz, bar)
-             # which means "foo" should count as both "local"
-             # and "var", and we should count a call to "[<-".
-             collect_store(dest[[2]], how),
-             collect_call(
-               as.call(c(list(as.name(paste0(dest[[1]], "<-"))),
-                         as.list(dest)[-1])),
-               inTail=FALSE)),
-           character=,
-           name={
-             if (how == "local" && local)
-               c(local=as.character(dest))
-             else if (how == "store" && store)
-               c(store=as.character(dest))
-           },
-           character(0))}
-  c(if (arg) structure(args, names=rep("arg", length(args))),
-    collect_arg(body(fn), inTail=TRUE))
-}
-
 unname <- function(x) `names<-`(x, NULL)
 
 by_class <- function(vec) {
@@ -359,8 +128,8 @@ walk <- function(gen, forGraph=FALSE) {
   nodeEdgeProperties <- new.env(parent=emptyenv())
   #do a DFS to collect the graph:
   # what storage used by each node / each context?
-  varTypes <- c("call", "store", "local", "arg", "var", "utility",
-                "tail", "tramp", "hand")
+  varTypes <- c("call", "store", "local", "arg", "var", "read",
+                "util", "tail", "tramp", "hand")
   doWalk <- function(thisNode, path, recurse=TRUE) {
     contextName <- get0(".contextName", environment(thisNode))
     localName <- find_local_name(thisNode)
@@ -375,32 +144,26 @@ walk <- function(gen, forGraph=FALSE) {
     nodeEdgeProperties[[thisNodeName]] <- new.env(parent=emptyenv())
     nodeProperties[[thisNodeName]][["localName"]] <<- localName
     nodeOrder <<- c(nodeOrder, thisNodeName)
-    vars <- by_name(
-      all_names(nodes[[thisNodeName]], types=varTypes))
+    nms <- all_names(nodes[[thisNodeName]])
+    vars <- by_name(nms)
     for (type in varTypes) {
       nodeProperties[[thisNodeName]][[type]] <<- sort(vars[[type]])
     }
-    # "reads" being anything used that's not local to the node
-    reads <- c(setdiff(vars$var, union(vars$local, vars$arg)))
-    nodeProperties[[thisNodeName]][["read"]] <<- sort(reads)
     named <- function(x, name) structure(x %||% character(0),
                                          names=rep(name, length(x)))
-    tails <- c(named(vars$hand, "hand"),
-               named(vars$tramp, "tramp"),
-               named(vars$tail, "tail"))
-
-    locals <- c(named(vars$local, "local"),
-                named(vars$arg, "arg"))
-    # Don't try to follow a tailcall into an argument/local var (e.g. 'cont')
-    tails <- tails[!tails %in% locals]
+    tails <- nms[names(nms) %in% c("hand", "tramp", "tail", "wind")]
     tails <- tails[!duplicated(tails)]
+    locals <- nms[names(nms) %in% c("local", "arg")]
+    locals <- locals[!duplicated(tails)]
+    assert(all(!tails %in% locals))
+
     if (forGraph) { # run another all_names to extract full calls
       tailcalls <-
-        all_names2(nodes[[thisNodeName]], forGraph=TRUE)
+        all_names(nodes[[thisNodeName]], forGraph=TRUE)
       tails2 <- vapply(tailcalls, function(x) as.character(x[[1]][[1]]), "")
       names(tails2) <- c(tailcall="tail", trampoline="tramp",
-                         windup="tramp", handler="hand")[names(tails2)]
-      keep <- !((tails2 %in% locals) | duplicated(tails2))
+                         windup="wind", handler="hand")[names(tails2)]
+      keep <- !(duplicated(tails2))
       tailcalls <- tailcalls[keep]
       tails2 <- tails2[keep]
       if (   !setequal(tails, tails2)
@@ -413,7 +176,6 @@ walk <- function(gen, forGraph=FALSE) {
     for (i in seq_along(tails)) {
       tailcall <- tailcalls[[i]]
       branchName <- as.character(tailcall[[1]][[1]])
-      if (branchName %in% nodeProperties[[thisNodeName]][["local"]]) {browser(); next}
       nextNode <- get(branchName, envir=environment(thisNode))
       if (!is.function(nextNode)) stop("walk: tailcall to non-function")
       if (   is.null(environment(nextNode))
@@ -462,7 +224,7 @@ walk <- function(gen, forGraph=FALSE) {
   for (contextName in names(contexts)) {
     trace_(paste0("  Context: ", contextName, "\n"))
     # gather all nonlocal names used across this context
-    for (kind in c("read", "store", "utility", "call", "tail", "tramp", "hand")) {
+    for (kind in c("read", "store", "util", "call", "tail", "tramp", "hand")) {
       contextProperties[[contextName]][[kind]] <-
         gatherVars(nodeProperties, contextNodes, contextName, kind)
     }
@@ -497,7 +259,8 @@ walk <- function(gen, forGraph=FALSE) {
        contextProperties = contextProperties,
        nodeContexts = nodeContexts,
        contextNodes = contextNodes,
-       orig = orig)
+       orig = orig,
+       nameOverrides = nameOverrides)
 }
 
 find_local_name <- function(fun) {
@@ -521,6 +284,18 @@ find_global_name <- function(fun, nameOverrides) {
                    "__", find_local_name(fun))
   }
   get0(name, nameOverrides, ifnotfound=name)
+}
+
+has_global_name <- function(fun) {
+  if (is.null(gl <- attr(fun, "globalName"))) {
+    if (is.null(cn <- get0(".contextName",  envir=environment(fun),
+                           ifnotfound=NULL)))
+      NA_character_
+    else if (is.null(ln <- attr(fun, "localName")))
+      NA_character_
+    else
+      paste0(cn, "__", ln)
+  }
 }
 
 gatherVars <- function(nodeProperties, contextNodes, contextName, key) {

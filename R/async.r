@@ -118,7 +118,7 @@ await_cps <- function(.contextName, prom) { force(prom)
     await_ %<-% function(val) {
       val <- promises::as.promise(val)
       promis <<- val
-      if(verbose) trace("await: got promise\n")
+      trace("await: got promise\n")
       success <<- NULL
       await(awaited,
             promis,
@@ -236,7 +236,7 @@ print.async <- function(x, ...) {
 #' @exportS3Method
 format.async <- function(x, ...) {
   envir <- environment(x$state$pump)
-  code <- getOrig(x)
+  code <- expr(getOrig(x))
   a <- deparse(call("async", code), backtick=TRUE)
   b <- format(envir, ...)
   state <- getState(x)

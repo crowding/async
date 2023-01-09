@@ -15,7 +15,27 @@ collect <- function(fn, type) {
   a
 }
 
-all_names2 <- function(fn, nonTail=TRUE, forGraph=FALSE) {
+# Scan a function and return all names used, labeled by their
+# (possibly overlapping) "roles":
+#
+# - arg: names defined as arguments
+# - var: names appearing in arguments of calls
+# - call: names appearing at head of calls
+# - local: names appearing as target of <-
+# - store: names appearing as target of <<-
+# - tail: names of calls in "tail position"
+# - hand: names that refer to functions(cont, ...) that are called with functions
+#         (i.e. trampoline handlers)
+# - tramp: names that are passed to "cont" of a trampoline handler
+# - utility: names of NON-tailcalls whose targets are bound in
+#            the same function's environment.
+# - tailcall: the entire calls in tail position.
+#             (a list, possibly with original form for trampolines)
+# - trampoline: entire trampolined calls
+#             (also a list with orginal forms)
+# - handler: the trampoline handler takes the continuation
+#             (also a list with original forms)
+all_names <- function(fn, nonTail=TRUE, forGraph=FALSE) {
   collect(type=if(forGraph) list() else character(0),
           function(yield)
             collect_function(fn, yield, nonTail=nonTail, forGraph=forGraph))
@@ -47,7 +67,12 @@ collect_function <- function(fn, yield, nonTail=TRUE, forGraph=FALSE) {
       windup= NULL,
       tramp=,
       hand=,
-      wind= yield(type, name),
+      wind=,
+      tail= if (!name %in% locals) {
+        if (exists(name, env, inherits=FALSE))
+          yield(type, name)
+        else yield("call", name)
+      },
       var= if (!name %in% locals) {
         if (exists(name, env, inherits=FALSE))
           yield("read", name)
@@ -61,13 +86,6 @@ collect_function <- function(fn, yield, nonTail=TRUE, forGraph=FALSE) {
         if (exists(name, env, inherits=FALSE))
           yield("util", name)
         else yield(type, name)
-      },
-      tail= if (!name %in% locals) {
-        if (exists(name, env, inherits=FALSE))
-          yield("tail", name)
-        else {
-          yield("call", name)
-        }
       },
       wind= if (!name %in% locals) {
         if (exists(name, env, inherits=FALSE))

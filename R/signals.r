@@ -107,7 +107,6 @@ catch_cps_ <- function(.contextName, expr, error) {
         trace("catch: catch in windup\n")
         stop_(e) # a tailcall in a lambda, "counts" as a tailcall from do_windup
       })
-      NULL
     }
     try_ %<-% function() {
       result <<- NULL
@@ -224,7 +223,6 @@ finally_cps_ <- function(.contextName, expr, finally) {
         trace("finally: catch in windup\n")
         stop_(err)
       })
-      NULL
     }
     try_ %<-% function() {
       after <<- NULL

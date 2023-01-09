@@ -69,7 +69,7 @@ test_that("function inspection with all_names", {
     }
   }
 
-  nms <- all_names2(f)
+  nms <- all_names(f)
   by_role <- by_name(nms)
   by_role$arg %is% c("arg1", "arg2", "cont")
   by_role$call %is% c( "+", "/", "*", "[<-", "[", "package::doThing",
@@ -85,7 +85,7 @@ test_that("function inspection with all_names", {
 
   with_names <- \(x)mapply(list, names(x), x, SIMPLIFY=FALSE, USE.NAMES = FALSE)
 
-  ntfg <- all_names2(f, forGraph=TRUE, nonTail=TRUE)
+  ntfg <- all_names(f, forGraph=TRUE, nonTail=TRUE)
   expect_setequal(
     with_names(ntfg),
     with_names( list(
@@ -110,7 +110,7 @@ test_that("all_names recognizes trampolines", {
     # wraps around make_pump and we affect state in both...
     trample(cont, val)
   }
-  an <- all_names2(y, forGraph=TRUE)
+  an <- all_names(y, forGraph=TRUE)
   an$handler %is% alist(trample(), trample(cont, val))
   an$trampoline %is% alist(cont(val=val), trample(cont, val))
   an$tailcall %is% NULL
@@ -123,7 +123,7 @@ test_that("all_names recognizes trampolines", {
     shh(err)
   }
   #stop is not a trampoline call bc no "cont"
-  an <- all_names2(z, forGraph=TRUE)
+  an <- all_names(z, forGraph=TRUE)
   an$tailcall %is% alist(shh(err))
   an$trampoline %is% NULL
   an$handler %is% NULL
@@ -137,7 +137,7 @@ test_that("all_names recognizes trampolines", {
   }
   #"cont" is not registered as a trampoline/tailcall because it's indirect
   #(i.e. cont is in the args)
-  an <- all_names2(w, forGraph=TRUE)
+  an <- all_names(w, forGraph=TRUE)
   an$handler %is% alist(pause(), pause(cont))
   an$trampoline %is% NULL
   an$tailcall %is% NULL
@@ -154,17 +154,26 @@ test_that("all_names and args", {
     cont(...)
   }
 
-  x <- all_names2(R_)
+  x <- all_names(R_)
   x[names(x) %in% c("read", "store", "var")] %is% c(read="x", read="x", var="...")
 
-  all_names2(function(x)x <<- x) %is% c(arg="x", store="x")
+  all_names(function(x)x <<- x) %is% c(arg="x", store="x")
 
   ifTrue <- function() NULL
-  all_names2(function(val) {
+  all_names(function(val) {
         if(val) ifTrue() else cont(invisible(NULL))
   }, forGraph=TRUE) %is%
     list(tailcall=alist(ifTrue()),
          tailcall=alist(cont(invisible(NULL))))
+
+  state <- NULL
+  cont <- function() NULL
+  pause_val <- function() NULL
+  all_names(function(cont, val) {
+    state <<- "yielded"
+    pause_val(cont, val)
+  })
+
 
 })
 

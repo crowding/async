@@ -9,7 +9,6 @@ assert <- function(condition,
                        ":", getSrcLocation(src, "line")))) {
   if (!isTRUE(condition)) {
     src <- arg_expr(condition)
-    if(browseOnError) recover()
     stop(msg)
   }
 }
@@ -67,18 +66,11 @@ make_pump <- function(expr, ...,
 
   getCont <- structure(function() {
     # For display, return a string describing the current state.
-    context <- get0(".contextName", environment(pumpCont),
-                    ifnotfound="???")
-    name <- "???"
-    env <- environment(pumpCont)
-    for (i in names(env))
-      if (!(i %in% c("cont", "pumpCont")))
-        if (identical(env[[i]], pumpCont)) {
-          name <- i
-          break
-        }
-    x <- paste0(context, "__", name)
-    x
+    g <- attr(pumpCont, "globalName")
+    if (is.null(g)) {
+      paste0(get0(".contextName", environment(pumpCont), ifnotfound="???"),
+             "__", attr(pumpCont, "localName"))
+    } else g
   }, localName="getCont", globalName="getCont")
 
   pause_ %<-% function(cont) {
@@ -95,14 +87,14 @@ make_pump <- function(expr, ...,
   }
 
   bounce_ %<-% function(cont) {
-    if(verbose) trace("pump: bounce\n")
+    trace("pump: bounce\n")
     pumpCont <<- cont
     action <<- "continue"
   }
 
   bounce_val_ %<-% function(cont, val) {
     force(val) #force
-    if(verbose) trace("pump: bounce with value\n")
+    trace("pump: bounce with value\n")
     value <<- val
     pumpCont <<- cont
     action <<- "continue_val"
@@ -158,7 +150,7 @@ make_pump <- function(expr, ...,
   }
 
   unwind_ %<-% function(cont) {
-    if(verbose) trace("pump: removing from windup list\n")
+    trace("pump: removing from windup list\n")
     windings[[1]] <<- NULL
     pumpCont <<- cont
     action <<- "rewind"

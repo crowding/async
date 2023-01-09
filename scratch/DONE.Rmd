@@ -530,3 +530,68 @@ Would aid debugging comprehension if context / node labels followed the syntax t
 were like (try.body.1, try.body,3, try.catch.R) and the like. This would also help node names be idempotent. This could also help communicate to the user "where" a particular async is.
 
 I looked at clever ways to pull the tree out of the graph but the thing is that after I construct the graph the original parse tree information is lost. So I decided the best way to do this was assign the context names while I'm parsing, every constructor had a name assigned to it.
+
+## Fixing "switch"
+
+The current CPS version does not do synonyms/branch fallthrough. To fix that I
+would need to know during construction which arguments are missing. `is_R` and `R_expr`
+help with this.
+
+R's native "switch" does a thing where it can end up executing no arguments.
+
+    switch(-1, "one", "two", "three") #takes no branch and returns NULL.
+
+That behavior would make it bad to use base R switch as a compiled version of switch, because it would end up falling off and not tailcalling.
+
+Let's see, what about if you initialize a "mapping" at run time and then switch based on a label you pull out of there?
+
+I also need to do something tricky to make my implementation of `switch` traversable by `walk`. Like bquote() out a custom switch_cps. that has visible graph labels
+
+Okay, now debugging my switch implementation.
+
+It works in interpreted mode but "paranoid" is showing me that the names of "goto" things aren't munged with the same names.
+
+The answer might be to spend some time cleaning up my graphs.
+
+Where are my edge labels? Esp for windup and unwind?
+
+Fixed the edge labels.
+
+Now this is my numeric "goto" test at compileLevel -1. It complains that after munging, two nodes are missing.
+
+     Browse[2]> setdiff(names(graph$nodes), unname(cnodes))
+     [1] ".switch6.goto__goto_" ".switch3.goto__goto_"
+
+And it looks like it's because those nodes were literally identical to other nodes. All the goto nodes are really identical, huh, because they don't know their sources and have been ripped out of their identical environments.
+
+So we really found a way that this paranoid graph isomorphism isn't always true! Can we relax the check and still retain value in it?
+
+Maybe check that reverse edges on the new graph correspond to reverse edges on old?
+
+i.e. if there is an edge from old[A] to old[B], then new[B] should (still) exist and it should be identical() to somthing that new[A]'s exit
+
+## Fixing graphviz output on compiled generators
+
+Graphviz does not like the new labels (clearly). Spend some time making sure that compiled generator's graphs look okay.
+
+## Improve speed of collecting graph
+
+I ditched hashbag and switched to plain envs. Seems faster.
+
+It's difficult to profile recursive algorithms, but I think from looking at profvis output,  that "contains" and is_forced are eating a lot of time. I sure wish that counted as "one" invocation. It's more useful to look at the flame graph and notice what's spending a lot of time on top.
+
+The solution for "contains" might be to just assign every node an attribute giving local name, and (perhaps) the result of all.names. Could call it `%<-%` and have it memoize on the function text.
+
+I also rewrote `all_names` to use a collector callback instead of a big pile of c(). 
+This appears to make less work for the GC! 
+
+## Graph is not getting past a "try"
+
+It's doing something different in `forGraph=TRUE` than in `forGraph=FALSE` which I thought I put a lot of checks around. 
+
+It's failing to see the edge Node: `.{1.tryCatch__do_windup -> .{1.tryCatch__stop_`
+
+which is in a lambda. Why is all_names missing it.?
+Okay, the problem is that the "tryCatch" in catch_cps's do_windup is not in tail position.
+
+This was fixed by working on and streamlining all_names.

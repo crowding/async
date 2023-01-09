@@ -23,7 +23,7 @@ munge <- function(# the async/generator to munge
       as.character(paste0(contextName, "_v_", contextVars, recycle0=TRUE)),
       names=contextVars)
 
-    calls <- unlist(as.list(props, all.names=TRUE)[c("tail", "tramp", "hand", "windup", "utility")],
+    calls <- unlist(as.list(props, all.names=TRUE)[c("tail", "tramp", "hand", "windup", "util")],
                     use.names=FALSE)
 
     # The local labels for each edge are collected in edges.
@@ -36,7 +36,7 @@ munge <- function(# the async/generator to munge
           |> vapply(\(x) x$to, "")))
       |> concat())
 
-    utils <- setdiff(setdiff(props$utility,
+    utils <- setdiff(setdiff(props$util,
                              names(callTranslations)),
                      contextVars)
     utilTranslations <- structure(
@@ -156,7 +156,8 @@ move_value.function <- function(graph, contextName, varName, dest.env, newName,
                     varName, "` -> `", newName, "`\n"))
     }
     dest.env[[newName]] <- value
-  } else if (!is.na(key <- contains(graph$nodes, value))) {
+  } else if (!is.na(key <- has_global_name(value))) {
+    key <- get0(key, graph$nameOverrides, ifnotfound=key)
     # the var points to one of our (old) nodes.
     # Is it written to somewhere?
     if (written) {
