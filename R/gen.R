@@ -69,7 +69,9 @@
 #' @export
 gen <- function(expr, ..., split_pipes=FALSE, trace=trace_,
                 compileLevel=get("compileLevel", parent.env(environment()))) {
+  envir <- arg_env(expr)
   expr <- arg(expr)
+  .contextName <- "wrapper"
   args_ <- c(cps_translate(expr,
                            endpoints=gen_endpoints,
                            split_pipes=split_pipes),
@@ -77,7 +79,7 @@ gen <- function(expr, ..., split_pipes=FALSE, trace=trace_,
              trace=arg(trace),
              dots(...))
   set_dots(environment(), args_)
-  gen <- make_generator(...)
+  gen <- make_generator(..., targetEnv=new.env(parent=envir))
   if (compileLevel != 0) gen <- compile(gen, compileLevel)
   gen
 }
@@ -234,7 +236,8 @@ make_generator <- function(expr, orig=arg(expr), ..., trace=trace_) {
   }
 
   nextElemOr_ <- NULL
-  pump <- make_pump(gen_cps(".gen", expr), trace=trace, catch=FALSE)
+  pump <- make_pump(gen_cps(".gen", expr),
+                    ..., trace=trace, catch=FALSE)
   g <- add_class(iteror(nextElemOr_), "generator")
   g
 }
@@ -316,24 +319,25 @@ print.generator <- function(x, ...) {
 }
 
 #' @export
-#' @rdname format.generator
+#' @rdname format
 getState <- function(x, ...) {
   UseMethod("getState")
 }
 
 #' @exportS3Method
+#' @rdname format
 getState.generator <- function(x, ...) {
   environment(x$nextElemOr)$getState()
 }
 
 #' @export
-#' @rdname format.generator
+#' @rdname format
 getNode <- function(x, ...) {
   UseMethod("getNode")
 }
 
 #' @exportS3Method
-#' @rdname format.generator
+#' @rdname format
 getNode.generator <- function(x, ...) {
   environment(get("pump", environment(x$nextElemOr)))$getCont()
 }
@@ -359,6 +363,7 @@ getNode.generator <- function(x, ...) {
 #' `getOrig` returns the original expression given to the generator
 #' constructor.
 #' @exportS3Method
+#' @rdname format
 format.generator <- function(x, ...) {
   envir <- environment(x$nextElemOr)
   code <- getOrig(x)

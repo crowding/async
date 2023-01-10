@@ -23,13 +23,14 @@ test_that("test mock promise", {
 })
 
 test_that("async with no await resolves immediately", {
-  p <- make_async(R("", 5))
+  p <- make_async(R("", 5), targetEnv=environment())
   result <- NULL
   then(p, function(x) {result <<- x})
   wait_for_it()
   expect_equal(result, 5)
   e <- simpleError("wat")
-  then(make_async(R("", stop("oops"))), onRejected=function(err) {e <<- err})
+  then(make_async(R("", stop("oops")), targetEnv=environment()),
+       onRejected=function(err) {e <<- err})
   wait_for_it()
   expect_equal(conditionMessage(e), "oops")
 })
@@ -42,7 +43,8 @@ test_that("async with one await", {
             `<-_cps`("",
                      R("", a),
                      await_cps("", R("", pr))),
-    R("", a + 5)))
+            R("", a + 5)),
+    targetEnv=environment())
   result <- NULL
   then(as, function(x) result <<- x)
   pr$resolve(10)
@@ -58,7 +60,8 @@ test_that("more than one await", {
     `{_cps`("",
             `&&_cps`("",
                      await_cps("", R("", p1)),
-                     await_cps("", R("", p2)))))
+                     await_cps("", R("", p2)))),
+    targetEnv=environment())
   result <- NULL
   then(asy, function(x) result <<- x)
   p1$resolve(FALSE)
@@ -70,7 +73,8 @@ test_that("more than one await", {
   asy <- make_async(`{_cps`("",
                             `&&_cps`("",
                                      await_cps("", R("", p1)),
-                                     await_cps("", R("", p2)))))
+                                     await_cps("", R("", p2)))),
+                    targetEnv=environment())
   result <- NULL
   then(asy, function(x) result <<- x)
   p1$resolve(TRUE)

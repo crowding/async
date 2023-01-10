@@ -32,13 +32,12 @@ Meanwhile, it might be good to do R's "eval" via a handler, so as to condense re
 ## display of handlers in graphs
 
 make a custom node style for handlers, or maybe an out-and-back edge?
-
 An edge to a node in the middle of a trampoline edge might work too.
-
 Hey maybe rewrite drawGraph() in collector style?
 
 ## move eval_ to a handler
 
-so as to inline everything better.
+The problem I'm trying to solve is that there are a bunch of duplicate references to the target environment captured in the graph. If I'm going to be able to reuse a compiled generator, that should just be one ref to the target environment; it's currently being duplicated all around with
 
-loop({}, )
+
+

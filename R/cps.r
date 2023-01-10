@@ -88,20 +88,19 @@ assign_with_name <- function(to, from, envir) {
 
 # R() wraps a user-level R expression into an execution node
 R <- function(.contextName, x) {
-  x <- arg(x)
+  x <- arg_expr(x)
 
-  function(cont, ..., trace=trace_) {
-    force(cont)
-
-    if (missing_(x) || !is.language(expr(x))) {
-      eval_ %<-% eval(bquote(function() cont(.(expr(x)))))
+  function(cont, ..., evl, trace=trace_) {
+    list(cont, evl)
+    if (is_missing(x)) {
+      eval_ %<-% eval(bquote(function() cont(.(quote(expr=)))))
+    } else if (!is.language(x)) {
+      eval_ %<-% eval(bquote(function() cont(.(x))))
     } else {
-      expr_ <- expr(x)
-      envir <- env(x)
+      expr_ <- x
       eval_ %<-% function() {
         trace(paste0("R: ", deparse(expr_), "\n"))
-        val <- eval(expr_, envir)
-        cont(val)
+        evl(cont, expr_)
       }
     }
   }
@@ -114,15 +113,8 @@ is_R <- function(f) {
 }
 
 R_expr <- function(f) {
-  expr(get0("x", environment(f)))
-}
-
-R_env <- function(f) {
-  env(get0("x", environment(f)))
-}
-
-R_cont <- function(f) {
-  get("cont", environment(f))
+  if (is_missing_("x", environment(f))) missing_value()
+      else get("x", environment(f))
 }
 
 `(_cps` <- function(.contextName, expr) {
@@ -138,24 +130,23 @@ maybe <- function(x, if_missing=NULL)
 
 make_store <- function(sym) { force(sym)
   function(.contextName, x, value) { list(.contextName, x, value)
-    function(cont, ..., trace=trace_) { list(cont, trace)
+    function(cont, ..., evl, trace=trace_) { list(cont, trace)
 
       #quote the LHS at constuction time
-      lhs <- x(cont, ..., trace=trace)
+      lhs <- x(cont, ..., evl=evl, trace=trace)
       if (!is_R(lhs)) {
         stop("Unexpected pause on LHS of <- or <<-")
       }
-      env_ <- R_env(lhs)
       var_ <- R_expr(lhs)
       sym <- sym
 
       store %<-% function(val) {
         if (is.language(val))
           val <- call("quote", val)
-        val <- do.call(sym, list(var_, val), envir=env_)
-        cont(val)
+        val <- as.call(pairlist(sym, var_, val))
+        evl(cont,val)
       }
-      value(store, ..., trace=trace)
+      value(store, ..., evl=evl, trace=trace)
     }
   }
 }
@@ -352,7 +343,7 @@ goto_cps <- function(.contextName, branch=R(NULL)) {
     list(cont, goto)
 
     goto_ %<-% function(val) goto(val)
-    branch <- branch(goto_)
+    branch <- branch(goto_, ..., goto=goto)
 
     if (is_R(branch) && identical(R_expr(branch), quote(expr=))) {
       goto_ %<-% function() goto(NULL)
@@ -520,17 +511,17 @@ while_cps <- function(.contextName, cond, expr) {
 #' @import iterators
 for_cps <- function(.contextName, var, seq, expr) {
   list(.contextName, var, seq, expr)
-  function(cont, ..., bounce, bounce_val, nxt, brk, stop, trace=trace_) {
+  function(cont, ..., bounce, bounce_val, nxt, brk, stop, sto, trace=trace_) {
     list(cont, bounce, bounce_val, maybe(nxt), maybe(brk), stop, trace)
-    #quote the LHS at constuction time
+    #quote the LHS at construction time
     var_ <- var(cont, ..., bounce=bounce, bounce_val=bounce_val,
-                stop=stop, trace=trace) #not our brk/nxt
-    if (!is_R(var_) || !identical(R_cont(var_), cont)) {
+                stop=stop, sto=sto, trace=trace) #not our brk/nxt
+    if (!is_R(var_)) {
       stop("Unexpected stuff in for() loop variable")
     }
-    env_ <- R_env(var_)
+
     var_ <- R_expr(var_)
-    if (!is.name(var_)) stop("Expected a name in for() loop variable")
+    if (!is.name(var_)) base::stop("Expected a name in for() loop variable")
     var_ <- as.character(var_)
     seq_ <- NULL
 
@@ -546,7 +537,7 @@ for_cps <- function(.contextName, var, seq, expr) {
     }
     body <- expr(again, ..., bounce=bounce,
                  bounce_val=bounce_val, nxt=nxt_, brk=brk_,
-                 stop=stop, trace=trace) # our brk_
+                 stop=stop, sto=sto, trace=trace) # our brk_
     do_ %<-% function() {
       stopping <- FALSE
       trace(paste0("for ", var_, ": next\n"))
@@ -556,8 +547,7 @@ for_cps <- function(.contextName, var, seq, expr) {
         cont(invisible(NULL))
       } else {
         trace(paste0("for ", var_, ": do\n"))
-        assign(var_, val, envir=env_)
-        body()
+        sto(body, var_, val)
       }
     }
     for_ %<-% function(val) {
@@ -565,7 +555,7 @@ for_cps <- function(.contextName, var, seq, expr) {
       do_()
     }
     getSeq <- seq(for_, ..., bounce=bounce, bounce_val=bounce_val,
-                  nxt=nxt, brk=brk, stop=stop, trace=trace) #not our brk
+                  nxt=nxt, brk=brk, stop=stop, sto=sto, trace=trace) #not our brk
   }
 }
 

@@ -36,15 +36,16 @@ make_pump <- function(expr, ...,
                       unwind=base::stop("unused"),
                       pause=base::stop("unused"),
                       goto=base::stop("unused"),
+                      evl=base::stop("unused"),
+                      sto=base::stop("unused"),
                       stop=structure(function(val, ...) base::stop(val, ...),
                                      localName="stop"),
                       return=structure(function(x)x, localName="return"),
                       trace=trace_,
-                      eliminate.tailcalls = TRUE,
                       catch=TRUE,
-                      targetEnv=NULL) {
+                      targetEnv) {
   .contextName <- "pump"
-  list(expr, stop, return, trace)
+  list(expr, stop, return, trace, targetEnv)
   nonce <- (function() NULL)
 
   action <- "pause" # stopped, pause
@@ -59,10 +60,6 @@ make_pump <- function(expr, ...,
     x <- list(R=R, internal=internal)
     x
   }, localName="setDebug", globalName="setDebug")
-
-  eval_ %<-% function(val, cont) {
-    nseval::set_arg(val, quo(expr, targetEnv))
-  }
 
   getCont <- structure(function() {
     # For display, return a string describing the current state.
@@ -92,13 +89,24 @@ make_pump <- function(expr, ...,
     action <<- "continue"
   }
 
+  evl_ %<-% function(cont, val) {
+    val <- eval(val, targetEnv)
+    cont(val)
+  }
+
+  sto_ %<-% function(cont, where, val) {
+    targetEnv[[where]] <- val
+    cont()
+  }
+
   bounce_val_ %<-% function(cont, val) {
-    force(val) #force
+    force(val)
     trace("pump: bounce with value\n")
     value <<- val
     pumpCont <<- cont
     action <<- "continue_val"
   }
+
 
   stop_ <- structure(function(val) {
     trace(paste0("pump: stop: ", conditionMessage(val), "\n"))
@@ -164,10 +172,11 @@ make_pump <- function(expr, ...,
   # that takes some branch targets ("our "ret" and "stop" etc) and
   # returns an entry continuation.
   entry <- expr(return_, ..., bounce=bounce_, bounce_val=bounce_val_,
-                stop=stop_, return=return_, eval=eval_,
+                stop=stop_, return=return_,
                 windup=windup_, unwind=unwind_,
                 pause=pause_, pause_val=pause_val_,
-                trace=trace, setDebug=setDebug, getCont=getCont)
+                trace=trace, setDebug=setDebug, getCont=getCont,
+                evl=evl_, sto=sto_)
   pumpCont <- entry
 
   pump <- structure(function() {

@@ -60,6 +60,25 @@ test_that("for loop over an iterator", {
   expect_error(nextElem(g), "oops")
 })
 
+test_that("yieldFrom", {
+
+  a <- list("foo", "bar", "baz")
+  b <- iseq(1, 3)
+  gchain <- function(its) {
+    itors <- iteror(its)
+    gen(for (it in itors) yieldFrom(it))
+  }
+
+  gchain2 <- function(its) { force(its)
+    gen(for (it in its) for (i in it) yield(i))
+  }
+
+  as.list(gchain(list(a, b))) %is% list("foo", "bar", "baz", 1, 2, 3)
+  b <- iseq(1, 3)
+  as.list(ichain(list(a, b))) %is% list("foo", "bar", "baz", 1, 2, 3)
+
+})
+
 test_that("nested for loops", {
   x <- gen({
     for (i in iterators::iter(c(3,2,1,2), recycle=TRUE)) {

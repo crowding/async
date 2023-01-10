@@ -1,3 +1,22 @@
+collect_tree <- function(fn) {
+  size <- 32
+  ilevel <- 1
+  thislevel <- list(length=64)
+  levels <- rep(list(size, length=size))
+  iix <- 1
+
+  append <- function(name, val, type) {
+    
+  }
+  open <- function() {
+
+  }
+  close(type) <- function() {
+
+  }
+  fn(append, open, close)
+}
+
 collect <- function(fn, type) {
   size <- 64
   a <- vector(mode(type), length=size)

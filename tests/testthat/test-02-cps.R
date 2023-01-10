@@ -2,99 +2,104 @@
 
 `%is%` <- expect_equal
 
-test_that("R causes scoped effects,", {
+test_that("eval handler determines R scope,", {
+
+  e <- environment()
+  evl <- \(cont, val) cont(eval(val,e))
+  evl2 <- NULL
   x <- 10
   f <- function(x) {
+    e <- environment()
+    evl2 <<- \(cont, val) cont(eval(val,e))
     R("", x <- x + 1)
   }
   arg <- f(5)
-  arg(function(val) val %is% 6)() %is% 6
-  arg(function(val) val %is% 7)() %is% 7
-  x %is% 10
+  arg(\(val) val %is% 11, evl=evl)() %is% 11
+  arg(\(val) val %is% 6, evl=evl2)() %is% 6
+  x %is% 11
+
 })
 
+evl_ <- \(cont, val) cont(eval(val,environment(evl_)))
+
 test_that("R propagates errors", {
-  R("", 10)(function(val) force(val))() %is% 10
-  expect_error(R("", stop("yes"))(function(val) force(val))(), "yes")
-  R("", 10+20)(function(val) val)() %is% 30
-  expect_error(R("", stop("yes"))(function(val) val)(), "yes")
-  # there is a quirk here where "stop()" is given as the argument to
-  # an R(), and options(error=recover) is also set.
-  # The promise caontining "stop()" is evaluated again, during the stack
-  # readout?
-  # This also happens when testthat is trying to gather stack trace from a failure
-  # Perhaps I should stick a browser() statement inside of the arg to R.
-  # Or, I should catch and rethrow in pump(). But that removes all
-  # inspectability from the process.
+  R("", 10)(function(val) force(val), evl=evl_)() %is% 10
+  expect_error(R("", stop("yes"))(function(val) force(val), evl=evl_)(), "yes")
+  R("", 10+20)(function(val) val, evl=evl_)() %is% 30
+  expect_error(R("", stop("yes"))(function(val) val, evl=evl_)(), "yes")
 })
 
 test_that("()", {
-  pump(`(_cps`("", R("", 12+12))) %is% 24
-  expect_error(pump(`(_cps`("", R("", stop("yes")))), "yes")
-  expect_error(pump(`(_cps`("", R("", {stop("yes")}))), "yes")
+  pump(`(_cps`("", R("", 12+12)), targetEnv=environment()) %is% 24
+  expect_error(pump(`(_cps`("", R("", stop("yes"))), targetEnv=environment()), "yes")
+  expect_error(pump(`(_cps`("", R("", {stop("yes")})), targetEnv=environment()), "yes")
 })
 
 test_that("||", {
-  pump(`||_cps`("", R("", FALSE), R("", 0))) %is% FALSE
-  pump(`||_cps`("", R("", NA), R("", 0))) %is% NA
-  pump(`||_cps`("", R("", TRUE), R("", stop("no")))) %is% TRUE
-  pump(`||_cps`("", R("", 0), R("", 1))) %is% TRUE
-  pump(`||_cps`("", R("", FALSE), R("", NA))) %is% NA
-  expect_error(pump(`||_cps`("", R("", FALSE), R("", stop("yes")))), "yes")
+  pump(`||_cps`("", R("", FALSE), R("", 0)), targetEnv=environment()) %is% FALSE
+  pump(`||_cps`("", R("", NA), R("", 0)), targetEnv=environment()) %is% NA
+  pump(`||_cps`("", R("", TRUE), R("", stop("no"))), targetEnv=environment()) %is% TRUE
+  pump(`||_cps`("", R("", 0), R("", 1)), targetEnv=environment()) %is% TRUE
+  pump(`||_cps`("", R("", FALSE), R("", NA)), targetEnv=environment()) %is% NA
+  expect_error(pump(`||_cps`("", R("", FALSE), R("", stop("yes"))), targetEnv=environment()), "yes")
 })
 
 test_that("&&", {
-  pump(`&&_cps`("", R("", FALSE), R("", stop("no")))) %is% FALSE
-  pump(`&&_cps`("", R("", TRUE), R("", FALSE))) %is% FALSE
-  pump(`&&_cps`("", R("", NA), R("", TRUE))) %is% NA
-  pump(`&&_cps`("", R("", 1), R("", 1))) %is% TRUE
-  pump(`&&_cps`("", R("", FALSE), R("", stop("yes")))) %is% FALSE
-  expect_error(pump(`&&_cps`("", R("", TRUE), R("", stop("yes")))), "yes")
-  expect_error(pump(`&&_cps`("", R("", stop("yes")), R("", FALSE))), "yes")
+  pump(`&&_cps`("", R("", FALSE), R("", stop("no"))), targetEnv=environment()) %is% FALSE
+  pump(`&&_cps`("", R("", TRUE), R("", FALSE)), targetEnv=environment()) %is% FALSE
+  pump(`&&_cps`("", R("", NA), R("", TRUE)), targetEnv=environment()) %is% NA
+  pump(`&&_cps`("", R("", 1), R("", 1)), targetEnv=environment()) %is% TRUE
+  pump(`&&_cps`("", R("", FALSE), R("", stop("yes"))), targetEnv=environment()) %is% FALSE
+  expect_error(pump(`&&_cps`("", R("", TRUE), R("", stop("yes"))), targetEnv=environment()), "yes")
+  expect_error(pump(`&&_cps`("", R("", stop("yes")), R("", FALSE)), targetEnv=environment()), "yes")
 })
 
 test_that("if", {
-  pump(if_cps("", R("", 3 > 2), R("", "left"), R("", "right"))) %is% "left"
-  pump(if_cps("", R("", 2 > 3), R("", "left"), R("", "right"))) %is% "right"
-  pump(if_cps("", R("", 2 > 3), R("", "left"))) %is% NULL
-  #pump(if_cps("", R("", 2 > 3), R("", "left"), R(""))) %is% NULL
-  expect_error(pump(if_cps("", R("", "notalogical"), R("", 1), R("", 2))))
-  expect_error(pump(if_cps("", R("", 2 < 3), R("", stop("no")))), "no")
-  expect_error(pump(if_cps("", R("", stop("no")), R("", 2 < 3))), "no")
+  pump(if_cps("", R("", 3 > 2), R("", "left"), R("", "right")), targetEnv=environment()) %is% "left"
+  pump(if_cps("", R("", 2 > 3), R("", "left"), R("", "right")), targetEnv=environment()) %is% "right"
+  pump(if_cps("", R("", 2 > 3), R("", "left")), targetEnv=environment()) %is% NULL
+  #pump(if_cps("", R("", 2 > 3), R("", "left"), R("")), targetEnv=environment()) %is% NULL
+  expect_error(pump(if_cps("", R("", "notalogical"), R("", 1), R("", 2)), targetEnv=environment()))
+  expect_error(pump(if_cps("", R("", 2 < 3), R("", stop("no"))), targetEnv=environment()), "no")
+  expect_error(pump(if_cps("", R("", stop("no")), R("", 2 < 3)), targetEnv=environment()), "no")
 })
 
 test_that("<-", {
-  pump(`<-_cps`("", R("", x), R("", 5))) %is% 5
+  pump(`<-_cps`("", R("", x), R("", 5)),
+       targetEnv=environment()) %is% 5
   x %is% 5
-  pump(`<-_cps`("", R("", x), R("", x + 1))) %is% 6
+  pump(`<-_cps`("", R("", x), R("", x + 1)),
+       targetEnv=environment()) %is% 6
   x %is% 6
   (function(x) {
-    pump(`<<-_cps`("", R("", x), R("", x+1)))
+    pump(`<<-_cps`("", R("", x), R("", x+1)),
+         targetEnv=environment())
   })(12) %is% 13
   x %is% 13
-  pump(`<-_cps`("", R("", x[2]), R("", 5))) %is% 5
+  pump(`<-_cps`("", R("", x[2]), R("", 5)),
+       targetEnv=environment()) %is% 5
   x %is% c(13, 5)
 })
 
 test_that("{}", {
-  pump(`{_cps`("")) %is% NULL
-  expect_output(pump(`{_cps`("", R("", cat("hello\n")))), "hello") %is% NULL
-  pump(`{_cps`("", R("", x <- 10))) %is% 10
+  pump(`{_cps`(""), targetEnv=environment()) %is% NULL
+  expect_output(pump(`{_cps`("", R("", cat("hello\n"))), targetEnv=environment()), "hello") %is% NULL
+  pump(`{_cps`("", R("", x <- 10)), targetEnv=environment()) %is% 10
   x %is% 10
-  pump(`{_cps`("", R("", 5))) %is% 5
-  pump(`{_cps`("", R("", x <- 5), R("", {x <- x+4}))) %is% 9
+  pump(`{_cps`("", R("", 5)), targetEnv=environment()) %is% 5
+  pump(`{_cps`("", R("", x <- 5), R("", {x <- x+4})), targetEnv=environment()) %is% 9
   x %is% 9
-  expect_error(pump(`{_cps`("", R("", 5), )), "missing")
-  expect_error(pump(`{_cps`("", R(""))), "(missing|found)")
-  expect_error(pump(`{_cps`("", R("", 5), R(""))), "(missing|found)")
+  expect_error(pump(`{_cps`("", R("", 5), ), targetEnv=environment()), "missing")
+  expect_error(pump(`{_cps`("", R("")), targetEnv=environment()), "(missing|found)")
+  expect_error(pump(`{_cps`("", R("", 5), R("")), targetEnv=environment()), "(missing|found)")
 })
 
 test_that("repeat", {
-  pump(repeat_cps("", break_cps(""))) %is% NULL
+  pump(repeat_cps("", break_cps("")), targetEnv=environment()) %is% NULL
   x <- 0
   cps <- repeat_cps("", `{_cps`("", R("", x <- x + 1),
                             if_cps("", R("", x > 5), break_cps(""))))
-  pump(cps)
+  pump(cps, targetEnv=environment())
   x %is% 6
   out <- c()
   cps <- repeat_cps("", `{_cps`("", R("", x <- x - 1),
@@ -102,20 +107,20 @@ test_that("repeat", {
                                    next_cps(""),
                                    R("", out <- c(out, x))),
                             if_cps("", R("", x <= 0), break_cps(""))))
-  pump(cps)
+  pump(cps, targetEnv=environment())
   out %is% c(5, 3, 1, -1)
 
-  expect_error(pump(if_cps("", R("", TRUE), break_cps(""), R("", 2))), "break")
-  expect_error(pump(if_cps("", R("", TRUE), next_cps(""), R("", 2))), "next")
+  expect_error(pump(if_cps("", R("", TRUE), break_cps(""), R("", 2)), targetEnv=environment()), "break")
+  expect_error(pump(if_cps("", R("", TRUE), next_cps(""), R("", 2)), targetEnv=environment()), "next")
 })
 
 test_that("while", {
-  pump(while_cps("", R("", TRUE), break_cps(""))) %is% NULL
-  pump(while_cps("", break_cps(""), R("", TRUE))) %is% NULL
+  pump(while_cps("", R("", TRUE), break_cps("")), targetEnv=environment()) %is% NULL
+  pump(while_cps("", break_cps(""), R("", TRUE)), targetEnv=environment()) %is% NULL
 
   x <- 0
   cps <- while_cps("", R("", x < 5), R("", x <- x + 1))
-  pump(cps)
+  pump(cps, targetEnv=environment())
   x %is% 5
 
   out <- c()
@@ -126,13 +131,13 @@ test_that("while", {
             if_cps("", R("", x %% 2 == 0),
                    next_cps(""),
                    R("", out <- c(out, x)))))
-  pump(cps)
+  pump(cps, targetEnv=environment())
   out %is% c(5, 3, 1)
 })
 
 test_that("for", {
   x <- 0
-  pump(for_cps("", R("", i), R("", 1:10), R("", {x <- x + i})))
+  pump(for_cps("", R("", i), R("", 1:10), R("", {x <- x + i})), targetEnv=environment())
   x %is% 55
   #
 
@@ -143,7 +148,7 @@ test_that("for", {
                  R("", force(i)),
                  if_cps("", R("", i %% 3 == 0), next_cps("")),
                  if_cps("", R("", i %% 8 == 0), break_cps("")),
-                 R("", {x <- x + i}))))
+                 R("", {x <- x + i}))), targetEnv=environment())
 
 
   x %is% 19 # 1 + 2 + 4 + 5 + 7
@@ -157,59 +162,41 @@ test_that("for", {
     if_cps("", R("", x %% 2 == 0),
            next_cps(""),
            R("", out <- c(out, x))))
-  pump(cps)
+  pump(cps, targetEnv=environment())
   out %is% c(1, 3, 5, 7, 9)
 
   expect_error(pump(for_cps("",
                             try_cps("", R("", i)),
                             R("", NULL),
-                            R("", NULL))), "xpected")
+                            R("", NULL)), targetEnv=environment()), "xpected")
   expect_error(pump(for_cps("", R("", 4),
                             R("", NULL),
-                            R("", NULL))), "xpected")
+                            R("", NULL)), targetEnv=environment()), "xpected")
 })
 
 test_that("for over iterator", {
   x <- 0
-  pump(for_cps("", R("", i), R("", icount(10)), R("", x <- x + i)))
+  pump(for_cps("", R("", i), R("", icount(10)), R("", x <- x + i)),
+       targetEnv=environment())
   x %is% 55
 })
 
-test_that("yieldFrom", {
-
-  a <- list("foo", "bar", "baz")
-  b <- iseq(1, 3)
-  gchain <- function(its) {
-    itors <- iteror(its)
-    gen(for (it in itors) yieldFrom(it))
-  }
-
-  gchain2 <- function(its) { force(its)
-    gen(for (it in its) for (i in it) yield(i))
-  }
-
-  as.list(gchain(list(a, b))) %is% list("foo", "bar", "baz", 1, 2, 3)
-  b <- iseq(1, 3)
-  as.list(ichain(list(a, b))) %is% list("foo", "bar", "baz", 1, 2, 3)
-
-})
-
 test_that("pump forces value or error", {
-  pump(R("", 12+12)) %is% 24
-  expect_error(pump(R("", stop("yes"))), "yes")
-  expect_error(pump(R("")), "(missing|found)")
+  pump(R("", 12+12), targetEnv=environment()) %is% 24
+  expect_error(pump(R("", stop("yes")), targetEnv=environment()), "yes")
+  expect_error(pump(R(""), targetEnv=environment()), "(missing|found)")
 })
 
 test_that("switch", {
-  expect_error(pump(switch_cps("", R("", "three"), four=R("", "wrong"))), "branch")
+  expect_error(pump(switch_cps("", R("", "three"), four=R("", "wrong")), targetEnv=environment()), "branch")
   pump(switch_cps("", R("", "three"),
                   four=R("", "wrong"),
-                  three=R("", "right"))) %is% "right"
+                  three=R("", "right")), targetEnv=environment()) %is% "right"
   expect_error(
     pump(switch_cps("", R("", "C"),
                     R("", 0),
                     R("", 0),
-                    three=R("", 0))),
+                    three=R("", 0)), targetEnv=environment()),
     "default")
 
   # variance from R: R will accept a numeric arg to a labeled `switch`
@@ -222,8 +209,8 @@ test_that("switch", {
                     ignored=R("", stop()),
                     R("", stop()),
                     R("", 5),
-                    R("", stop()))) %is% 5,
+                    R("", stop())), targetEnv=environment()) %is% 5,
     "uplicate")
 
-  pump(switch_cps("", R("", "default"), special=R("", 22), R("", 33))) %is% 33
+  pump(switch_cps("", R("", "default"), special=R("", 22), R("", 33)), targetEnv=environment()) %is% 33
 })

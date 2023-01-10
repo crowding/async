@@ -108,7 +108,6 @@ test_that("numeric switch with delimited goto()", {
     nextElem(g)
   }
 
-
   g(1) %is% "one"
   g(2) %is% "one"
   g(3) %is% "four"

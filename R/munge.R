@@ -7,7 +7,7 @@ munge <- function(# the async/generator to munge
                   # gen() (different for each invocation!) So we don't
                   # know yet, so just munge to a new env and set its
                   # parent later.
-                  dest.env = new.env(parent = baseenv())) {
+                  dest.env = new.env(parent = parent.env(environment()))) {
   # The graph data structure should give us most info we need.
   graph <- walk(g)
   dest.env$.contextName <- "."

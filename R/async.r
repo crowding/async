@@ -82,12 +82,14 @@
 #' @export
 async <- function(expr, ..., split_pipes=TRUE, trace=trace_,
                   compileLevel=get("compileLevel", parent.env(environment()))) {
-  expr_ <- arg(expr)
+  .contextName <- "wrapper"
+  expr <- arg(expr)
   force(trace)
-  translated_ <- cps_translate(expr_, async_endpoints, split_pipes=split_pipes)
-  args <- c(translated_, orig=forced_quo(expr_), trace=quo(trace), dots(...))
+  envir <- env(expr)
+  translated_ <- cps_translate(expr, async_endpoints, split_pipes=split_pipes)
+  args <- c(translated_, orig=forced_quo(expr(expr)), trace=quo(trace), dots(...))
   set_dots(environment(), args)
-  make_async(..., compileLevel=compileLevel)
+  make_async(..., targetEnv=new.env(parent=env(expr)), compileLevel=compileLevel)
 }
 
 #' @export
@@ -130,8 +132,8 @@ await_cps <- function(.contextName, prom) { force(prom)
 }
 
 #' @import promises
-make_async <- function(expr, orig=arg(expr), ..., compileLevel=0, trace=trace_) {
-  list(expr, orig, ..., trace)
+make_async <- function(expr, orig=expr, ..., compileLevel=0, trace=trace_, targetEnv) {
+  list(orig, expr, ..., trace)
   .contextName <- "async"
 
   nonce <- (function() function() NULL)()
@@ -189,7 +191,8 @@ make_async <- function(expr, orig=arg(expr), ..., compileLevel=0, trace=trace_) 
   }), "async")
 
   pump <- make_pump(expr, ...,
-                    return=resolve, stop=reject, await=await_, trace=trace)
+                    return=resolve, stop=reject, await=await_, trace=trace,
+                    targetEnv=targetEnv)
   pr$orig <- orig
   pr$state <- environment()
   if (compileLevel != 0) {
@@ -236,7 +239,7 @@ print.async <- function(x, ...) {
 #' @exportS3Method
 format.async <- function(x, ...) {
   envir <- environment(x$state$pump)
-  code <- expr(getOrig(x))
+  code <- getOrig(x)
   a <- deparse(call("async", code), backtick=TRUE)
   b <- format(envir, ...)
   state <- getState(x)
