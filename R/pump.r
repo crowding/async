@@ -32,7 +32,7 @@ pump <- function(expr, stp=stop, ...) {
 }
 
 make_pump <- function(expr, ...,
-                      ret=stop("unused"),
+                      bounce=stop("unused"),
                       windup=stop("unused"),
                       unwind=stop("unused"),
                       pause=stop("unused"),
@@ -41,13 +41,13 @@ make_pump <- function(expr, ...,
                       sto=stop("unused"),
                       stp=structure(\(x)function(x){stop(x); NULL},
                                     globalName="stp", localName="stp"),
-                      return=structure(function(x)x, localName="return"),
+                      rtn=structure(function(x)x, localName="rtn"),
                       trace=trace_,
                       catch=TRUE,
                       targetEnv) {
 
   .contextName <- "pump"
-  list(expr, stp, return, trace, targetEnv)
+  list(expr, stp, rtn, trace, targetEnv)
   nonce <- (function() NULL)
 
   action <- "pause" # stopped, pause
@@ -125,7 +125,7 @@ make_pump <- function(expr, ...,
     force(val)
     value <<- val
     action <<- "finish"
-    return(val)
+    rtn(val)
   }, localName="return_", globalName="return_")
 
   # We maintain a list of "windings."
@@ -177,7 +177,7 @@ make_pump <- function(expr, ...,
   # that takes some branch targets ("our "ret" and "stp" etc) and
   # returns an entry continuation.
   entry <- expr(return_, ..., bounce=bounce_, bounce_val=bounce_val_,
-                stp=stop_, return=return_,
+                stp=stop_, rtn=return_,
                 windup=windup_, unwind=unwind_,
                 pause=pause_, pause_val=pause_val_,
                 trace=trace, setDebug=setDebug, getCont=getCont,

@@ -1,13 +1,13 @@
 return_cps <- function(.contextName, x) {
   force(.contextName)
   maybe(x)
-  return_ <- function(cont, ..., return, trace=trace_) {
-    list(cont, return, trace)
+  return_ <- function(cont, ..., rtn, trace=trace_) {
+    list(cont, rtn, trace)
     if (missing_(arg(x))) {
-      return_ %<-% function() return(NULL)
-      # this is our "return" callback not base::return
+      return_ %<-% function() rtn(NULL)
+      # this is our "rtn" callback not base::return
     } else {
-      x(return, ..., return=return, trace=trace)
+      x(rtn, ..., rtn=rtn, trace=trace)
     }
   }
 }
@@ -37,8 +37,8 @@ tryCatch_cps <- function(.contextName, expr, ..., error, finally) {
 catch_cps_ <- function(.contextName, expr, error) {
   list(.contextName, expr, error)
   function(cont, ..., stp, brk, nxt, goto, windup, unwind,
-           return, trace=trace_) {
-    list(cont, stp, maybe(brk), maybe(nxt), maybe(goto), windup, unwind, return,
+           rtn, trace=trace_) {
+    list(cont, stp, maybe(brk), maybe(nxt), maybe(goto), windup, unwind, rtn,
          trace)
     # Remember, flow of the handlers goes from bottom to top
     result <- NULL
@@ -51,9 +51,9 @@ catch_cps_ <- function(.contextName, expr, error) {
     }
     getErrHandler <- error(gotErrHandler, ..., stp=stp, brk=brk,
                            nxt=nxt, windup=windup, unwind=unwind,
-                           return=return_, trace=trace)
+                           rtn=rtn, trace=trace)
     do_return %<-% function() {
-      return(list(result, result <<- NULL)[[1]])
+      rtn(list(result, result <<- NULL)[[1]])
     }
     do_continue %<-% function() {
       cont(list(result, result <<- NULL)[[1]])
@@ -98,7 +98,7 @@ catch_cps_ <- function(.contextName, expr, error) {
     do_expr <- expr(continue, ...,
                     stp=stop_, brk=brk_, nxt=nxt_, goto=goto_,
                     windup=windup, unwind=unwind,
-                    return=return_, trace=trace)
+                    rtn=return_, trace=trace)
     do_windup %<-% function(cont, ...) {
       list(cont, ...)
       trace("catch: windup\n")
@@ -119,9 +119,9 @@ catch_cps_ <- function(.contextName, expr, error) {
 
 finally_cps_ <- function(.contextName, expr, finally) {
   list(.contextName, expr, finally)
-  function(cont, ..., stp, brk, nxt, goto, windup, unwind, return, trace=trace_) {
+  function(cont, ..., stp, brk, nxt, goto, windup, unwind, rtn, trace=trace_) {
     list(cont, stp, maybe(brk), maybe(nxt), maybe(goto),
-         windup, unwind, return, trace)
+         windup, unwind, rtn, trace)
     # Deep breath. Remember, the handlers flow from bottom to top!
     result <- NULL
     after <- NULL
@@ -134,7 +134,7 @@ finally_cps_ <- function(.contextName, expr, finally) {
       switch(after,
              success=cont(result),
              stop=stp(result),
-             return=return(result),
+             return=rtn(result),
              ..(c(list(),
                if (!is_missing(nxt)) alist(`next`=nxt()),
                if (!is_missing(brk)) alist(`break`=brk()),
@@ -148,7 +148,7 @@ finally_cps_ <- function(.contextName, expr, finally) {
     # the finally block, throw the saved error instead of jumping.
     finally_return %<-% function(val) {
       trace("finally: return in finally block\n")
-      if (after=="stop") stp(result) else return(val)
+      if (after=="stop") stp(result) else rtn(val)
     }
     if(!is_missing(brk)) {
       finally_brk %<-% function() {
@@ -171,7 +171,7 @@ finally_cps_ <- function(.contextName, expr, finally) {
     do_finally <- finally(continue, ...,
                           stp=stp, brk=finally_brk, nxt=finally_nxt,
                           goto=finally_goto,
-                          windup=windup, unwind=unwind, return=finally_return,
+                          windup=windup, unwind=unwind, rtn=finally_return,
                           trace=trace)
     finally_then %<-% function(val) {
       result <<- val
@@ -213,7 +213,7 @@ finally_cps_ <- function(.contextName, expr, finally) {
       }
     } else goto_ <- missing_value()
     do_expr <- expr(finally_then, ..., stp=stop_, brk=brk_, nxt=nxt_, goto=goto_,
-                    windup=windup, unwind=unwind, return=return_,
+                    windup=windup, unwind=unwind, rtn=return_,
                     trace=trace)
     do_windup %<-% function(cont) {
       list(cont)
@@ -239,8 +239,8 @@ try_cps <- function(.contextName, expr,
                     outfile=R(paste0(.contextName, ".outfile"),
                               getOption("try.outFile", default = stderr()))) {
   list(.contextName, expr, silent, outfile)
-  function(cont, ..., stp, brk, nxt, windup, unwind, return, trace=trace_) {
-    list(cont, stp, maybe(brk), maybe(nxt), windup, unwind, return, trace)
+  function(cont, ..., stp, brk, nxt, windup, unwind, rtn, trace=trace_) {
+    list(cont, stp, maybe(brk), maybe(nxt), windup, unwind, rtn, trace)
     # Remember, flow of the handlers goes from bottom to top
     result <- NULL
     outfile_ <- NULL
@@ -307,7 +307,7 @@ try_cps <- function(.contextName, expr,
     }
     do_expr <- expr(continue, ...,
                     stp=stop_, brk=brk_, nxt=nxt_,
-                    windup=windup, unwind=unwind, return=return_, trace=trace)
+                    windup=windup, unwind=unwind, rtn=return_, trace=trace)
     do_windup %<-% function(cont) {
       list(cont)
       trace("try: windup\n")
@@ -325,10 +325,10 @@ try_cps <- function(.contextName, expr,
     }
     gotSilent %<-% function(val) {silent_ <<- val; try_()}
     getSilent <- silent(gotSilent, ..., stp=stop_, brk=brk_, nxt=nxt_,
-                    windup=windup, unwind=unwind, return=return_, trace=trace)
+                    windup=windup, unwind=unwind, rtn=return_, trace=trace)
     gotOutfile %<-% function(val) {outfile_ <<- val; getSilent()}
     getOutfile <- outfile(gotOutfile, ..., stp=stop_, brk=brk_, nxt=nxt_,
-                    windup=windup, unwind=unwind, return=return_, trace=trace)
+                    windup=windup, unwind=unwind, rtn=return_, trace=trace)
     getOutfile
   }
 }

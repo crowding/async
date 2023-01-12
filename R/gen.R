@@ -160,9 +160,9 @@ make_generator <- function(expr, orig=arg(expr), ..., trace=trace_) {
   list(expr, ...)
   gen_cps <- function(.contextName, expr) {
     list(.contextName, expr)
-    function(cont, ..., stp, return, pause, pause_val,
+    function(cont, ..., stp, rtn, pause, pause_val,
              trace, setDebug, getCont) {
-      list(stp, return, pause, pause_val, trace)
+      list(stp, rtn, pause, pause_val, trace)
       nonce <- function() NULL
       yielded <- nonce
       err <- nonce
@@ -174,7 +174,7 @@ make_generator <- function(expr, orig=arg(expr), ..., trace=trace_) {
         force(val)
         trace("generator: return\n")
         state <<- "finished"
-        return(val)
+        rtn(val)
       }
 
       stop_ %<-% function(val) {
@@ -231,7 +231,7 @@ make_generator <- function(expr, orig=arg(expr), ..., trace=trace_) {
       }, localName="nextElemOr_", globalName="nextElemOr_")
 
       nextElemOr_ <<- nextElemOr_
-      expr(return_, ..., stp=stop_, return=return_, yield=yield_,
+      expr(return_, ..., stp=stop_, rtn=return_, yield=yield_,
            pause=pause, pause_val=pause_val, trace=trace)
     }
   }

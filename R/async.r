@@ -191,7 +191,7 @@ make_async <- function(expr, orig=expr, ..., compileLevel=0, trace=trace_, targe
   }), "async")
 
   pump <- make_pump(expr, ...,
-                    return=resolve, stp=reject, await=await_, trace=trace,
+                    rtn=resolve, stp=reject, await=await_, trace=trace,
                     targetEnv=targetEnv)
   pr$orig <- orig
   pr$state <- environment()
@@ -221,6 +221,7 @@ getStartSet.async <- function(x) {
        pump=get("pump", envir=x$state),
        getCont=environment(get("pump", (x$state)))$getCont,
        runPump=environment(get("pump", (x$state)))$runPump,
+       setDebug=environment(get("pump", (x$state)))$setDebug,
        getState=get("getState", x$state))
 }
 
@@ -228,6 +229,13 @@ getStartSet.async <- function(x) {
 #' @rdname format
 getNode.async <- function(x, ...) {
   environment(get("pump", environment(x$state$pump)))$getCont()
+}
+
+#' @exportS3Method
+debugAsync.async <- function(x, R=current$R, internal=current$internal) {
+  set <- environment(get("pump", x$state))$setDebug
+  current <- set()
+  set(R, internal)
 }
 
 #' @export

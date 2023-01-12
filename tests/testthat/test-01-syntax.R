@@ -182,6 +182,7 @@ test_that("Makes fully qualified names when async package not attached", {
   xout <- async:::cps_translate(xin, endpoints=c("yield", "next", "break"))
 
   # can run a generator without having the package attached
+  # this should really be in the next test though
   g <- nseval::do(async::gen, xin)
   l <- as.numeric(as.list((g)))
   l %is% c(1, 2, 3, 5, 6, 7, 9, 10)

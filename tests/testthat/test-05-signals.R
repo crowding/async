@@ -26,14 +26,14 @@ test_that("yield inside of try", {
     yield(8)
   })
 
-(function() `{_cps`(".{", try_cps(".{1.try", `{_cps`(".{1.try1.{", 
-    yield_cps(".{1.try1.{1.yield", async:::R(".{1.try1.{1.yield.R", 
-        5)), async:::R(".{1.try1.{2.R", stop("foo")), yield_cps(".{1.try1.{3.yield", 
-        async:::R(".{1.try1.{3.yield.R", 6))), silent = async:::R(".{1.try2.R", 
-    TRUE)), yield_cps(".{2.yield", async:::R(".{2.yield.R", 7)), 
-    async:::R(".{3.R", stop("bar")), yield_cps(".{4.yield", async:::R(".{4.yield.R", 
+(function() `{_cps`(".{", try_cps(".{1.try", `{_cps`(".{1.try1.{",
+    yield_cps(".{1.try1.{1.yield", async:::R(".{1.try1.{1.yield.R",
+        5)), async:::R(".{1.try1.{2.R", stop("foo")), yield_cps(".{1.try1.{3.yield",
+        async:::R(".{1.try1.{3.yield.R", 6))), silent = async:::R(".{1.try2.R",
+    TRUE)), yield_cps(".{2.yield", async:::R(".{2.yield.R", 7)),
+    async:::R(".{3.R", stop("bar")), yield_cps(".{4.yield", async:::R(".{4.yield.R",
         8))))()
-  
+
   expect_equal(nextElem(g), 5)
   expect_equal(nextElem(g), 7)
   expect_error(nextElem(g), "bar")
@@ -423,4 +423,15 @@ test_that("break/next/return in trycatch", {
     "Fizz", "Razz", "23", "RazzFizz", "Buzz",
     "Razz", "Fizz", "Razz", "29", "RazzFizzBuzz", "---",
     "31")
+})
+
+test_that("return from catch error handler", {
+
+  m <- mock_promise()
+  as <- async({
+    tryCatch(await(m),
+             error=return(5))
+  })
+  expect_resolves_with(as, 5, m$reject("no"))
+
 })
