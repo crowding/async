@@ -1,7 +1,3 @@
-strrev <- function(x)
-  vapply(strsplit(x, ""),
-         \(x) paste0(rev(x), collapse=""),
-         "")
 
 test_that("Switch numeric", {
 

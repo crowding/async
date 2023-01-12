@@ -206,20 +206,20 @@ make_store <- function(sym) { force(sym)
 
 if_cps <- function(.contextName, cond, cons.expr, alt.expr) {
   list(.contextName, cond, cons.expr, maybe(alt.expr))
-  function(cont, ..., stop, trace=trace_) {
-    list(cont, stop, trace)
-    ifTrue <- cons.expr(cont, ..., stop=stop, trace=trace)
+  function(cont, ..., stp, trace=trace_) {
+    list(cont, stp, trace)
+    ifTrue <- cons.expr(cont, ..., stp=stp, trace=trace)
     if (missing_(arg(alt.expr))) {
       if_ %<-% function(val) {
         if(val) ifTrue() else cont(invisible(NULL))
       }
     } else {
-      ifFalse <- alt.expr(cont, ..., stop=stop, trace=trace)
+      ifFalse <- alt.expr(cont, ..., stp=stp, trace=trace)
       if_ %<-% function(val) {
         if(val) ifTrue() else ifFalse()
       }
     }
-    getCond <- cond(if_, ..., stop=stop, trace=trace)
+    getCond <- cond(if_, ..., stp=stp, trace=trace)
   }
 }
 
@@ -227,8 +227,8 @@ if_cps <- function(.contextName, cond, cons.expr, alt.expr) {
 switch_cps <- function(.contextName, EXPR, ...) {
   list(.contextName, EXPR)
   alts <- list(...)
-  function(cont, ..., stop, goto, bounce, bounce_val, trace=trace_) {
-    list(cont, stop, trace, bounce, bounce_val)
+  function(cont, ..., stp, goto, bounce, bounce_val, trace=trace_) {
+    list(cont, stp, trace, bounce, bounce_val)
     maybe(goto)
 
     goto_ %<-% function(val) {
@@ -237,7 +237,7 @@ switch_cps <- function(.contextName, EXPR, ...) {
 
     # for the compiler to see the branches they need to be assigned names.
     for (i in seq_along(alts)) {
-      alts[[i]] <- alts[[i]](cont, ..., stop=stop, trace=trace, goto=goto_)
+      alts[[i]] <- alts[[i]](cont, ..., stp=stp, trace=trace, goto=goto_)
       assign(paste0("alt", i), alts[[i]], envir=environment())
     }
 
@@ -248,11 +248,11 @@ switch_cps <- function(.contextName, EXPR, ...) {
       switch_ %<-% eval(bquote(splice=TRUE, function(val) {
         trace("switch: numeric\n")
         if (!is.numeric(val))
-          stop(paste0("switch: expected numeric, got ", mode(val)))
+          stp(paste0("switch: expected numeric, got ", mode(val)))
         else {
           branch <- branches[[as.numeric(val)]]
           if (is.null(branch))
-            stop(paste0("Switch: expected numeric, got ", mode(val)))
+            stp(paste0("Switch: expected numeric, got ", mode(val)))
           else switch(branch, ..(lapply(seq_along(branches),
                                         function(i)call(paste0("alt", i)))))
         }
@@ -268,7 +268,7 @@ switch_cps <- function(.contextName, EXPR, ...) {
           if (is.null(default)) {
             default <- i
           }
-          else base::stop("Duplicate 'switch' defaults")
+          else stop("Duplicate 'switch' defaults")
         } else {
           branches[[names(alts)[[i]]]] <- i
           if (is_R(alts[[i]])
@@ -290,11 +290,11 @@ switch_cps <- function(.contextName, EXPR, ...) {
       switch_ %<-% eval(bquote(function(val) {
         trace("switch: character\n")
         if (!is.character(val))
-          stop(paste0("switch: expected character, got ", mode(val)))
+          stp(paste0("switch: expected character, got ", mode(val)))
         else .(if (is.null(default)) bquote({
           branch <- get0(val, branches, ifnotfound=NULL)
           if (is.null(branch))
-            stop(paste0("Switch: branch not found, with no default: `",
+            stp(paste0("Switch: branch not found, with no default: `",
                         as.character(val), "`"))
           else .(switchcall)
         }) else bquote({
@@ -304,7 +304,7 @@ switch_cps <- function(.contextName, EXPR, ...) {
         )
       }))
     }
-    EXPR <- EXPR(switch_, ..., stop=stop, trace=trace, goto=goto)
+    EXPR <- EXPR(switch_, ..., stp=stp, trace=trace, goto=goto)
   }
 }
 
@@ -511,17 +511,17 @@ while_cps <- function(.contextName, cond, expr) {
 #' @import iterators
 for_cps <- function(.contextName, var, seq, expr) {
   list(.contextName, var, seq, expr)
-  function(cont, ..., bounce, bounce_val, nxt, brk, stop, sto, trace=trace_) {
-    list(cont, bounce, bounce_val, maybe(nxt), maybe(brk), stop, trace)
+  function(cont, ..., bounce, bounce_val, nxt, brk, sto, trace=trace_) {
+    list(cont, bounce, bounce_val, maybe(nxt), maybe(brk), trace)
     #quote the LHS at construction time
     var_ <- var(cont, ..., bounce=bounce, bounce_val=bounce_val,
-                stop=stop, sto=sto, trace=trace) #not our brk/nxt
+                sto=sto, trace=trace) #not our brk/nxt
     if (!is_R(var_)) {
       stop("Unexpected stuff in for() loop variable")
     }
 
     var_ <- R_expr(var_)
-    if (!is.name(var_)) base::stop("Expected a name in for() loop variable")
+    if (!is.name(var_)) stop("Expected a name in for() loop variable")
     var_ <- as.character(var_)
     seq_ <- NULL
 
@@ -537,7 +537,7 @@ for_cps <- function(.contextName, var, seq, expr) {
     }
     body <- expr(again, ..., bounce=bounce,
                  bounce_val=bounce_val, nxt=nxt_, brk=brk_,
-                 stop=stop, sto=sto, trace=trace) # our brk_
+                 sto=sto, trace=trace) # our brk_
     do_ %<-% function() {
       stopping <- FALSE
       trace(paste0("for ", var_, ": next\n"))
@@ -555,7 +555,7 @@ for_cps <- function(.contextName, var, seq, expr) {
       do_()
     }
     getSeq <- seq(for_, ..., bounce=bounce, bounce_val=bounce_val,
-                  nxt=nxt, brk=brk, stop=stop, sto=sto, trace=trace) #not our brk
+                  nxt=nxt, brk=brk, sto=sto, trace=trace) #not our brk
   }
 }
 

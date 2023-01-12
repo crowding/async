@@ -98,7 +98,7 @@ yield <- function(expr) {
 yield_cps <- function(.contextName, expr) {
   list(.contextName, expr)
   function(cont, ..., yield, trace) {
-    if (missing_(arg(yield))) base::stop("yield used but this is not a generator")
+    if (missing_(arg(yield))) stop("yield used but this is not a generator")
     list(cont, yield, trace)
     `yield_` %<-% function(val) {
       force(val)
@@ -160,9 +160,9 @@ make_generator <- function(expr, orig=arg(expr), ..., trace=trace_) {
   list(expr, ...)
   gen_cps <- function(.contextName, expr) {
     list(.contextName, expr)
-    function(cont, ..., stop, return, pause, pause_val,
+    function(cont, ..., stp, return, pause, pause_val,
              trace, setDebug, getCont) {
-      list(stop, return, pause, pause_val, trace)
+      list(stp, return, pause, pause_val, trace)
       nonce <- function() NULL
       yielded <- nonce
       err <- nonce
@@ -182,6 +182,7 @@ make_generator <- function(expr, orig=arg(expr), ..., trace=trace_) {
         err <<- val
         state <<- "stopped"
         stop(val)
+        NULL #above should not look like a tailcall
       }
 
       yield_ %<-% function(cont, val) {
@@ -196,7 +197,7 @@ make_generator <- function(expr, orig=arg(expr), ..., trace=trace_) {
         val <- switch(state,
                stopped =,
                finished = or,
-               running = base::stop("Generator already running (or finished unexpectedly?)"),
+               running = stop("Generator already running (or finished unexpectedly?)"),
                yielded = {
                  state <<- "running"
                  on.exit({
@@ -211,26 +212,26 @@ make_generator <- function(expr, orig=arg(expr), ..., trace=trace_) {
                  switch(state,
                         running = {
                           state <<- "finished"
-                          base::stop("Generator finished unexpectedly")
+                          stop("Generator finished unexpectedly")
                         },
-                        stopped = base::stop(err),
+                        stopped = stop(err),
                         finished = or,
                         yielded = {
                           if (identical(yielded, nonce)) {
-                            base::stop("Generator yielded but no value?")
+                            stop("Generator yielded but no value?")
                           }
                           tmp <- yielded
                           yielded <<- nonce
                           tmp
                         },
-                        base::stop("Generator in an unknown state"))
+                        stop("Generator in an unknown state"))
                },
-               base::stop("Generator in an unknown state"))
+               stop("Generator in an unknown state"))
         val
       }, localName="nextElemOr_", globalName="nextElemOr_")
 
       nextElemOr_ <<- nextElemOr_
-      expr(return_, ..., stop=stop_, return=return_, yield=yield_,
+      expr(return_, ..., stp=stop_, return=return_, yield=yield_,
            pause=pause, pause_val=pause_val, trace=trace)
     }
   }

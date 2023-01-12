@@ -141,3 +141,8 @@ expect_resolves_with <- function(prom, expected, trigger=NULL, test=expect_equal
   test(val, expected)
   val
 }
+
+strrev <- function(x)
+  vapply(strsplit(x, ""),
+         \(x) paste0(rev(x), collapse=""),
+         "")

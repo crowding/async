@@ -1,38 +1,3 @@
-collect_tree <- function(fn) {
-  size <- 32
-  ilevel <- 1
-  thislevel <- list(length=64)
-  levels <- rep(list(size, length=size))
-  iix <- 1
-
-  append <- function(name, val, type) {
-    
-  }
-  open <- function() {
-
-  }
-  close(type) <- function() {
-
-  }
-  fn(append, open, close)
-}
-
-collect <- function(fn, type) {
-  size <- 64
-  a <- vector(mode(type), length=size)
-  i <- 0
-  fn(function(name, val) {
-    i <<- i + 1
-    if (i >= size) {
-      size <<- min(2 * size, i)
-      length(a) <<- size
-    }
-    names(a)[[i]] <<- name
-    a[[i]] <<- val
-  })
-  length(a) <- i
-  a
-}
 
 # Scan a function and return all names used, labeled by their
 # (possibly overlapping) "roles":
@@ -57,10 +22,10 @@ collect <- function(fn, type) {
 all_names <- function(fn, nonTail=TRUE, forGraph=FALSE) {
   collect(type=if(forGraph) list() else character(0),
           function(yield)
-            collect_function(fn, yield, nonTail=nonTail, forGraph=forGraph))
+            visit_function(fn, yield, nonTail=nonTail, forGraph=forGraph))
 }
 
-collect_function <- function(fn, yield, nonTail=TRUE, forGraph=FALSE) {
+visit_function <- function(fn, yield, nonTail=TRUE, forGraph=FALSE) {
   env <- environment(fn)
   locals <- names(formals(fn)) %||% character(0)
   yield_ <- function(type, name) {
@@ -117,7 +82,7 @@ collect_function <- function(fn, yield, nonTail=TRUE, forGraph=FALSE) {
       yield(type, name)
     )
   }
-  collect_lambda <- function(expr, inTail, orig=NULL, yield) {
+  visit_lambda <- function(expr, inTail, orig=NULL, yield) {
     locals <- names(expr[[2]])
     yield_ <- function(type, name) {
       switch(type,
@@ -134,9 +99,9 @@ collect_function <- function(fn, yield, nonTail=TRUE, forGraph=FALSE) {
              yield(type, name)
              )
     }
-    collect_arg(expr[[3]], inTail=inTail, yield=yield_)
+    visit_arg(expr[[3]], inTail=inTail, yield=yield_)
   }
-  collect_head <- function(expr, inTail, yield) {
+  visit_head <- function(expr, inTail, yield) {
     if (!inTail && !nonTail) return()
     switch(mode(expr),
            call={
@@ -151,10 +116,10 @@ collect_function <- function(fn, yield, nonTail=TRUE, forGraph=FALSE) {
                    if(inTail) yield("tail", name)
                    else yield("call", name)
                  } else {
-                   collect_call(expr, inTail=FALSE, yield=yield)
+                   visit_call(expr, inTail=FALSE, yield=yield)
                  }
                },
-               collect_call(expr, inTail=FALSE, yield=yield)
+               visit_call(expr, inTail=FALSE, yield=yield)
              )
            },
            character=,
@@ -166,22 +131,22 @@ collect_function <- function(fn, yield, nonTail=TRUE, forGraph=FALSE) {
            NULL
            )
   }
-  collect_weird_call <- function(expr, inTail, orig=NULL, yield) {
+  visit_weird_call <- function(expr, inTail, orig=NULL, yield) {
     # i.e. trampolines and handlers don't need to register as tailcalls
-    # we've already collected the head.
+    # we've already visited the head.
     if(nonTail) {
       for (i in unname(as.list(expr)[-1])) {
         if (!missing(i))
-          collect_arg(i, inTail=inTail, yield=yield)
+          visit_arg(i, inTail=inTail, yield=yield)
       }
     }
   }
-  collect_ordinary_call <- function(expr, inTail, orig=NULL, yield) {
+  visit_ordinary_call <- function(expr, inTail, orig=NULL, yield) {
     if (inTail) yield("tailcall", c(list(expr), orig))
-    collect_head(expr[[1]], inTail=inTail, yield=yield)
-    collect_weird_call(expr, inTail, orig, yield)
+    visit_head(expr[[1]], inTail=inTail, yield=yield)
+    visit_weird_call(expr, inTail, orig, yield)
   }
-  collect_call <- function(expr, inTail, orig=NULL, yield) {
+  visit_call <- function(expr, inTail, orig=NULL, yield) {
     if (!inTail && !nonTail) return(character(0))
     head <- expr[[1]]
     switch(mode(head),
@@ -189,11 +154,11 @@ collect_function <- function(fn, yield, nonTail=TRUE, forGraph=FALSE) {
            name={
              head <- as.character(head)
              if (head %in% locals) {
-               collect_weird_call(expr, inTail, NULL, yield)
+               visit_weird_call(expr, inTail, NULL, yield)
              } else if (exists(head, env, inherits=FALSE)) {
                peek <- get0(head, envir=env, ifnotfound=NULL, inherits=FALSE)
                if (!all(c("cont") %in% names(formals(peek)))) {
-                 collect_ordinary_call(expr, inTail, orig, yield)
+                 visit_ordinary_call(expr, inTail, orig, yield)
                } else {
                  # A trampoline-indirect call! Register both the
                  # target and the indirect.
@@ -206,7 +171,7 @@ collect_function <- function(fn, yield, nonTail=TRUE, forGraph=FALSE) {
                    handl$winding <- NULL
                    yield("wind", as.character(woundup[[1]]))
                    yield("windup", c(list(woundup, expr), orig))
-                   collect_weird_call(woundup, inTail, c(list(expr), orig), yield)}
+                   visit_weird_call(woundup, inTail, c(list(expr), orig), yield)}
                  trampoline_args <- names(handl) %in% c("cont", "val")
                  trampolined <- as.call(handl[trampoline_args])
                  handl <- handl[!trampoline_args]
@@ -214,7 +179,7 @@ collect_function <- function(fn, yield, nonTail=TRUE, forGraph=FALSE) {
                  yield("hand", as.character(expr[[1]]))
                  yield("handler", c(list(handl, expr), orig))
                  yield("trampoline", c(list(trampolined, expr), orig))
-                 collect_weird_call(handl, FALSE, c(list(expr), orig), yield)
+                 visit_weird_call(handl, FALSE, c(list(expr), orig), yield)
                }
              } else {
                # something that isn't bound in the immediately
@@ -222,71 +187,71 @@ collect_function <- function(fn, yield, nonTail=TRUE, forGraph=FALSE) {
                switch(
                  head,
                  "=" =, "<-" = {
-                   collect_arg(expr[[3]], inTail=FALSE, yield)
-                   collect_store(expr[[2]], "local", yield)},
+                   visit_arg(expr[[3]], inTail=FALSE, yield)
+                   visit_store(expr[[2]], "local", yield)},
                  "<<-" = {
-                   collect_arg(expr[[3]], inTail=FALSE, yield)
-                   collect_store(expr[[2]], "store", yield)},
+                   visit_arg(expr[[3]], inTail=FALSE, yield)
+                   visit_store(expr[[2]], "store", yield)},
                  "if" = {
-                   collect_arg(expr[[2]], inTail=FALSE, yield)
-                   collect_arg(expr[[3]], inTail=inTail, yield)
+                   visit_arg(expr[[2]], inTail=FALSE, yield)
+                   visit_arg(expr[[3]], inTail=inTail, yield)
                    if (length(expr) >= 4)
-                     collect_arg(expr[[4]], inTail=inTail, yield)},
+                     visit_arg(expr[[4]], inTail=inTail, yield)},
                  # the argument to return() is not considered to be
                  # in the tail because it won't be a safe place to splice
-                 "return" = collect_arg(expr[[2]], inTail=FALSE, yield),
+                 "return" = visit_arg(expr[[2]], inTail=FALSE, yield),
                  "while" = {
-                   collect_arg(expr[[2]], inTail=FALSE, yield)
-                   collect_arg(expr[[3]], inTail=FALSE, yield)},
+                   visit_arg(expr[[2]], inTail=FALSE, yield)
+                   visit_arg(expr[[3]], inTail=FALSE, yield)},
                  "for" = {
-                   collect_store(expr[[2]], "local", yield)
-                   collect_arg(expr[[3]], inTail=FALSE, yield)
-                   collect_arg(expr[[4]], inTail=FALSE, yield)},
-                 "("= collect_arg(expr[[2]], inTail=inTail, yield),
+                   visit_store(expr[[2]], "local", yield)
+                   visit_arg(expr[[3]], inTail=FALSE, yield)
+                   visit_arg(expr[[4]], inTail=FALSE, yield)},
+                 "("= visit_arg(expr[[2]], inTail=inTail, yield),
                  "{"= {
                    if(nonTail) {
                      for (i in 1+seq_len(length(expr)-2))
-                       collect_arg(expr[[i]], inTail=FALSE, yield)
+                       visit_arg(expr[[i]], inTail=FALSE, yield)
                    }
-                   collect_arg(expr[[length(expr)]], inTail=inTail, yield)},
+                   visit_arg(expr[[length(expr)]], inTail=inTail, yield)},
                  "||"=,"&&"={
-                   collect_arg(expr[[2]], inTail=FALSE, yield)
-                   collect_arg(expr[[3]], inTail=inTail, yield)},
+                   visit_arg(expr[[2]], inTail=FALSE, yield)
+                   visit_arg(expr[[3]], inTail=inTail, yield)},
                  "switch"={
-                   collect_arg(expr[[2]], inTail=FALSE, yield)
+                   visit_arg(expr[[2]], inTail=FALSE, yield)
                    if(nonTail) {
                      for (i in 2+seq_len(length(expr)-2)) {
-                       collect_arg(expr[[i]], inTail=inTail, yield)}}
+                       visit_arg(expr[[i]], inTail=inTail, yield)}}
                  },
                  "tryCatch"={
-                   collect_arg(expr[[2]], inTail=inTail, yield)
-                   collect_arg(expr[[3]], inTail=inTail, yield)},
+                   visit_arg(expr[[2]], inTail=inTail, yield)
+                   visit_arg(expr[[3]], inTail=inTail, yield)},
                  "function"={
                    # A lambda passed into a tail (e.g. tryCatch in tail position)
                    # might indeed be a tailcall
-                   collect_lambda(expr, inTail=TRUE, NULL, yield)},
+                   visit_lambda(expr, inTail=TRUE, NULL, yield)},
                  {
                    #all other named calls not bound here
-                   collect_ordinary_call(expr, inTail, orig, yield)}
+                   visit_ordinary_call(expr, inTail, orig, yield)}
                )
              }
            },
            # something other than a name in a call head
            if(nonTail) {
-             collect_head(expr[[1]], FALSE, yield)
-             for (i in as.list(expr)[-1]) collect_arg(i, inTail, yield)
+             visit_head(expr[[1]], FALSE, yield)
+             for (i in as.list(expr)[-1]) visit_arg(i, inTail, yield)
            }
            )
   }
-  collect_arg <- function(expr, inTail, yield) {
+  visit_arg <- function(expr, inTail, yield) {
     if (!inTail && !nonTail) return(NULL)
     switch(mode(expr),
-           call=collect_call(expr, inTail, NULL, yield),
+           call=visit_call(expr, inTail, NULL, yield),
            name=if(!missing_(expr)) {
              yield("var", as.character(expr))
            })
   }
-  collect_store <- function(dest, how, yield) {
+  visit_store <- function(dest, how, yield) {
     switch(mode(dest),
            call={
              # In a complex assignment like foo[bar] <- baz;
@@ -295,8 +260,8 @@ collect_function <- function(fn, yield, nonTail=TRUE, forGraph=FALSE) {
              # foo <- `[<-`(foo, baz, bar)
              # which means "foo" should count as both "local"
              # and "var", and we should count a call to "[<-".
-             collect_store(dest[[2]], how, yield)
-             collect_call(
+             visit_store(dest[[2]], how, yield)
+             visit_call(
                as.call(c(list(as.name(paste0(dest[[1]], "<-"))),
                          as.list(dest)[-1])),
                inTail=FALSE, orig=NULL, yield=yield)
@@ -307,5 +272,5 @@ collect_function <- function(fn, yield, nonTail=TRUE, forGraph=FALSE) {
            )
   }
   for (i in locals) yield_("arg", i)
-  collect_arg(body(fn), inTail=TRUE, yield=yield_)
+  visit_arg(body(fn), inTail=TRUE, yield=yield_)
 }

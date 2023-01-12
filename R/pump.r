@@ -16,7 +16,8 @@ assert <- function(condition,
 #' @param prefix Character prefix to print before the trace.
 #' @rdname async
 #' @export
-with_prefix <- function(prefix) function(...) cat(paste0(prefix, ": ", ...), sep="")
+with_prefix <- function(prefix) function(...)
+  cat(paste0(prefix, ": ", ...), sep="")
 
 reset <- function(...) list(...)[[1]]
 
@@ -25,27 +26,28 @@ add_class <- function(x, ...) {
   x
 }
 
-pump <- function(expr, ...) {
-  thisPump <- make_pump(expr, ...)
+pump <- function(expr, stp=stop, ...) {
+  thisPump <- make_pump(expr, stp=stp, ...)
   thisPump()
 }
 
 make_pump <- function(expr, ...,
-                      ret=base::stop("unused"),
-                      windup=base::stop("unused"),
-                      unwind=base::stop("unused"),
-                      pause=base::stop("unused"),
-                      goto=base::stop("unused"),
-                      evl=base::stop("unused"),
-                      sto=base::stop("unused"),
-                      stop=structure(function(val, ...) base::stop(val, ...),
-                                     localName="stop"),
+                      ret=stop("unused"),
+                      windup=stop("unused"),
+                      unwind=stop("unused"),
+                      pause=stop("unused"),
+                      goto=stop("unused"),
+                      evl=stop("unused"),
+                      sto=stop("unused"),
+                      stp=structure(\(x)function(x){stop(x); NULL},
+                                    globalName="stp", localName="stp"),
                       return=structure(function(x)x, localName="return"),
                       trace=trace_,
                       catch=TRUE,
                       targetEnv) {
+
   .contextName <- "pump"
-  list(expr, stop, return, trace, targetEnv)
+  list(expr, stp, return, trace, targetEnv)
   nonce <- (function() NULL)
 
   action <- "pause" # stopped, pause
@@ -90,7 +92,10 @@ make_pump <- function(expr, ...,
   }
 
   evl_ %<-% function(cont, val) {
-    val <- eval(val, targetEnv)
+    if(debugR)
+      val <- eval(substitute({browser(); x}, list(x=val)), targetEnv)
+    else
+      val <- eval(val, targetEnv)
     cont(val)
   }
 
@@ -112,7 +117,7 @@ make_pump <- function(expr, ...,
     trace(paste0("pump: stop: ", conditionMessage(val), "\n"))
     value <<- val
     action <<- "stop"
-    stop(val)
+    stp(val)
   }, localName="stop_", globalName="stop_")
 
   return_ <- structure(function(val) {
@@ -169,10 +174,10 @@ make_pump <- function(expr, ...,
   }, localName="doWindup", globalName="doWindup")
 
   # Our argument "expr" is a context constructor
-  # that takes some branch targets ("our "ret" and "stop" etc) and
+  # that takes some branch targets ("our "ret" and "stp" etc) and
   # returns an entry continuation.
   entry <- expr(return_, ..., bounce=bounce_, bounce_val=bounce_val_,
-                stop=stop_, return=return_,
+                stp=stop_, return=return_,
                 windup=windup_, unwind=unwind_,
                 pause=pause_, pause_val=pause_val_,
                 trace=trace, setDebug=setDebug, getCont=getCont,
@@ -195,7 +200,7 @@ make_pump <- function(expr, ...,
     switch(action,
            pause=pumpCont(),
            pause_val=pumpCont(value),
-           base::stop("pump asked to continue, but last action was ", action))
+           stop("pump asked to continue, but last action was ", action))
     repeat switch(action,
              continue={
                trace("pump: continue\n")

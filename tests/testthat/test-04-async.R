@@ -28,6 +28,7 @@ test_that("async with no await resolves immediately", {
   then(p, function(x) {result <<- x})
   wait_for_it()
   expect_equal(result, 5)
+
   e <- simpleError("wat")
   then(make_async(R("", stop("oops")), targetEnv=environment()),
        onRejected=function(err) {e <<- err})
@@ -310,7 +311,6 @@ test_that("awaiting value that doesn't exist", {
       cleanup <<- TRUE
     })
   })
-
   result <- NULL
   then(as, function(val) stop("should have failed!"),
        function(err) result <<- err)

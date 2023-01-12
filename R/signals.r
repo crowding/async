@@ -36,9 +36,9 @@ tryCatch_cps <- function(.contextName, expr, ..., error, finally) {
 
 catch_cps_ <- function(.contextName, expr, error) {
   list(.contextName, expr, error)
-  function(cont, ..., stop, brk, nxt, goto, windup, unwind,
+  function(cont, ..., stp, brk, nxt, goto, windup, unwind,
            return, trace=trace_) {
-    list(cont, stop, maybe(brk), maybe(nxt), maybe(goto), windup, unwind, return,
+    list(cont, stp, maybe(brk), maybe(nxt), maybe(goto), windup, unwind, return,
          trace)
     # Remember, flow of the handlers goes from bottom to top
     result <- NULL
@@ -49,7 +49,7 @@ catch_cps_ <- function(.contextName, expr, error) {
       }
       cont(val)
     }
-    getErrHandler <- error(gotErrHandler, ..., stop=stop, brk=brk,
+    getErrHandler <- error(gotErrHandler, ..., stp=stp, brk=brk,
                            nxt=nxt, windup=windup, unwind=unwind,
                            return=return_, trace=trace)
     do_return %<-% function() {
@@ -96,7 +96,7 @@ catch_cps_ <- function(.contextName, expr, error) {
       }
     } else goto_ <- missing_value()
     do_expr <- expr(continue, ...,
-                    stop=stop_, brk=brk_, nxt=nxt_, goto=goto_,
+                    stp=stop_, brk=brk_, nxt=nxt_, goto=goto_,
                     windup=windup, unwind=unwind,
                     return=return_, trace=trace)
     do_windup %<-% function(cont, ...) {
@@ -119,8 +119,8 @@ catch_cps_ <- function(.contextName, expr, error) {
 
 finally_cps_ <- function(.contextName, expr, finally) {
   list(.contextName, expr, finally)
-  function(cont, ..., stop, brk, nxt, goto, windup, unwind, return, trace=trace_) {
-    list(cont, stop, maybe(brk), maybe(nxt), maybe(goto),
+  function(cont, ..., stp, brk, nxt, goto, windup, unwind, return, trace=trace_) {
+    list(cont, stp, maybe(brk), maybe(nxt), maybe(goto),
          windup, unwind, return, trace)
     # Deep breath. Remember, the handlers flow from bottom to top!
     result <- NULL
@@ -133,14 +133,14 @@ finally_cps_ <- function(.contextName, expr, finally) {
       trace(paste0("finally: continue with ", after, "\n"))
       switch(after,
              success=cont(result),
-             stop=stop(result),
+             stop=stp(result),
              return=return(result),
              ..(c(list(),
                if (!is_missing(nxt)) alist(`next`=nxt()),
                if (!is_missing(brk)) alist(`break`=brk()),
                if (!is_missing(goto)) alist(goto=goto(result))
              )),
-             stop(paste0("Unexpected after-finally action: ",
+             stp(paste0("Unexpected after-finally action: ",
                          as.character(after)))
              )
     }))
@@ -148,28 +148,28 @@ finally_cps_ <- function(.contextName, expr, finally) {
     # the finally block, throw the saved error instead of jumping.
     finally_return %<-% function(val) {
       trace("finally: return in finally block\n")
-      if (after=="stop") stop(result) else return(val)
+      if (after=="stop") stp(result) else return(val)
     }
     if(!is_missing(brk)) {
       finally_brk %<-% function() {
         trace("finally: break in finally block\n")
-        if (after=="failure") stop(result) else brk()
+        if (after=="failure") stp(result) else brk()
       }
     } else finally_brk <- missing_value()
     if(!is_missing(nxt)) {
       finally_nxt %<-% function() {
         trace("finally: next in finally block\n")
-        if (after=="failure") stop(result) else nxt()
+        if (after=="failure") stp(result) else nxt()
       }
     } else finally_nxt_ <- missing_value()
     if(!is_missing(goto)) {
       finally_goto %<-% function(val) {
         trace("finally: goto in finally block")
-        if (after=="failure") stop(result) else goto(val)
+        if (after=="failure") stp(result) else goto(val)
       }
     } else finally_goto_ <- missing_value()
     do_finally <- finally(continue, ...,
-                          stop=stop, brk=finally_brk, nxt=finally_nxt,
+                          stp=stp, brk=finally_brk, nxt=finally_nxt,
                           goto=finally_goto,
                           windup=windup, unwind=unwind, return=finally_return,
                           trace=trace)
@@ -212,7 +212,7 @@ finally_cps_ <- function(.contextName, expr, finally) {
         unwind(do_finally)
       }
     } else goto_ <- missing_value()
-    do_expr <- expr(finally_then, ..., stop=stop_, brk=brk_, nxt=nxt_, goto=goto_,
+    do_expr <- expr(finally_then, ..., stp=stop_, brk=brk_, nxt=nxt_, goto=goto_,
                     windup=windup, unwind=unwind, return=return_,
                     trace=trace)
     do_windup %<-% function(cont) {
@@ -239,8 +239,8 @@ try_cps <- function(.contextName, expr,
                     outfile=R(paste0(.contextName, ".outfile"),
                               getOption("try.outFile", default = stderr()))) {
   list(.contextName, expr, silent, outfile)
-  function(cont, ..., stop, brk, nxt, windup, unwind, return, trace=trace_) {
-    list(cont, stop, maybe(brk), maybe(nxt), windup, unwind, return, trace)
+  function(cont, ..., stp, brk, nxt, windup, unwind, return, trace=trace_) {
+    list(cont, stp, maybe(brk), maybe(nxt), windup, unwind, return, trace)
     # Remember, flow of the handlers goes from bottom to top
     result <- NULL
     outfile_ <- NULL
@@ -306,7 +306,7 @@ try_cps <- function(.contextName, expr,
       cont(retval)
     }
     do_expr <- expr(continue, ...,
-                    stop=stop_, brk=brk_, nxt=nxt_,
+                    stp=stop_, brk=brk_, nxt=nxt_,
                     windup=windup, unwind=unwind, return=return_, trace=trace)
     do_windup %<-% function(cont) {
       list(cont)
@@ -324,10 +324,10 @@ try_cps <- function(.contextName, expr,
       windup(do_expr, do_windup)
     }
     gotSilent %<-% function(val) {silent_ <<- val; try_()}
-    getSilent <- silent(gotSilent, ..., stop=stop_, brk=brk_, nxt=nxt_,
+    getSilent <- silent(gotSilent, ..., stp=stop_, brk=brk_, nxt=nxt_,
                     windup=windup, unwind=unwind, return=return_, trace=trace)
     gotOutfile %<-% function(val) {outfile_ <<- val; getSilent()}
-    getOutfile <- outfile(gotOutfile, ..., stop=stop_, brk=brk_, nxt=nxt_,
+    getOutfile <- outfile(gotOutfile, ..., stp=stop_, brk=brk_, nxt=nxt_,
                     windup=windup, unwind=unwind, return=return_, trace=trace)
     getOutfile
   }

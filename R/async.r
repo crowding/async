@@ -104,15 +104,15 @@ await <- function(prom) {
 }
 
 await_cps <- function(.contextName, prom) { force(prom)
-  function(cont, ..., await, pause, stop, trace) {
-    if (missing(await)) base::stop("await used, but this is not an async")
-    list(cont, await, pause, stop, trace)
+  function(cont, ..., await, pause, stp, trace) {
+    if (missing(await)) stop("await used, but this is not an async")
+    list(cont, await, pause, stp, trace)
     promis <- NULL
     success <- NULL
     value <- NULL
     then %<-% function() {
       trace("await: resolve\n")
-      if(success) cont(value) else stop(value)
+      if(success) cont(value) else stp(value)
     }
     awaited %<-% function() {
       pause(then)
@@ -127,7 +127,7 @@ await_cps <- function(.contextName, prom) { force(prom)
             function(val) {success <<- TRUE; promis <<- NULL; value <<- val},
             function(err) {success <<- FALSE; promis <<- NULL; value <<- err})
     }
-    prom(await_, ..., pause=pause, await=await, stop=stop, trace=trace)
+    prom(await_, ..., pause=pause, await=await, stp=stp, trace=trace)
   }
 }
 
@@ -191,7 +191,7 @@ make_async <- function(expr, orig=expr, ..., compileLevel=0, trace=trace_, targe
   }), "async")
 
   pump <- make_pump(expr, ...,
-                    return=resolve, stop=reject, await=await_, trace=trace,
+                    return=resolve, stp=reject, await=await_, trace=trace,
                     targetEnv=targetEnv)
   pr$orig <- orig
   pr$state <- environment()

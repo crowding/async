@@ -87,6 +87,7 @@ munge <- function(# the async/generator to munge
       locals <- names(formals(node))
       gnms <- nms[!(names(nms) %in% locals)]
       transBody <- trans(nodeBody, gnms, gnms)
+      transBody2 <- trans(nodeBody, gnms, gnms)
       trace_(paste0("   Node: `", contextName, "`$`",
                     graph$nodeProperties[[nodeName]]$localName,
                     "` -> `", nodeName, "`\n"))
