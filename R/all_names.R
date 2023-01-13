@@ -27,24 +27,27 @@ all_names <- function(fn, nonTail=TRUE, forGraph=FALSE) {
 
 visit_function <- function(fn, yield, nonTail=TRUE, forGraph=FALSE) {
   env <- environment(fn)
-  locals <- names(formals(fn)) %||% character(0)
-  yield_ <- function(type, name) {
+  locals <- character(0)
+  yield_ <- function(val, name) {
     if(forGraph) switch(
-      type,
+      name,
+      arg=,
+      local=
+        locals <<- c(locals, val),
       trampoline=,
       handler=,
       tailcall=,
       windup= {
-        nm <- as.character(name[[1]][[1]])
+        nm <- as.character(val[[1]][[1]])
         if (!(nm %in% locals))
           if (exists(nm, env, inherits=FALSE))
-            yield(type, name)
+            yield(val, name=name)
       },
-      local= locals <<- c(locals, name),
+      local= locals <<- c(locals, val),
       NULL
     )
     else switch(
-      type,
+      name,
       trampoline=,
       handler=,
       tailcall=,
@@ -52,51 +55,52 @@ visit_function <- function(fn, yield, nonTail=TRUE, forGraph=FALSE) {
       tramp=,
       hand=,
       wind=,
-      tail= if (!name %in% locals) {
-        if (exists(name, env, inherits=FALSE))
-          yield(type, name)
-        else yield("call", name)
+      tail= if (!val %in% locals) {
+        if (exists(val, env, inherits=FALSE))
+          yield(val, name=name)
+        else yield(val, name="call")
       },
-      var= if (!name %in% locals) {
-        if (exists(name, env, inherits=FALSE))
-          yield("read", name)
-        else yield(type, name)
+      var= if (!val %in% locals) {
+        if (exists(val, env, inherits=FALSE))
+          yield(val, name="read")
+        else yield(val, name=name)
       },
+      arg=,
       local= {
-        locals <<- c(locals, name)
-        yield(type, name)
+        locals <<- c(locals, val)
+        yield(val, name=name)
       },
-      call= if (!name %in% locals) {
-        if (exists(name, env, inherits=FALSE))
-          yield("util", name)
-        else yield(type, name)
+      call= if (!val %in% locals) {
+        if (exists(val, env, inherits=FALSE))
+          yield(val, name="util")
+        else yield(val, name=name)
       },
-      wind= if (!name %in% locals) {
-        if (exists(name, env, inherits=FALSE))
-          yield("wind", name)
-        else yield("call", name)
+      wind= if (!val %in% locals) {
+        if (exists(val, env, inherits=FALSE))
+          yield(val, name="wind")
+        else yield(val, name="call")
       },
-      store= if (exists(name, env, inherits=FALSE)) {
-        yield("store", name)
-      } else stop(paste0("Target of <<- not found: ", name)),
-      yield(type, name)
+      store= if (exists(val, env, inherits=FALSE)) {
+        yield(val, name="store")
+      } else stop(paste0("Target of <<- not found: ", val)),
+      stop(paste0("Unknown argument type", name))
     )
   }
   visit_lambda <- function(expr, inTail, orig=NULL, yield) {
     locals <- names(expr[[2]])
-    yield_ <- function(type, name) {
-      switch(type,
-             call= if (!name %in% locals) {
-               yield(type, name)
+    yield_ <- function(val, name) {
+      switch(name,
+             call= if (!val %in% locals) {
+               yield(val, name)
              },
-             var= if (!name %in% locals) {
-               yield("var", name)
+             var= if (!val %in% locals) {
+               yield(val, "var")
              },
              arg=,
-             local= locals <<- c(locals, name),
+             local= locals <<- c(locals, val),
              tail=,
              store=,
-             yield(type, name)
+             yield(val, name)
              )
     }
     visit_arg(expr[[3]], inTail=inTail, yield=yield_)
@@ -113,8 +117,8 @@ visit_function <- function(fn, yield, nonTail=TRUE, forGraph=FALSE) {
                    name <- paste0(as.character(expr[[2]]),
                                   as.character(expr[[1]]),
                                   as.character(expr[[3]]))
-                   if(inTail) yield("tail", name)
-                   else yield("call", name)
+                   if(inTail) yield(name, name="tail")
+                   else yield(name, name="call")
                  } else {
                    visit_call(expr, inTail=FALSE, yield=yield)
                  }
@@ -125,8 +129,8 @@ visit_function <- function(fn, yield, nonTail=TRUE, forGraph=FALSE) {
            character=,
            name={
              if(inTail) {
-               yield("tail", as.character(expr))
-             } else yield("call", as.character(expr))
+               yield(as.character(expr), "tail")
+             } else yield(as.character(expr), "call")
            },
            NULL
            )
@@ -142,7 +146,7 @@ visit_function <- function(fn, yield, nonTail=TRUE, forGraph=FALSE) {
     }
   }
   visit_ordinary_call <- function(expr, inTail, orig=NULL, yield) {
-    if (inTail) yield("tailcall", c(list(expr), orig))
+    if (inTail) yield(c(list(expr), orig), "tailcall")
     visit_head(expr[[1]], inTail=inTail, yield=yield)
     visit_weird_call(expr, inTail, orig, yield)
   }
@@ -169,16 +173,16 @@ visit_function <- function(fn, yield, nonTail=TRUE, forGraph=FALSE) {
                    woundup <- as.call(list(handl$winding))
                    windup <- TRUE
                    handl$winding <- NULL
-                   yield("wind", as.character(woundup[[1]]))
-                   yield("windup", c(list(woundup, expr), orig))
+                   yield(as.character(woundup[[1]]), "wind")
+                   yield(c(list(woundup, expr), orig), "windup")
                    visit_weird_call(woundup, inTail, c(list(expr), orig), yield)}
                  trampoline_args <- names(handl) %in% c("cont", "val")
                  trampolined <- as.call(handl[trampoline_args])
                  handl <- handl[!trampoline_args]
-                 yield("tramp", as.character(trampolined[[1]]))
-                 yield("hand", as.character(expr[[1]]))
-                 yield("handler", c(list(handl, expr), orig))
-                 yield("trampoline", c(list(trampolined, expr), orig))
+                 yield(as.character(trampolined[[1]]), "tramp")
+                 yield(as.character(expr[[1]]), "hand")
+                 yield(c(list(handl, expr), orig), "handler")
+                 yield(c(list(trampolined, expr), orig), "trampoline")
                  visit_weird_call(handl, FALSE, c(list(expr), orig), yield)
                }
              } else {
@@ -248,7 +252,7 @@ visit_function <- function(fn, yield, nonTail=TRUE, forGraph=FALSE) {
     switch(mode(expr),
            call=visit_call(expr, inTail, NULL, yield),
            name=if(!missing_(expr)) {
-             yield("var", as.character(expr))
+             yield(as.character(expr), "var")
            })
   }
   visit_store <- function(dest, how, yield) {
@@ -268,9 +272,9 @@ visit_function <- function(fn, yield, nonTail=TRUE, forGraph=FALSE) {
            },
            character=,
            name=
-             yield(how, as.character(dest))
+             yield(as.character(dest), how)
            )
   }
-  for (i in locals) yield_("arg", i)
+  for (i in names(formals(fn))) yield_(i, "arg")
   visit_arg(body(fn), inTail=TRUE, yield=yield_)
 }

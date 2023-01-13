@@ -187,3 +187,39 @@ test_that("tracing", {
     nextElem(g),
     "triangle: R: + i <- 0.*triangle: R: j <- j \\+ i.*triangle: generator: yield.*")
 })
+
+test_that("run", {
+
+  total_ <- 0
+  output_ <- collect( function(yield) {
+    for (i in seq(2, 48, by=7))
+      total_ <<- yield(total_+i)
+  })
+
+  total <- 0
+  output <- run(
+    for (i in iseq(2, 48, by=7))
+      total <- yield(total+i))
+
+  total %is% total_
+  output %is% output_
+
+  expect_error(
+    for (i in iseq(2, 2400, by=7))
+      total <- yield(total+i))
+
+  run(if(TRUE) yield(1) else 5) %is% list(1)
+  run(if(FALSE) yield(1) else 5) %is% list()
+  run(if(FALSE) return(0) else 5) %is% 5
+
+  expect_error(
+    run(for (i in iseq(1, 1000, by=23))
+      if (i%%37 == 0) stop("oops") else yield(i)),
+    "oops")
+
+  expect_error(
+    run(for (i in iseq(1, 1000, by=23))
+      if (i%%37 == 0) yield(sOmE+nOnSeNsE) else yield(i)),
+    "not found")
+
+})

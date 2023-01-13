@@ -78,17 +78,43 @@ tree_filter <- function(tree, filter) {
   })
 }
 
-collect <- function(fn, type) {
+#' Execute a function and collect a set of values by callback.
+#'
+#' `collect` calls the function in its argument, supplying a callback
+#' `yield(val, name=NULL)`. Each value passed to `yield` is collected
+#' and the list of all values is returned after `fn` returns.
+#'
+#' @param fn A function, which should accept a single argument "yield".
+#' @param type A prototype output vector (i.e. a vector of the
+#'   same type as the desired output, similar to [vapply].) Defaults
+#'   to `list()`.
+#' @return A vector of the same type.
+#' @author Peter Meilstrup
+#'
+#' @examples
+#'
+#' #cumulative sum
+#' cumsum <- function(vec) {
+#'   total <- 0
+#'   collect(type=0, function(yield) {
+#'     for (i in vec) total <- yield(total+i)
+#'   }
+#' }
+collect <- function(fn, type=list()) {
   size <- 64
   a <- vector(mode(type), length=size)
   i <- 0
-  fn(function(name, val) {
+  fn(function(val, name=NULL) {
     i <<- i + 1
     if (i >= size) {
       size <<- min(2 * size, i)
       length(a) <<- size
     }
-    names(a)[[i]] <<- name
+    if (!is.null(name)) {
+      if(is.null(names(a)))
+        names(a) <- ""
+      names(a)[[i]] <<- name
+    }
     a[[i]] <<- val
   })
   length(a) <- i

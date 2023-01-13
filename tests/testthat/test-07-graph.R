@@ -99,6 +99,25 @@ test_that("function inspection with all_names", {
 
 })
 
+test_that("all_names ignores tailcalls into args", {
+
+  yielded <- NULL
+  state <- NULL
+  cont <- function(val) NULL
+  pause_val <- function(val) NULL
+  f <- function(cont, val) {
+        trace("generator: yield\n")
+        state <<- "yielded"
+        yielded <<- val
+        pause_val(cont, val)
+  }
+
+  all_names(f, forGraph=FALSE) %is% c(arg="cont", arg="val", call="trace",
+                                      store="state", store="yielded",
+                                      tail="pause_val")
+
+})
+
 test_that("all_names recognizes trampolines", {
 
   cont <- function() NULL
@@ -173,7 +192,6 @@ test_that("all_names and args", {
     state <<- "yielded"
     pause_val(cont, val)
   })
-
 
 })
 

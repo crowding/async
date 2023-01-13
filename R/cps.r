@@ -565,7 +565,7 @@ for_cps <- function(.contextName, var, seq, expr) {
 #' "delay" returns a promise which resolves only after the specified
 #' number of seconds. This uses the R event loop via [later].
 #' In an `[async]` construct you can use `await(delay(secs))` to yield
-#' control, for example if you need to poll in a loop
+#' control, for example if you need to poll in a loop.
 #'
 #' @import later later
 #' @param secs The promise will resolve after at least this many seconds.

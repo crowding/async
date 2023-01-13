@@ -18,7 +18,7 @@ An object with class \link[promises:promise]{"promise"}.
 "delay" returns a promise which resolves only after the specified
 number of seconds. This uses the R event loop via \link{later}.
 In an \verb{[async]} construct you can use \code{await(delay(secs))} to yield
-control, for example if you need to poll in a loop
+control, for example if you need to poll in a loop.
 }
 \examples{
 # print a message after a few seconds

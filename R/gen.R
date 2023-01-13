@@ -97,15 +97,16 @@ yield <- function(expr) {
 
 yield_cps <- function(.contextName, expr) {
   list(.contextName, expr)
-  function(cont, ..., yield, trace) {
+  function(cont, ..., yield, register_yield, trace) {
     if (missing_(arg(yield))) stop("yield used but this is not a generator")
+    if (!missing(register_yield)) register_yield()
     list(cont, yield, trace)
     `yield_` %<-% function(val) {
       force(val)
       trace("yield\n")
       yield(cont, val)
     }
-    expr(yield_, ..., yield=yield, trace=trace)
+    expr(yield_, ..., yield=yield, register_yield=register_yield, trace=trace)
   }
 }
 
