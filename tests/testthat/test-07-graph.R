@@ -56,6 +56,7 @@ test_that("function inspection with all_names", {
     }
     for (j in 1:10) NULL
     if (FALSE) { #selection of tailcalls
+      on.exit({g3()})
       switch("hello",
         alichlkh(temp, arg1), # a tailcall to something you can't find...
         g1(temp),
@@ -77,7 +78,7 @@ test_that("function inspection with all_names", {
   by_role$store %is% c("externVar", "externVar2")
   by_role$read %is% c("externConst", "externVar2")
   by_role$local %is% c("arg1", "temp", "ff", "j") #not lambda locals
-  by_role$tail %is% c("g4", "g1")
+  by_role$tail %is% c("g4", "g3", "g1")
   by_role$wind %is% c("wu")
   by_role$tramp %is% c("g3", "g4")
   by_role$util %is% c("ute")
@@ -90,6 +91,7 @@ test_that("function inspection with all_names", {
     with_names(ntfg),
     with_names( list(
       tailcall = alist(g4(temperature)),
+      tailcall = alist(g3()),
       tailcall = alist(g1(temp)),
       windup = alist(wu(), g5(wu, g3)),
       handler = alist(g5(), g5(wu, g3)),

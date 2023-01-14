@@ -222,4 +222,40 @@ test_that("run", {
       if (i%%37 == 0) yield(sOmE+nOnSeNsE) else yield(i)),
     "not found")
 
+  a <- list(1:2, 1:3, 1:4)
+  run(for (i in a) yieldFrom(i), 0) %is% c(1:2, 1:3, 1:4)
+  expect_error(run(yieldFrom(a), 0), "replace")
+
+  b1 <- run(for (i in 1:10) for(j in iseq(1, i)) yield(j), 0)
+  expect_length(b1, sum(1:10))
+  b2 <- run(for (i in 1:10) yieldFrom(iseq(1, i)), 0)
+  b1 %is% b2
+
+})
+
+# moved here from test_cps where it felt too early.
+test_that("generator works wnen async package not attached", {
+
+  if ("package:async" %in% search()) {
+    on.exit({
+      attachNamespace("async")
+    }, add=TRUE)
+    detach("package:async")
+  }
+  g <- async::gen({
+    max <- 10
+    skip <- 4
+    i <- 0;
+    repeat {
+      i <- i + 1;
+      if (i %% skip == 0) next
+      if (i > max) break
+      yield(i)
+    }
+  }, globalenv())
+
+  # can run a generator without having the package attached
+  # this should really be in the next test though
+  l <- as.numeric(as.list((g)))
+  l %is% c(1, 2, 3, 5, 6, 7, 9, 10)
 })

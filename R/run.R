@@ -50,12 +50,12 @@ run <- function(expr, type=list(), ..., split_pipes=FALSE, trace=trace_,
   state <- "running"
   result <- NULL
   collecting <- FALSE
-  register <- function() collecting <<- TRUE
+  registerYield_ <- function() collecting <<- TRUE
   return_ <- function(val) {result <<- val; state <<- "finished"}
   stop_ <- function(err) {result <<- err; state <<- "stopped"}
   y <- function(val, name=NULL) stop("Yield was not registered")
-  yield <- function(cont, val) cont(y(val))
-  pump <- make_pump(expr_, ..., targetEnv=envir, register_yield=register,
+  yield <- function(cont, val) {val <- y(val); cont(val)}
+  pump <- make_pump(expr_, ..., targetEnv=envir, registerYield=registerYield_,
                     rtn=return_, stp=stop_, yield=yield, catch=FALSE)
   environment(pump)$setDebug(R=debugR, internal=debugInternal)
 
@@ -64,7 +64,7 @@ run <- function(expr, type=list(), ..., split_pipes=FALSE, trace=trace_,
                     stopped=stop(result),
                     finished=return(result),
                     active=,
-                    stop(paste0("Unexpected state", state, "\n")))
+                    stop(paste0("Run finished unexpectedly: ", state)))
 
   if (collecting) {
     collect(type=type, function(yield) {

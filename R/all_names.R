@@ -234,9 +234,21 @@ visit_function <- function(fn, yield, nonTail=TRUE, forGraph=FALSE) {
                    # A lambda passed into a tail (e.g. tryCatch in tail position)
                    # might indeed be a tailcall
                    visit_lambda(expr, inTail=TRUE, NULL, yield)},
+                 "on.exit"={
+                   expr <- match.call(
+                     function (expr = NULL, add = FALSE, after = TRUE) NULL,
+                     expr)
+                   # this ought to be visiting at top level though?
+                   visit_arg(expr$expr, inTail=TRUE, yield)
+                   expr$expr <- NULL
+                   for (i in seq_len(length(expr)-1)+1) {
+                     visit_arg(expr$expr[[i]], inTail=FALSE, yield)
+                   }
+                 },
                  {
                    #all other named calls not bound here
-                   visit_ordinary_call(expr, inTail, orig, yield)}
+                   visit_ordinary_call(expr, inTail, orig, yield)
+                 }
                )
              }
            },

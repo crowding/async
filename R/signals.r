@@ -102,7 +102,7 @@ catch_cps_ <- function(.contextName, expr, error) {
     do_windup %<-% function(cont, ...) {
       list(cont, ...)
       trace("catch: windup\n")
-      on.exit(trace("catch: unwind\n"))
+      on.exit({trace("catch: unwind\n"); NULL})
       tryCatch(cont(...), error=function(e) {
         trace("catch: catch in windup\n")
         stop_(e) # a tailcall in a lambda, "counts" as a tailcall from do_windup
@@ -218,7 +218,7 @@ finally_cps_ <- function(.contextName, expr, finally) {
     do_windup %<-% function(cont) {
       list(cont)
       trace("finally: windup\n")
-      on.exit(trace("finally: unwind\n"))
+      on.exit({trace("finally: unwind\n"); NULL})
       tryCatch(cont(), error=function(err) {
         trace("finally: catch in windup\n")
         stop_(err)
@@ -311,7 +311,7 @@ try_cps <- function(.contextName, expr,
     do_windup %<-% function(cont) {
       list(cont)
       trace("try: windup\n")
-      on.exit(trace("try: unwind\n"))
+      on.exit({trace("try: unwind\n"); NULL})
       tryCatch(cont(), error=function(e) {
         trace("try: caught error by windup\n")
         stop_(e)
@@ -330,5 +330,32 @@ try_cps <- function(.contextName, expr,
     getOutfile <- outfile(gotOutfile, ..., stp=stop_, brk=brk_, nxt=nxt_,
                     windup=windup, unwind=unwind, rtn=return_, trace=trace)
     getOutfile
+  }
+}
+
+
+on.exit_cps <- function(.contextName,
+                        expr,
+                        add=R(paste0(.contextName, ".add"), FALSE),
+                        after=R(paste0(.contextName, ".after"), TRUE)) {
+  function(cont, ..., registerExit, addExit) {
+    list(.contextName, cont, registerExit, addExit)
+
+    # at construction time, pass the constructor back up to pump --
+    # the current scope handlers don't apply
+    handle <- registerExit(expr)
+    add_p <- NULL
+    after_p <- NULL
+
+    gotAfter %<-% function(val) {
+      after_p <- val
+      addExit(cont, handle, add_p, after_p)
+    }
+    getAfter <- after(gotAfter, ..., registerExit=registerExit, addExit=addExit)
+    gotAdd %<-% function(val) {
+      add_p <<- val
+      getAfter()
+    }
+    getAdd <- add(gotAdd, ..., registerExit=registerExit, addExit=addExit)
   }
 }

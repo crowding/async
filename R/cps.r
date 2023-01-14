@@ -75,15 +75,21 @@
 #   function doesn't do the same thing when functions are spliced together.
 
 `%<-%` <- function(to, from) {
-  assign_with_name(as.character(arg_expr(to)), from, arg_env(to))
-}
-
-assign_with_name <- function(to, from, envir) {
+  envir <- arg_env(to)
+  to <- as.character(arg_expr(to))
   if (!identical(envir, environment(from)))
     stop(paste0("bad use of %<-% at ",
                 get0(".contextName", envir, ifnotfound="???"),
                 "__", to))
   else assign(to, structure(from, localName=to), envir=envir)
+}
+
+`%<g-%` <- function(to, from) {
+  envir <- arg_env(to)
+  to <- as.character(arg_expr(to))
+  if (!identical(envir, environment(from)))
+    stop(paste0("bad use of %<g-% at ", to))
+  else assign(to, structure(from, localName=to, globalName=to), envir=envir)
 }
 
 # R() wraps a user-level R expression into an execution node

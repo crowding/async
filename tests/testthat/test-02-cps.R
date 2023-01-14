@@ -214,3 +214,53 @@ test_that("switch", {
 
   pump(switch_cps("", R("", "default"), special=R("", 22), R("", 33)), targetEnv=environment()) %is% 33
 })
+
+test_that("Makes fully qualified names when async package not attached", {
+
+  if ("package:async" %in% search()) {
+    on.exit({
+      attachNamespace("async")
+    }, add=TRUE)
+    detach("package:async")
+  }
+  xin <- nseval::quo({
+    max <- 10
+    skip <- 4
+    i <- 0;
+    repeat {
+      i <- i + 1;
+      if (i %% skip == 0) next
+      if (i > max) break
+      yield(i)
+    }
+  }, globalenv())
+
+  target <- quote((function()
+    async:::`{_cps`(
+      ".{",
+      async:::R(".{1.R", max <- 10),
+      async:::R(".{2.R", skip <- 4),
+      async:::R(".{3.R", i <- 0),
+      async:::repeat_cps(
+        ".{4.repeat",
+        async:::`{_cps`(
+          ".{4.repeat.{",
+          async:::R(".{4.repeat.{1.R", i <- i + 1),
+          async:::if_cps(
+            ".{4.repeat.{2.if",
+            async:::R(".{4.repeat.{2.if1.R", i%%skip == 0),
+            async:::next_cps(".{4.repeat.{2.if2.next")),
+          async:::if_cps(
+            ".{4.repeat.{3.if",
+            async:::R(".{4.repeat.{3.if1.R", i > max),
+            async:::break_cps(".{4.repeat.{3.if2.break")),
+          async:::yield_cps(
+            ".{4.repeat.{4.yield",
+            async:::R(".{4.repeat.{4.yield.R", i))))))
+  ())
+
+  xout <- async:::cps_translate(xin, endpoints=c("yield", "next", "break"))
+
+  expect_identical(expr(xout), target)
+
+})

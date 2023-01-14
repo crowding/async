@@ -63,7 +63,7 @@ make_pump <- function(expr, ...,
     x
   }, localName="setDebug", globalName="setDebug")
 
-  getCont <- structure(function() {
+  getCont %<g-% structure(function() {
     # For display, return a string describing the current state.
     g <- attr(pumpCont, "globalName")
     if (is.null(g)) {
@@ -91,6 +91,14 @@ make_pump <- function(expr, ...,
     action <<- "continue"
   }
 
+  bounce_val_ %<-% function(cont, val) {
+    force(val)
+    trace("pump: bounce with value\n")
+    value <<- val
+    pumpCont <<- cont
+    action <<- "continue_val"
+  }
+
   evl_ %<-% function(cont, val) {
     if(debugR)
       val <- eval(substitute({browser(); x}, list(x=val)), targetEnv)
@@ -104,20 +112,11 @@ make_pump <- function(expr, ...,
     cont()
   }
 
-  bounce_val_ %<-% function(cont, val) {
-    force(val)
-    trace("pump: bounce with value\n")
-    value <<- val
-    pumpCont <<- cont
-    action <<- "continue_val"
-  }
-
-
   stop_ <- structure(function(val) {
     trace(paste0("pump: stop: ", conditionMessage(val), "\n"))
     value <<- val
     action <<- "stop"
-    stp(val)
+    doExits()
   }, localName="stop_", globalName="stop_")
 
   return_ <- structure(function(val) {
@@ -125,7 +124,7 @@ make_pump <- function(expr, ...,
     force(val)
     value <<- val
     action <<- "finish"
-    rtn(val)
+    doExits()
   }, localName="return_", globalName="return_")
 
   # We maintain a list of "windings."
@@ -173,6 +172,30 @@ make_pump <- function(expr, ...,
     windings[[1]](cont)
   }, localName="doWindup", globalName="doWindup")
 
+  exit_list <- list()
+  after_exit <- NULL
+
+  addExit %<-% function(cont, handle, add, after) {
+    if (add) {
+      if (after) {
+        exit_list <<- c(exit_list, list(handle))
+      } else {
+        exit_list <<- c(list(handle), exit_list)
+      }
+    } else {
+      exit_list <<- list(handle)
+    }
+    cont(invisible(NULL))
+  }
+  exit_ctors <- list()
+  registerExit %<-% function(exit) {
+    handle <- length(exit_ctors) + 1
+    name <- paste0("exit_", as.character(handle))
+    # hold off on constructing them
+    exit_ctors <<- c(exit_ctors, structure(list(exit), names=name))
+    handle
+  }
+
   # Our argument "expr" is a context constructor
   # that takes some branch targets ("our "ret" and "stp" etc) and
   # returns an entry continuation.
@@ -181,43 +204,96 @@ make_pump <- function(expr, ...,
                 windup=windup_, unwind=unwind_,
                 pause=pause_, pause_val=pause_val_,
                 trace=trace, setDebug=setDebug, getCont=getCont,
-                evl=evl_, sto=sto_)
+                evl=evl_, sto=sto_,
+                registerExit=registerExit, addExit=addExit)
   pumpCont <- entry
 
-  pump <- structure(function() {
+  # now that we know how many on.exits there are, create doExits
+  doExits %<-% function() {
+    if (is.null(after_exit)) after_exit <<- action
+    if (length(exit_list) > 0) {
+      trace_("pump: running on.exit handlers\n")
+      first_exit <- exit_list[[1]]
+      exit_list[[1]] <<- NULL
+      dest <- exit_fns[[first_exit]]
+      bounce_(dest)  # for now; this will later become a bquote
+      # monstrosity so that the compiler gets it.
+    } else {
+      trace_("pump: no more on.exit handlers\n")
+      switch(after_exit,
+             "finish" = rtn(value),
+             "stop" = stp(value),
+             stp(paste0("Unexpected action: ", action)))
+    }
+  }
+
+  #And now initialize the exits, pointing them back at doExits
+  exit_fns <- vector("list", length(exit_ctors))
+  for (i in seq_along(exit_ctors)) {
+    name <- names(exit_ctors)[[i]]
+    exit_fns[[i]] <- structure(
+      exit_ctors[[i]](
+        `;_ctor`(paste0(.contextName, ".", name, ";"))(doExits),
+        ..., bounce=bounce_, bounce_val=bounce_val_,
+        stp=stop_, rtn=return_,
+        windup=windup_, unwind=unwind_,
+        pause=pause_, pause_val=pause_val_,
+        trace=trace, setDebug=setDebug, getCont=getCont,
+        evl=evl_, sto=sto_,
+        addExit=addExit, registerExit=registerExit),
+      localName=name)
+    assign(name, exit_fns[[i]])
+  }
+  exit_ctors <- NULL
+
+  pump %<g-% function() {
     trace("pump: run\n")
+    if(length(exit_fns) > 0 && action != "exit") {
+      trace("pump: using on.exit\n")
+      on.exit({
+        trace(paste0("pump: on.exit with action ", action, "\n"))
+        if (!action %in%
+              c("pause", "pause_val", "stop", "finish")) {
+          trace("pump: exiting abnormally\n")
+          bounce_(doExits)
+          action <<- "exit"
+          pump()
+        }
+      })
+    }
     doWindup(runPump)
     while(action == "rewind") {
-      action <<- "pause"
       doWindup(runPump)
     }
     trace(paste0("pump: ", action, "\n"))
     if (!identical(value, nonce)) value
-  }, localName="pump", globalName="pump")
+  }
 
-  runPump <- structure(function() {
+  runPump %<g-% function() {
     if (debugInternal) debugonce(pumpCont)
     switch(action,
-           pause=pumpCont(),
-           pause_val=pumpCont(value),
+           exit=,
+           rewind=,
+           pause={action <<- "xxx"; pumpCont()},
+           pause_val={action <<- "xxx"; pumpCont(value)},
            stop("pump asked to continue, but last action was ", action))
     repeat switch(action,
              continue={
                trace("pump: continue\n")
                if (debugInternal) debugonce(pumpCont)
                action <<- "xxx";
-               list(pumpCont, pumpCont <<- NULL)[[1]]()
+               pumpCont()
              },
              continue_val={
                trace("pump: continue with value\n")
                if (debugInternal) debugonce(pumpCont)
                action <<- "xxx";
-               list(pumpCont, pumpCont <<- NULL)[[1]](value)
+               pumpCont(value)
              },
              break
              )
     value
-  }, localName="runPump", globalName="runPump")
+  }
 
   pump
 }

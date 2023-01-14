@@ -1,12 +1,12 @@
 # Keywords which must always be CPS
 
-base_endpoints <- c("break", "next", "return", "for", "switch", "goto")
+base_endpoints <- c("break", "next", "return", "for", "switch", "goto", "on.exit")
 async_endpoints <- c(base_endpoints, "await")
 gen_endpoints <- c(base_endpoints, "yield", "yieldFrom")
 
 # function names which block further translation of
 # their arguments
-base_blocks <- c("gen", "function", "async", "run", "quote", "quo", "~",
+base_blocks <- c("gen", "function", "async", "run", "quote", "quo", "quot", "~",
                  "alist", "future", "future_promise")
 
 # Translate R syntax tree into tree of constructor calls

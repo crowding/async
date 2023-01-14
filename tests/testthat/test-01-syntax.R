@@ -135,59 +135,6 @@ test_that("Translating expressions", {
 
 })
 
-test_that("Makes fully qualified names when async package not attached", {
-
-  if ("package:async" %in% search()) {
-    on.exit({
-      attachNamespace("async")
-    }, add=TRUE)
-    detach("package:async")
-  }
-  xin <- nseval::quo({
-    max <- 10
-    skip <- 4
-    i <- 0;
-    repeat {
-      i <- i + 1;
-      if (i %% skip == 0) next
-      if (i > max) break
-      yield(i)
-    }
-  }, globalenv())
-
-  target <- quote((function()
-    async:::`{_cps`(
-      ".{",
-      async:::R(".{1.R", max <- 10),
-      async:::R(".{2.R", skip <- 4),
-      async:::R(".{3.R", i <- 0),
-      async:::repeat_cps(
-        ".{4.repeat",
-        async:::`{_cps`(
-          ".{4.repeat.{",
-          async:::R(".{4.repeat.{1.R", i <- i + 1),
-          async:::if_cps(
-            ".{4.repeat.{2.if",
-            async:::R(".{4.repeat.{2.if.R", i%%skip == 0),
-            async:::next_cps(".{4.repeat.{2.if2.next")),
-          async:::if_cps(
-            ".{4.repeat.{3.if",
-            async:::R(".{4.repeat.{3.if.R", i > max),
-            async:::break_cps(".{4.repeat.{3.if2.break")),
-          async:::yield_cps(
-            ".{4.repeat.{4.yield",
-            async:::R(".{4.repeat.{4.yield.R", i))))))
-  ())
-
-  xout <- async:::cps_translate(xin, endpoints=c("yield", "next", "break"))
-
-  # can run a generator without having the package attached
-  # this should really be in the next test though
-  g <- nseval::do(async::gen, xin)
-  l <- as.numeric(as.list((g)))
-  l %is% c(1, 2, 3, 5, 6, 7, 9, 10)
-})
-
 test_that("splitting pipes", {
   expect_error(cps_translate(quo( await(x)+2 ), endpoints=async_endpoints),
                "split_pipes")

@@ -39,5 +39,30 @@ Hey maybe rewrite drawGraph() in collector style?
 
 The problem I'm trying to solve is that there are a bunch of duplicate references to the target environment captured in the graph. If I'm going to be able to reuse a compiled generator, that should just be one ref to the target environment; it's currently being duplicated all around with
 
+## on.exit
 
+I suppose I'm on a roll so I think Ii'll add this. on.exit handlers will be global to the generator they're running in. Conceptually they will be operating _outside_ of any loop, even if written within, Therefore at construction time, they are passed back to the top-level pump(), using a `register_exit` callback, in return for a handle. At run time, the `on.exit` CPS function calls a callback `add_exit` with that handle to activate the handler (which appends the handle to a list). At the pump level, the on-exit handler will behave like a switch statement looping over the list and calling until it is exhausted.
+
+At the pump level, pump `return_` should jump to do_exits before continuing to exit.
+
+You can put a check for doneness into an on-exit clause in pump(). If it exits without pausing, enter a special state, bounce to the on-exit handler and pump() again.
+
+I think I will work on getting that mechanic right first, then worry about switch-case alignment later. Make it work for the interpreted case before trying to add the bquote shenanigans to make the compiler pick it up.
+
+## yieldFrom under "run" winds up the stack
+
+Have to stick a bounce back in there. That means a generator has two bounces per loop instead of 1 hmm. Or else we have to bounce on yieldFrom's yield. That might make more sense.
+
+## Where does on.exit get its yield callback?
+
+Should it have one? I don't see why not. but the yield callback for a generator comes form gen_cps which is "under" pump. Which means that if pump constructs the on.exit handlers they can't see the yield.
+
+Is there a reason I structured it this way? because we have to yield the value AND pause the generator. but I can pass the pointer to "pause" to a yield callback. That's a another damn double callback like windup though.
+
+Why doesn't async run into this problem?
+
+
+
+## compiler complains about `pumpCont <<- x`
+ 
 

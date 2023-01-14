@@ -97,16 +97,16 @@ yield <- function(expr) {
 
 yield_cps <- function(.contextName, expr) {
   list(.contextName, expr)
-  function(cont, ..., yield, register_yield, trace) {
+  function(cont, ..., yield, registerYield, trace) {
     if (missing_(arg(yield))) stop("yield used but this is not a generator")
-    if (!missing(register_yield)) register_yield()
+    if (!missing(registerYield)) registerYield()
     list(cont, yield, trace)
     `yield_` %<-% function(val) {
       force(val)
       trace("yield\n")
       yield(cont, val)
     }
-    expr(yield_, ..., yield=yield, register_yield=register_yield, trace=trace)
+    expr(yield_, ..., yield=yield, registerYield=registerYield, trace=trace)
   }
 }
 
@@ -131,18 +131,19 @@ yieldFrom <- function(it) {
 
 yieldFrom_cps <- function(.contextName, it) {
   list(.contextName, it)
-  function(cont, ..., yield, trace=trace) {
-    list(cont, yield, trace)
+  function(cont, ..., yield, trace=trace, registerYield) {
+    list(cont, yield, trace, maybe(registerYield))
+    if (!is_missing(registerYield)) registerYield()
 
     yieldFrom_ %<-% function(val) {
       stopping <- FALSE
-      trace("yieldFrom: next")
+      trace("yieldFrom: next\n")
       val <- nextElemOr(iter, stopping <- TRUE)
       if (stopping) {
-        trace("yieldFrom: stopping")
+        trace("yieldFrom: stopping\n")
         cont(invisible(NULL))
       } else {
-        yield(yieldFrom_, val)
+        yield(yieldFrom_, val) #FIXME: under a "run" this winds up the stack
       }
     }
 
