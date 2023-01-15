@@ -94,7 +94,7 @@ expect_graph_names_are_graphc_locals <- function(graph, graphc) {
                    function(nodeName)
                      graphc$nodeProperties[[nodeName]][["localName"]],
                    "")
-  if (!setequal(unname(cnodes), names(graph$nodes))) browser()
+  #if (!setequal(unname(cnodes), names(graph$nodes))) browser()
   expect_setequal(unname(cnodes), names(graph$nodes))
 }
 

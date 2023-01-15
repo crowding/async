@@ -468,7 +468,7 @@ test_that("on.exit", {
     on.exit(yield("done!"))
     yieldFrom(1:3)
   })
-  r %is% list(1, 2, 3, "done")
+  r %is% list(1, 2, 3, "done!")
 
 })
 
@@ -478,7 +478,7 @@ test_that("on.exit in generator", {
   g <- gen({
     on.exit(closed <<- TRUE)
     yieldFrom(1:3)
-  }, compileLevel=-1)
+  })
   nextElem(g) %is% 1
   nextElem(g) %is% 2
   nextElem(g) %is% 3
@@ -492,6 +492,7 @@ test_that("on.exit in generator", {
     expect_false(closed)
     yield(s0me+nons3nse)
   })
+  debugAsync(g, internal=TRUE)
   expect_error(nextElem(g), "s0me")
   expect_true(closed)
 
@@ -499,6 +500,6 @@ test_that("on.exit in generator", {
     on.exit(yield("done!"))
     yieldFrom(1:3)
   })
-  as.list(g) %is% list(1, 2, 3, "done")
+  as.list(g) %is% list(1, 2, 3, "done!")
 
 })

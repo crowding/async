@@ -61,8 +61,19 @@ Is there a reason I structured it this way? because we have to yield the value A
 
 Why doesn't async run into this problem?
 
+Okay, the most reasonable course of action is to pass our yield callback into pump and stop wrapping. We still have to
 
+This has resulted in seeing "pump" as a utility call?
 
-## compiler complains about `pumpCont <<- x`
+One side effect of this is now we are seeing "pump" as a utility call in nextElemOr?
  
+ on.exit is leaking scope! I wind up back in doExits. Which call is leaking? Oh duh of course the `exit_fns` list is leaking. Well now on/exit works in compiled, but `expect_properly_munged` fails because graph walk is picking up a "gen_f_pump" for some reason.
+ 
+ See, even if it's called as a utility function the ref should translate, no?
+ 
+## trans_ needs to translate function defaults?
 
+Or I need to just not write them.
+
+So why is the call to pump() not being translated to the right function _pump_?
+That's in _trans_, right?

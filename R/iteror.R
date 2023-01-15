@@ -60,21 +60,46 @@ iteror.iteror <- identity
 iteror.iter <- identity
 
 #' @export
-iteror.function <- function(obj, ...) {
-  if (!("or" %in% names(formals(obj)))) stop("iteror: must have 'or' argument")
-  structure(list(nextElemOr=obj), class=c("funiteror", "iteror", "iter"))
+iteror.function <- function(obj, ..., catch, sigil) {
+  if ("or" %in% names(formals(obj))) {
+    fn <- obj
+  } else {
+    if (!missing(sigil)) {
+      force(sigil)
+      fn <-function(or) {
+        x <- obj(); if (identical(x, sigil)) or else x
+      }
+    } else if (!missing(catch)) {
+      force(catch)
+      fn <- function(or) {
+        tryCatch(obj(), error=function(e) {
+          if (identical(e, message)) {
+            or
+          } else stop(e)
+        })
+      }
+    } else {
+      stop("iteror: must have 'or' argument or else specify 'catch' or 'sigil'")
+    }
+  }
+  structure(list(nextElemOr=fn), class=c("funiteror", "iteror", "iter"))
 }
 
 #' @export
 iteror.default <- function(obj, ...) {
-  i <- 0
-  n <- length(obj)
-  iteror.function(function(or, ...) {
-    if (i < n) {
-      i <<- i + 1
-      obj[[i]]
-    } else or
-  }, ...)
+  if (is.function(obj)) {
+    browser()
+    iteror.function(obj, ...)
+  } else {
+    i <- 0
+    n <- length(obj)
+    iteror.function(function(or, ...) {
+      if (i < n) {
+        i <<- i + 1
+        obj[[i]]
+      } else or
+    }, ...)
+  }
 }
 
 #' @export

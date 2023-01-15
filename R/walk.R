@@ -295,7 +295,7 @@ has_global_name <- function(fun) {
       NA_character_
     else
       paste0(cn, "__", ln)
-  }
+  } else gl
 }
 
 gatherVars <- function(nodeProperties, contextNodes, contextName, key) {

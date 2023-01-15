@@ -56,10 +56,10 @@ make_pump <- function(expr, ...,
   debugR <- FALSE
   debugInternal <- FALSE
 
-  setDebug <- structure(function(R=debugR, internal=debugInternal) {
-    debugR <<- R
-    debugInternal <<- internal
-    x <- list(R=R, internal=internal)
+  setDebug <- structure(function(R, internal) {
+    if (!missing(R)) debugR <<- R
+    if (!missing(internal)) debugInternal <<- internal
+    x <- list(R=debugR, internal=debugInternal)
     x
   }, localName="setDebug", globalName="setDebug")
 
@@ -187,6 +187,7 @@ make_pump <- function(expr, ...,
     }
     cont(invisible(NULL))
   }
+
   exit_ctors <- list()
   registerExit %<-% function(exit) {
     handle <- length(exit_ctors) + 1
@@ -208,47 +209,60 @@ make_pump <- function(expr, ...,
                 registerExit=registerExit, addExit=addExit)
   pumpCont <- entry
 
-  # now that we know how many on.exits there are, create doExits
-  doExits %<-% function() {
-    if (is.null(after_exit)) after_exit <<- action
-    if (length(exit_list) > 0) {
-      trace_("pump: running on.exit handlers\n")
-      first_exit <- exit_list[[1]]
-      exit_list[[1]] <<- NULL
-      dest <- exit_fns[[first_exit]]
-      bounce_(dest)  # for now; this will later become a bquote
-      # monstrosity so that the compiler gets it.
-    } else {
-      trace_("pump: no more on.exit handlers\n")
-      switch(after_exit,
+  if (length(exit_ctors) > 0) {
+    # now that we know how many on.exits there are, create doExits
+    doExits %<-% function() {
+      if (is.null(after_exit)) after_exit <<- action
+      if (length(exit_list) > 0) {
+        trace_("pump: running on.exit handlers\n")
+        first_exit <- exit_list[[1]]
+        exit_list[[1]] <<- NULL
+        takeExit(first_exit)
+      } else {
+        trace_("pump: no more on.exit handlers\n")
+        switch(after_exit,
+               "finish" = rtn(value),
+               "stop" = stp(value),
+               "xxx" = NULL, # we probably already have an error raised
+               stp(paste0("Unexpected action: ", action)))
+      }
+    }
+
+    #And now initialize the exits, pointing them back at doExits
+    exit_fns <- vector("list", length(exit_ctors))
+    for (i in seq_along(exit_ctors)) {
+      name <- names(exit_ctors)[[i]]
+      exit_fns[[i]] <- structure(
+        exit_ctors[[i]](
+          `;_ctor`(paste0(.contextName, ".", name, ";"))(doExits),
+          ..., bounce=bounce_, bounce_val=bounce_val_,
+          stp=stop_, rtn=return_,
+          windup=windup_, unwind=unwind_,
+          pause=pause_, pause_val=pause_val_,
+          trace=trace, setDebug=setDebug, getCont=getCont,
+          evl=evl_, sto=sto_,
+          addExit=addExit, registerExit=registerExit))
+      assign(name, exit_fns[[i]])
+    }
+
+    takeExit %<-% eval(bquote(
+      splice=TRUE, function(val)
+        switch(val, ..( lapply(names(exit_ctors),
+                               \(x) call("bounce_", as.name(x)))))))
+
+  } else {
+    doExits %<-% function() {
+      switch(action,
              "finish" = rtn(value),
              "stop" = stp(value),
+             "xxx" = NULL, # we probably already have an error raised
              stp(paste0("Unexpected action: ", action)))
     }
   }
 
-  #And now initialize the exits, pointing them back at doExits
-  exit_fns <- vector("list", length(exit_ctors))
-  for (i in seq_along(exit_ctors)) {
-    name <- names(exit_ctors)[[i]]
-    exit_fns[[i]] <- structure(
-      exit_ctors[[i]](
-        `;_ctor`(paste0(.contextName, ".", name, ";"))(doExits),
-        ..., bounce=bounce_, bounce_val=bounce_val_,
-        stp=stop_, rtn=return_,
-        windup=windup_, unwind=unwind_,
-        pause=pause_, pause_val=pause_val_,
-        trace=trace, setDebug=setDebug, getCont=getCont,
-        evl=evl_, sto=sto_,
-        addExit=addExit, registerExit=registerExit),
-      localName=name)
-    assign(name, exit_fns[[i]])
-  }
-  exit_ctors <- NULL
-
   pump %<g-% function() {
     trace("pump: run\n")
-    if(length(exit_fns) > 0 && action != "exit") {
+    if(action != "exit") {
       trace("pump: using on.exit\n")
       on.exit({
         trace(paste0("pump: on.exit with action ", action, "\n"))
@@ -268,6 +282,9 @@ make_pump <- function(expr, ...,
     trace(paste0("pump: ", action, "\n"))
     if (!identical(value, nonce)) value
   }
+
+  exit_ctors <- NULL
+  exit_fns <- NULL
 
   runPump %<g-% function() {
     if (debugInternal) debugonce(pumpCont)
