@@ -6,8 +6,7 @@ collect_tree <- function(fn) {
   cur_level <- 1
   cur_ix <- 1
   result <- NULL
-  yield <- function(val, name=NULL) {
-    #cat("Yield: ", deparse(val), "\n")
+  emit <- function(val, name=NULL) {
     if (cur_level < 1) stop("Has been closed")
     if (cur_ix > length(this_level))
       length(this_level) <<- min(cur_ix, 2*length(this_level))
@@ -43,11 +42,11 @@ collect_tree <- function(fn) {
     } else {
       this_level <<- levels[[cur_level]]
       cur_ix <<- indices[cur_level]
-      yield(v, name)
+      emit(v, name)
     }
     v
   }
-  fn(yield, open, close)
+  fn(emit, open, close)
   while (cur_level > 1) {warning("Should have closed"); close()}
   if (cur_level > 0) close()
   result
@@ -61,7 +60,7 @@ is.sequence <- function(x)
          FALSE)
 
 tree_filter <- function(tree, filter) {
-  collect_tree(function(yield, open, close) {
+  collect_tree(function(emit, open, close) {
     visit <- function(tree, name="") {
       if (is.sequence(tree)) {
         open()
@@ -70,7 +69,7 @@ tree_filter <- function(tree, filter) {
         }
         close(typeof(tree), name)
       } else {
-        yield(filter(tree), name)
+        emit(filter(tree), name)
       }
     }
     visit(tree)
@@ -80,15 +79,19 @@ tree_filter <- function(tree, filter) {
 
 #' Execute a function and collect a set of values by callback.
 #'
-#' `collect` calls the function in its argument, supplying a callback
-#' `yield(val, name=NULL)`. Each value passed to `yield` is collected
-#' and the list of all values is returned after `fn` returns.
+#' `collect` calls the function `fn` in its argument, supplying a
+#' callback of the form `function (val, name=NULL).` I like to call it
+#' `emit`.  While `fn` is running, it can call `emit(x)` any number of
+#' times.  After `fn` returns, all the values passed to `emit` are
+#' returned in a vector, with optional names.
 #'
-#' @param fn A function, which should accept a single argument "yield".
-#' @param type A prototype output vector (i.e. a vector of the
-#'   same type as the desired output, similar to [vapply].) Defaults
-#'   to `list()`.
-#' @return A vector of the same type.
+#' @param fn A function, which should accept a single argument, here
+#'     called `emit`.
+#' @param type A prototype output vector (i.e. a vector of the same
+#'   type as the desired output, similar to `FUN.VALUE` of [vapply].)
+#'   Defaults to `list()`.
+#' @return A vector of all values passed to `emit` whle `fn` was
+#'   running.
 #' @author Peter Meilstrup
 #'
 #' @examples
@@ -96,8 +99,8 @@ tree_filter <- function(tree, filter) {
 #' #cumulative sum
 #' cumsum <- function(vec) {
 #'   total <- 0
-#'   collect(type=0, function(yield) {
-#'     for (i in vec) total <- yield(total+i)
+#'   collect(type=0, function(emit) {
+#'     for (i in vec) total <- emit(total+i)
 #'   }
 #' }
 collect <- function(fn, type=list()) {

@@ -585,13 +585,36 @@ The solution for "contains" might be to just assign every node an attribute givi
 I also rewrote `all_names` to use a collector callback instead of a big pile of c(). 
 This appears to make less work for the GC! 
 
+## Debugging tools
+
+Made some methods that allow single stepping the R code, as well as to allow single stepping the "interior" code. Seems pretty useful. I might get rid of `trace` at some point....
+
 ## Graph is not getting past a "try"
 
 It's doing something different in `forGraph=TRUE` than in `forGraph=FALSE` which I thought I put a lot of checks around. 
 
 It's failing to see the edge Node: `.{1.tryCatch__do_windup -> .{1.tryCatch__stop_`
 
-which is in a lambda. Why is all_names missing it.?
-Okay, the problem is that the "tryCatch" in catch_cps's do_windup is not in tail position.
+which is in a lambda. Why is `all_names` missing it.?
+Okay, the problem is that the "tryCatch" in `catch_cps`'s `do_windup` is not in tail position.
 
 This was fixed by working on and streamlining all_names.
+
+## move eval_ to a handler
+
+The problem I'm trying to solve is that there are a bunch of duplicate references to the target environment captured in the graph. If I'm going to be able to reuse a compiled generator, that should just be one ref to the target environment; it's currently being duplicated all around with
+
+
+## yieldFrom under "run" winds up the stack
+
+Have to stick a bounce back in there. That means a generator has two bounces per loop instead of 1 hmm. Or else we have to bounce on yieldFrom's yield. That might make more sense.
+
+## on.exit
+
+I suppose I'm on a roll so I think Ii'll add this. on.exit handlers will be global to the generator they're running in. Conceptually they will be operating _outside_ of any loop, even if written within, Therefore at construction time, they are passed back to the top-level pump(), using a `register_exit` callback, in return for a handle. At run time, the `on.exit` CPS function calls a callback `add_exit` with that handle to activate the handler (which appends the handle to a list). At the pump level, the on-exit handler will behave like a switch statement looping over the list and calling until it is exhausted.
+
+At the pump level, pump `return_` should jump to do_exits before continuing to exit.
+
+You can put a check for doneness into an on-exit clause in pump(). If it exits without pausing, enter a special state, bounce to the on-exit handler and pump() again.
+
+I think I will work on getting that mechanic right first, then worry about switch-case alignment later. Make it work for the interpreted case before trying to add the bquote shenanigans to make the compiler pick it up.

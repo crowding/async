@@ -288,10 +288,10 @@ find_global_name <- function(fun, nameOverrides) {
 
 has_global_name <- function(fun) {
   if (is.null(gl <- attr(fun, "globalName"))) {
-    if (is.null(cn <- get0(".contextName",  envir=environment(fun),
-                           ifnotfound=NULL)))
+    if (is.null(ln <- attr(fun, "localName")))
       NA_character_
-    else if (is.null(ln <- attr(fun, "localName")))
+    else if (is.null(cn <- get0(".contextName",  envir=environment(fun),
+                           ifnotfound=NULL)))
       NA_character_
     else
       paste0(cn, "__", ln)

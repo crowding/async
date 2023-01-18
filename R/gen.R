@@ -195,20 +195,20 @@ make_generator <- function(expr, orig=arg(expr), ..., trace=trace_) {
   nextElemOr_ %<g-% function(or, ...) {
     trace("generator: nextElemOr\n")
     val <- switch(state,
-                  stopped =,
-                  finished = or,
-                  running = stop("Generator already running (or finished unexpectedly?)"),
-                  yielded = {
+                  "stopped" =,
+                  "finished" = or,
+                  "running" = stop("Generator already running (or finished unexpectedly?)"),
+                  "yielded" = {
                     state <<- "running"
                     on.exit({
                       if (state == "running") {
                         state <<- "finished"
-                        #just a warning  (or not) bc we're probably on our
-                        #way out with a more detailed error
-                        #warning("Generator finished unexpectedly")
+                        #we're probably on our way out with a more
+                        #detailed error
                       }
                     })
-                    pump()
+                    # silly compiler, that's not a "utility" call
+                    (function() pump())()
                     switch(state,
                            running = {
                              state <<- "finished"

@@ -1,4 +1,3 @@
-
 # For example, take the function
 
 ## x <- 0
@@ -96,3 +95,75 @@ pump(x)
                             try_cps("", R("", i)),
                             R("", NULL),
                             R("", NULL))), "xpected")
+
+asyncOpts(verbose=TRUE)
+pump(`(_cps`("", R("", stop("yes"))), targetEnv=environment())
+
+asyncOpts(verbose=TRUE, compileLevel=-1, paranoid=TRUE)
+# this doesn't work in compiled.
+p <- mock_promise()
+as <- async({
+  on.exit(stop("changed my mind."))
+  await(p)
+}, compileLevel=-1)
+
+p$resolve("success!")
+
+
+
+f <- function(x) {
+  y <- NULL
+  on.exit(if(is.null(y)) return("unknown"))
+  y <- x + 5
+}
+
+print( f(5) )
+print( f("banana") )
+
+tryCatch(result <- f("banana"),
+         error=function(e) cat("Got error: ", e))
+
+withCallingHandlers()
+  f(5)
+)
+
+
+iconcat <- function(sequences) {
+  sequences <- iteror(sequences)
+  current_seq <- NULL
+
+  iteror(function(or) {
+    repeat {
+      if (is.null(current_seq)) {
+            current_seq <<- nextElemOr(sequences, return(or))
+      }
+      return(nextElemOr(current_seq, or={
+        current_seq <<- NULL
+        next
+      }))
+    }
+  })
+}
+
+gconcat <- function(seqs) {
+  force(seqs)
+  gen( for (i in seqs) yieldFrom(i) )
+}
+
+ifilter <- function(seq, pred) {
+  iteror(function(or)) {
+    repeat {
+      val <- nextElemOr(seq, return(or))
+      if(pred(val)) return(val)
+    }
+  }
+}
+
+gfilter <- function(seq, pred) {
+  force(seq, pred)
+  gen({
+   for (i in seq)
+    if pred(i) yield(i)
+  })
+}
+

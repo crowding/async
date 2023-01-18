@@ -142,6 +142,16 @@ expect_resolves_with <- function(prom, expected, trigger=NULL, test=expect_equal
   val
 }
 
+expect_rejects_with <- function(prom, expected, trigger=NULL, test=expect_match) {
+  nonce <- function() NULL
+  val <- nonce
+  then(prom, onRejected=function(val) val <<- val, onFulfilled=stop)
+  force(trigger)
+  wait_for_it()
+  if (identical(val, nonce)) stop("Promise did not reject")
+  test(conditionMessage(val), expected)
+}
+
 strrev <- function(x)
   vapply(strsplit(x, ""),
          \(x) paste0(rev(x), collapse=""),

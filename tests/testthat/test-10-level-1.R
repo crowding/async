@@ -12,9 +12,7 @@ test_that("Compiler level -1 does munging", {
   wait_for_it()
   expect_equal(value, 101)
 
-  # again disabling paranoid checks for the nonce
-  #asyncOpts(compileLevel=-1, verbose=FALSE, paranoid=TRUE)
-  asyncOpts(compileLevel=-1, verbose=FALSE, paranoid=FALSE)
+  asyncOpts(compileLevel=-1, verbose=FALSE, paranoid=TRUE)
   expect_equal(async:::compileLevel, -1)
 
   gc <- gen(repeat yield(TRUE))

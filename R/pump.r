@@ -112,20 +112,21 @@ make_pump <- function(expr, ...,
     cont()
   }
 
-  stop_ <- structure(function(val) {
+  stop_ %<g-% function(val) {
     trace(paste0("pump: stop: ", conditionMessage(val), "\n"))
     value <<- val
-    action <<- "stop"
-    doExits()
-  }, localName="stop_", globalName="stop_")
+    after_exit <<- "stop"
+    action <<- "exit"
+    pumpCont <<- function() doExits()
+  }
 
-  return_ <- structure(function(val) {
+  return_ %<g-% function(val) {
     trace("pump: return\n")
     force(val)
     value <<- val
-    action <<- "finish"
+    after_exit <<- "finish"
     doExits()
-  }, localName="return_", globalName="return_")
+  }
 
   # We maintain a list of "windings."
   # A "winding" is a function that must tailcall into its "cont" arg. like:
@@ -135,15 +136,18 @@ make_pump <- function(expr, ...,
   if(catch) {
     base_winding %<-% function(cont) {
       trace("pump: windup\n")
-      tryCatch(cont(), error=function(err){
-        trace("pump: caught error by windup\n")
-        stop_(err)
+      repeat tryCatch({tmp <- cont(); return(tmp)}, error=function(err){
+        trace(paste0("pump: caught error by windup: ",
+                     conditionMessage(err), "\n"))
+        if (action %in% c("finish", "stop"))
+          stp(value)
+        else stop_(err)
       }, finally=trace("pump: unwind\n"))
     }
   } else {
     base_winding <- function(cont) cont()
   }
-  windings <- list(base_winding)
+  windings <- list(base_winding) # <- FIXME this will leak scope!!!!
 
   # this needs special handling in walk() because there are TWO
   # function pointers and both need to be treated as nodes?
@@ -173,7 +177,7 @@ make_pump <- function(expr, ...,
   }, localName="doWindup", globalName="doWindup")
 
   exit_list <- list()
-  after_exit <- NULL
+  after_exit <- "xxx"
 
   addExit %<-% function(cont, handle, add, after) {
     if (add) {
@@ -188,8 +192,11 @@ make_pump <- function(expr, ...,
     cont(invisible(NULL))
   }
 
+  using_onexit <- FALSE
   exit_ctors <- list()
+
   registerExit %<-% function(exit) {
+    using_onexit <<- TRUE
     handle <- length(exit_ctors) + 1
     name <- paste0("exit_", as.character(handle))
     # hold off on constructing them
@@ -209,10 +216,8 @@ make_pump <- function(expr, ...,
                 registerExit=registerExit, addExit=addExit)
   pumpCont <- entry
 
-  if (length(exit_ctors) > 0) {
-    # now that we know how many on.exits there are, create doExits
+  if (using_onexit) {
     doExits %<-% function() {
-      if (is.null(after_exit)) after_exit <<- action
       if (length(exit_list) > 0) {
         trace_("pump: running on.exit handlers\n")
         first_exit <- exit_list[[1]]
@@ -220,11 +225,13 @@ make_pump <- function(expr, ...,
         takeExit(first_exit)
       } else {
         trace_("pump: no more on.exit handlers\n")
+
         switch(after_exit,
-               "finish" = rtn(value),
-               "stop" = stp(value),
-               "xxx" = NULL, # we probably already have an error raised
-               stp(paste0("Unexpected action: ", action)))
+               "finish" = {action <<- "finish"; rtn(value)},
+               "stop" = {action <<- "stop"; stp(value)},
+               "rethrow" = stp("previous error swallowed by on.exit"),
+               "xxx" = NULL, # we probably already have an error
+               stp(paste0("Unexpected after-exit action: ", action)))
       }
     }
 
@@ -252,35 +259,56 @@ make_pump <- function(expr, ...,
 
   } else {
     doExits %<-% function() {
-      switch(action,
-             "finish" = rtn(value),
-             "stop" = stp(value),
+      switch(after_exit,
+             "finish" = {action <<- "finish"; rtn(value)},
+             "stop" = {action <<- "stop"; stp(value)},
              "xxx" = NULL, # we probably already have an error raised
-             stp(paste0("Unexpected action: ", action)))
+             stp(paste0("Unexpected after-exit action: ", action)))
     }
   }
 
   pump %<g-% function() {
     trace("pump: run\n")
-    if(action != "exit") {
-      trace("pump: using on.exit\n")
-      on.exit({
-        trace(paste0("pump: on.exit with action ", action, "\n"))
-        if (!action %in%
-              c("pause", "pause_val", "stop", "finish")) {
-          trace("pump: exiting abnormally\n")
-          bounce_(doExits)
-          action <<- "exit"
-          pump()
-        }
-      })
+    if(using_onexit) {
+      if (action %in% c("exit", "continue", "continue_val")) {
+        trace("pump: skipping on.exit\n")
+      } else {
+        trace("pump: using on.exit\n")
+        on.exit({
+          trace(paste0("pump: on.exit with action ", action, "\n"))
+          if (!action %in%
+                c("pause", "pause_val", "finish")) {
+            trace(paste0("pump: exiting abnormally: ", action, "\n"))
+            action <<- "exit"
+            # silly compiler, count these as tailcalls I guess
+            pumpCont <<- function() doExits()
+            tmp <- (function() pump())()
+            switch(action,
+                   "finish"=
+                     return(tmp), # you OVERRIDE the exit?
+                   "pause"=,
+                   "pause_val"= {
+                     trace("pump: swallowing error?\n")
+                     if (after_exit=="xxx") {
+                       # so we have not explicitly stopped
+                       # as in reaching return_ or stop_
+                       after_exit <<- "rethrow"
+                       return(tmp) # swallow
+                     } else {
+                       return(tmp)
+                     }
+                   },
+                   tmp)
+          }
+        })
+      }
     }
     doWindup(runPump)
     while(action == "rewind") {
       doWindup(runPump)
     }
-    trace(paste0("pump: ", action, "\n"))
-    if (!identical(value, nonce)) value
+    trace(paste0("pump exiting with action: ", action, "\n"))
+    if (identical(value, nonce)) NULL else value
   }
 
   exit_ctors <- NULL
@@ -295,8 +323,9 @@ make_pump <- function(expr, ...,
            pause_val={action <<- "xxx"; pumpCont(value)},
            stop("pump asked to continue, but last action was ", action))
     repeat switch(action,
+             exit=,
              continue={
-               trace("pump: continue\n")
+               trace("pump: continue, really, here\n")
                if (debugInternal) debugonce(pumpCont)
                action <<- "xxx";
                pumpCont()
@@ -313,4 +342,31 @@ make_pump <- function(expr, ...,
   }
 
   pump
+}
+
+
+on.exit_cps <- function(.contextName,
+                        expr,
+                        add=R(paste0(.contextName, ".add"), FALSE),
+                        after=R(paste0(.contextName, ".after"), TRUE)) {
+  function(cont, ..., registerExit, addExit) {
+    list(.contextName, cont, registerExit, addExit)
+
+    # at construction time, pass the constructor back up to pump --
+    # the current scope handlers don't apply
+    handle <- registerExit(expr)
+    add_p <- NULL
+    after_p <- NULL
+
+    gotAfter %<-% function(val) {
+      after_p <<- val
+      addExit(cont, handle, add_p, after_p)
+    }
+    getAfter <- after(gotAfter, ..., registerExit=registerExit, addExit=addExit)
+    gotAdd %<-% function(val) {
+      add_p <<- val
+      getAfter()
+    }
+    getAdd <- add(gotAdd, ..., registerExit=registerExit, addExit=addExit)
+  }
 }
