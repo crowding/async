@@ -7,27 +7,31 @@
 collect(fn, type = list())
 }
 \arguments{
-\item{fn}{A function, which should accept a single argument "yield".}
+\item{fn}{A function, which should accept a single argument, here
+called \code{emit}.}
 
-\item{type}{A prototype output vector (i.e. a vector of the
-same type as the desired output, similar to \link{vapply}.) Defaults
-to \code{list()}.}
+\item{type}{A prototype output vector (i.e. a vector of the same
+type as the desired output, similar to \code{FUN.VALUE} of \link{vapply}.)
+Defaults to \code{list()}.}
 }
 \value{
-A vector of the same type.
+A vector of all values passed to \code{emit} whle \code{fn} was
+running.
 }
 \description{
-\code{collect} calls the function in its argument, supplying a callback
-\code{yield(val, name=NULL)}. Each value passed to \code{yield} is collected
-and the list of all values is returned after \code{fn} returns.
+\code{collect} calls the function \code{fn} in its argument, supplying a
+callback of the form \code{function (val, name=NULL).} I like to call it
+\code{emit}.  While \code{fn} is running, it can call \code{emit(x)} any number of
+times.  After \code{fn} returns, all the values passed to \code{emit} are
+returned in a vector, with optional names.
 }
 \examples{
 
 #cumulative sum
 cumsum <- function(vec) {
   total <- 0
-  collect(type=0, function(yield) {
-    for (i in vec) total <- yield(total+i)
+  collect(type=0, function(emit) {
+    for (i in vec) total <- emit(total+i)
   }
 }
 }

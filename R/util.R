@@ -2,6 +2,17 @@
 
 `%is%` <- testthat::expect_equal
 
+mock_channel <- function(...) {
+  e <- NULL
+  ch <- channel(function(emit, reject, finish) {
+    e <<- environment()
+  }, ...)
+  ch$emit <- e$emit
+  ch$reject <- e$reject
+  ch$finish <- e$finish
+  ch
+}
+
 mock_promise <- function() {
   resolve <- NULL
   reject <- NULL
@@ -155,3 +166,40 @@ strrev <- function(x)
   vapply(strsplit(x, ""),
          \(x) paste0(rev(x), collapse=""),
          "")
+
+expect_emits <- function(channel, expected, trigger=NULL, test=expect_equal) {
+  nonce <- function() NULL
+  val <- nonce
+  nextThen(channel, onNext=function(value) val <<- value,
+           onFinish=function() stop("Unexpected finish"))
+  force(trigger)
+  wait_for_it()
+  if (identical(val, nonce)) stop("Channel did not emit a value")
+  test(val, expected)
+}
+
+expect_channel_rejects <-
+  function(channel, expected, trigger=NULL, test=expect_match) {
+  nonce <- function() NULL
+  val <- nonce
+  nextThen(channel,
+           onNext = function(value) stop("Expected channel error, got value"),
+           onError = function(value) val <<- value,
+           onFinish = function() stop("Unexpected finish"))
+  force(trigger)
+  wait_for_it()
+  if (identical(val, nonce)) stop("Channel did not reject")
+  test(val, expected)
+}
+
+expect_finishes <-
+  function(channel, trigger=NULL) {
+    finished <- FALSE
+    nextThen(channel,
+             onNext = function(value) stop("Expected channel finish, got value"),
+             onError = function(value) stop(value),
+             onFinish = function() finished <<- TRUE)
+    force(trigger)
+    wait_for_it()
+    expect_true(finished)
+  }
