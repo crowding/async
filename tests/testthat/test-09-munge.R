@@ -20,10 +20,11 @@ test_that("name munging generators", {
   }, ...)
 
   g <- fg(compileLevel=0)
+  graph <- walk(g)
   gc <- fg(compileLevel=-1)
 
   # walk the graph before and after compile and compare them.
-  expect_properly_munged(g, gc)
+  expect_properly_munged(graph, gc)
 
   # Can we pull a next element?
   nextElemOr(g)
@@ -83,8 +84,9 @@ test_that("munged async with a try/finally", {
   }, ...)
 
   a <- fa(compileLevel=0)
+  graph <- walk(a)
   ac <- fa(compileLevel=-1)
-  expect_properly_munged(a, ac)
+  expect_properly_munged(graph, ac)
   expect_output(
     expect_resolves_with(
       a, 5, expect_resolves_with(

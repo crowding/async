@@ -32,8 +32,7 @@ wait_for_it <- function(timeout = 30) {
   }
 }
 
-expect_properly_munged <- function(g, gc) {
-  graph <- walk(g)
+expect_properly_munged <- function(graph, gc) {
   graphc <- walk(gc)
   expect_only_one_context(graphc)
   expect_state_pointers_closed(graphc)

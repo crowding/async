@@ -275,6 +275,7 @@ getStartSet.generator <- function(x) {
        return_=getReturn(x),
        pump=get("pump", envir=environment(x$nextElemOr)),
        runPump=environment(get("pump", environment(x$nextElemOr)))$runPump,
+       base_winding=environment(get("pump", environment(x$nextElemOr)))$base_winding,
        doWindup=environment(get("pump", environment(x$nextElemOr)))$doWindup,
        nextElemOr_=x$nextElemOr,
        setDebug=environment(get("pump", environment(x$nextElemOr)))$setDebug,
@@ -285,6 +286,7 @@ getStartSet.generator <- function(x) {
 #' @exportS3Method
 compile.generator <- function(x, level) {
   # returns an environment with munged nodes/storage
+  if (paranoid) graph <- walk(x)
   if (abs(level) >= 1) {
     munged <- munge( x )
     munged$orig <- get("orig", environment(x$nextElemOr))
@@ -297,7 +299,7 @@ compile.generator <- function(x, level) {
     if (level <= -1) {
       new <- add_class(iteror(munged$nextElemOr_), c("generator"))
       if (paranoid) { # enabled in unit tests
-        expect_properly_munged(x, new)
+        expect_properly_munged(graph, new)
       }
       new
     } else if (level >= 1) {

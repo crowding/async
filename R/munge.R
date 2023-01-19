@@ -6,7 +6,8 @@ munge <- function(# the async/generator to munge
                   # be the a child of the base environment that called
                   # gen() (different for each invocation!) So we don't
                   # know yet, so just munge to a new env and set its
-                  # parent later.
+                  # parent later? Although I have heard warninga about
+                  # parent.env<- being possibly glitchy.
                   dest.env = new.env(parent = parent.env(environment()))) {
   # The graph data structure should give us most info we need.
   graph <- walk(g)
@@ -121,6 +122,17 @@ munge <- function(# the async/generator to munge
         newName <- varTranslations[[varName]]
         move_value(graph, contextName, varName, dest.env, newName,
                    varTranslations, callTranslations)
+      }
+    }
+    if (paranoid) {
+      trace_(" Moving state:\n")
+      for (nodeName in names(graph$contextNodes[[contextName]])) {
+        for (exit in names(graph$nodeEdgeProperties[[nodeName]])) {
+          env <- graph$contexts[[contextName]]
+          if (exists(exit, envir=env, inherits=FALSE)) {
+            rm(list=exit, envir=graph$contexts[[contextName]], inherits=FALSE)
+          }
+        }
       }
     }
   }

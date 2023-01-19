@@ -153,7 +153,7 @@ test_that("for", {
 
   x %is% 19 # 1 + 2 + 4 + 5 + 7
   i %is% 8
-  #
+
   out <- c()
   x <- 6
   cps <- for_cps("",

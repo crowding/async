@@ -109,6 +109,12 @@ as <- async({
 
 p$resolve("success!")
 
+if(FALSE) {
+  8==D |> (\(.)Y(.))
+# is a syntactically valid line of #rstats code.
+# It means the same thing as
+  Y(D == 8)
+}
 
 
 f <- function(x) {
@@ -167,3 +173,4 @@ gfilter <- function(seq, pred) {
   })
 }
 
+asyncOpts(compileLevel=0, paranoid=FALSE, verbose=TRUE)

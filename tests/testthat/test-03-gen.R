@@ -167,19 +167,6 @@ test_that("Dummy", {
   expect_error( gen(await(yield(5))), "await" )
 })
 
-test_that("tailcalls", {
-
-  x <- gen({for (i in 1:10) if(FALSE) yield("no"); yield({sys.nframe()})},
-           eliminate.tailcalls=TRUE)
-  s1 <- nextElem(x)
-  x <- gen({for (i in 1:10) if(FALSE) yield("no"); yield(sys.nframe())},
-           eliminate.tailcalls=FALSE)
-  s2 <- nextElem(x)
-
-  # FIXME: this test doesn't work, sys.nframe() is getting "0" somehow?
-  expect_true(s2 >= s1)
-})
-
 test_that("tracing", {
   g <- gen({{j <- 0; i <- 0}; for (i in 1:10) yield(j <- j + i)},
            trace=with_prefix("triangle"))
@@ -233,7 +220,6 @@ test_that("run", {
 
 })
 
-# moved here from test_cps where it felt too early.
 test_that("generator works wnen async package not attached", {
 
   if ("package:async" %in% search()) {

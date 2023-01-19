@@ -136,13 +136,6 @@ test_that("extremely bananas: simultaneously errors and returns", {
   x %is% "done!"
   # this kinda wrecks my mental model of R error handling tbh.
   # the fact that it _also_ works if a generator is bananas.
-
-  #??? expect_error doesn't catch this for some reason.
-  #Maybe because it throws two errors?
-  #expect_error(x <- nextElemOr(g, NULL), "swallowed")
-
-  e <- NULL
-  y <- tryCatch(nextElemOr(g, NULL), error=function(err) e <<- err)
-  expect_match(conditionMessage(e), "swallowed")
+  expect_error(nextElemOr(g, NULL), "swallowed")
 
 })

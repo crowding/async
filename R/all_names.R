@@ -217,11 +217,11 @@ visit_function <- function(fn, yield, nonTail=TRUE, forGraph=FALSE) {
                    visit_arg(expr[[4]], inTail=FALSE, yield)},
                  "("= visit_arg(expr[[2]], inTail=inTail, yield),
                  "{"= {
-                   if(nonTail) {
+                   if(nonTail && length(expr) > 2) {
                      for (i in 1+seq_len(length(expr)-2))
-                       visit_arg(expr[[i]], inTail=FALSE, yield)
-                   }
-                   visit_arg(expr[[length(expr)]], inTail=inTail, yield)},
+                       visit_arg(expr[[i]], inTail=FALSE, yield)}
+                   if (length(expr) > 1)
+                     visit_arg(expr[[length(expr)]], inTail=inTail, yield)},
                  "||"=,"&&"={
                    visit_arg(expr[[2]], inTail=FALSE, yield)
                    visit_arg(expr[[3]], inTail=inTail, yield)},
@@ -229,8 +229,7 @@ visit_function <- function(fn, yield, nonTail=TRUE, forGraph=FALSE) {
                    visit_arg(expr[[2]], inTail=FALSE, yield)
                    if(nonTail) {
                      for (i in 2+seq_len(length(expr)-2)) {
-                       visit_arg(expr[[i]], inTail=inTail, yield)}}
-                 },
+                       visit_arg(expr[[i]], inTail=inTail, yield)}}},
                  "tryCatch"={
                    visit_arg(expr[[2]], inTail=inTail, yield)
                    visit_arg(expr[[3]], inTail=inTail, yield)},

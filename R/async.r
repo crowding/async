@@ -219,6 +219,7 @@ getStartSet.async <- function(x) {
        reject=getStop(x),
        replace=x$state$replace,
        pump=get("pump", envir=x$state),
+       base_winding=environment(get("pump", (x$state)))$base_winding,
        getCont=environment(get("pump", (x$state)))$getCont,
        runPump=environment(get("pump", (x$state)))$runPump,
        setDebug=environment(get("pump", (x$state)))$setDebug,
@@ -268,6 +269,7 @@ getState.async <- function(x) x$state$getState()
 
 compile.async <- function(x, level) {
   if (abs(level) >= 1) {
+    if (paranoid) graph <- walk(x)
     munged <- munge( x )
     munged$orig <- x$orig
     if (abs(level) >= 3) {
@@ -286,7 +288,7 @@ compile.async <- function(x, level) {
       pr$orig <- x$orig
       pr$state <- munged
       if (paranoid) {
-        expect_properly_munged(x, pr)
+        expect_properly_munged(graph, pr)
       }
       pr
     } else if (level >= 1) {

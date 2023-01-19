@@ -128,54 +128,6 @@ make_pump <- function(expr, ...,
     doExits()
   }
 
-  # We maintain a list of "windings."
-  # A "winding" is a function that must tailcall into its "cont" arg. like:
-  # null_winding <- function(cont) tryCatch(cont())
-  # f(cont) that establishes a context,
-  # and returning from f(cont), unwinds that context.
-  if(catch) {
-    base_winding %<-% function(cont) {
-      trace("pump: windup\n")
-      repeat tryCatch({tmp <- cont(); return(tmp)}, error=function(err){
-        trace(paste0("pump: caught error by windup: ",
-                     conditionMessage(err), "\n"))
-        if (action %in% c("finish", "stop"))
-          stp(value)
-        else stop_(err)
-      }, finally=trace("pump: unwind\n"))
-    }
-  } else {
-    base_winding <- function(cont) cont()
-  }
-  windings <- list(base_winding) # <- FIXME this will leak scope!!!!
-
-  # this needs special handling in walk() because there are TWO
-  # function pointers and both need to be treated as nodes?
-  windup_ %<-% function(cont, winding) {
-    list(cont, winding)
-    trace("pump: Adding to windup list\n")
-    outerWinding <- windings[[1]]
-    g <- function(cont) {
-      # Call outer winding first and have it continue to the
-      # new winding, which continues to 'cont'
-      outerWinding(function() winding(cont))
-    }
-    windings <<- c(list(g), windings)
-    pumpCont <<- cont
-    action <<- "rewind"
-  }
-
-  unwind_ %<-% function(cont) {
-    trace("pump: removing from windup list\n")
-    windings[[1]] <<- NULL
-    pumpCont <<- cont
-    action <<- "rewind"
-  }
-
-  doWindup %<-% structure(function(cont) {
-    windings[[1]](cont)
-  }, localName="doWindup", globalName="doWindup")
-
   exit_list <- list()
   after_exit <- "xxx"
 
@@ -199,9 +151,37 @@ make_pump <- function(expr, ...,
     using_onexit <<- TRUE
     handle <- length(exit_ctors) + 1
     name <- paste0("exit_", as.character(handle))
-    # hold off on constructing them
+    # hold off on calling their constructors
     exit_ctors <<- c(exit_ctors, structure(list(exit), names=name))
     handle
+  }
+
+  winding_stack <- list()
+  current_winding <- NULL
+
+  # this handler needs special handling in walk() because it takes TWO
+  # functions and both need to be treated as nodes.
+  windup_ %<-% function(cont, winding) {
+    list(cont, winding)
+    trace("pump: Adding to windup list\n")
+    outerWinding <- current_winding
+    g <- function(cont) {
+      # Call outer winding first and have it continue to the
+      # new winding, which continues to 'cont'
+      outerWinding(function() winding(cont))
+    }
+    winding_stack <<- c(list(current_winding), winding_stack)
+    current_winding <<- g
+    pumpCont <<- cont
+    action <<- "rewind"
+  }
+
+  unwind_ %<-% function(cont) {
+    trace("pump: removing from windup list\n")
+    current_winding <<- winding_stack[[1]]
+    winding_stack[[1]] <<- NULL
+    pumpCont <<- cont
+    action <<- "rewind"
   }
 
   # Our argument "expr" is a context constructor
@@ -225,12 +205,13 @@ make_pump <- function(expr, ...,
         takeExit(first_exit)
       } else {
         trace_("pump: no more on.exit handlers\n")
-
         switch(after_exit,
                "finish" = {action <<- "finish"; rtn(value)},
                "stop" = {action <<- "stop"; stp(value)},
-               "rethrow" = stp("previous error swallowed by on.exit"),
-               "xxx" = NULL, # we probably already have an error
+               "rethrow" = {action <<- "stop";
+                 stp("abnormal exit; previous error swallowed by on.exit?")
+               },
+               "xxx" = NULL,
                stp(paste0("Unexpected after-exit action: ", action)))
       }
     }
@@ -267,42 +248,64 @@ make_pump <- function(expr, ...,
     }
   }
 
+
+  # We maintain a list of "windings."
+  # A "winding" is a function that must tailcall into its "cont" arg. like:
+  # null_winding <- function(cont) tryCatch(cont())
+  # that establishes a context,
+  # and returning from f(cont), unwinds that context.
+  if(catch) {
+    base_winding %<g-% function(cont) {
+      trace("pump: base tryCatch\n")
+      repeat tryCatch({tmp <- cont(); return(tmp)}, error=function(err){
+        trace(paste0("pump: caught error: ",
+                     conditionMessage(err), "\n"))
+        if (action %in% c("finish", "stop"))
+          stp(value)
+        else stop_(err)
+      }, finally=trace("pump: base tryCatch exits\n"))
+    }
+  } else if (using_onexit) {
+    base_winding %<g-% function(cont) {
+      trace("pump: base on.exit\n")
+      on.exit({
+        trace(paste0("pump: base on.exit with action ", action, "\n"))
+        if (!action %in%
+              c("pause", "pause_val", "stop", "finish", "rewind")) {
+          trace(paste0("pump: exiting abnormally: ", action, "\n"))
+          action <<- "exit"
+          # silly compiler, count these as tailcalls I guess
+          pumpCont <<- function() doExits()
+          current_winding <<- base_winding
+          cont()
+          trace(paste0("pump: after exit handlers, action is ", action, "\n"))
+          switch(action,
+                 "finish"=,
+                 "pause_val"= {
+                   after_exit <<- "rethrow"
+                   return(value)},
+                 "pause"= {
+                   after_exit <<- "rethrow"
+                   return(NULL)
+                 },
+                 NULL)
+        }
+      })
+      cont()
+    }
+  } else {
+    base_winding %<g-% function(cont) cont()
+  }
+
+  current_winding <- base_winding
+
+  doWindup %<g-% function(cont) {
+    tmp <- current_winding
+    tmp(cont)
+  }
+
   pump %<g-% function() {
     trace("pump: run\n")
-    if(using_onexit) {
-      if (action %in% c("exit", "continue", "continue_val")) {
-        trace("pump: skipping on.exit\n")
-      } else {
-        trace("pump: using on.exit\n")
-        on.exit({
-          trace(paste0("pump: on.exit with action ", action, "\n"))
-          if (!action %in%
-                c("pause", "pause_val", "finish")) {
-            trace(paste0("pump: exiting abnormally: ", action, "\n"))
-            action <<- "exit"
-            # silly compiler, count these as tailcalls I guess
-            pumpCont <<- function() doExits()
-            tmp <- (function() pump())()
-            switch(action,
-                   "finish"=
-                     return(tmp), # you OVERRIDE the exit?
-                   "pause"=,
-                   "pause_val"= {
-                     trace("pump: swallowing error?\n")
-                     if (after_exit=="xxx") {
-                       # so we have not explicitly stopped
-                       # as in reaching return_ or stop_
-                       after_exit <<- "rethrow"
-                       return(tmp) # swallow
-                     } else {
-                       return(tmp)
-                     }
-                   },
-                   tmp)
-          }
-        })
-      }
-    }
     doWindup(runPump)
     while(action == "rewind") {
       doWindup(runPump)
@@ -325,7 +328,7 @@ make_pump <- function(expr, ...,
     repeat switch(action,
              exit=,
              continue={
-               trace("pump: continue, really, here\n")
+               trace("pump: continue\n")
                if (debugInternal) debugonce(pumpCont)
                action <<- "xxx";
                pumpCont()
