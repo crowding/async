@@ -140,7 +140,6 @@ make_async <- function(expr, orig=expr, ..., compileLevel=0, trace=trace_, targe
   state <- "pending" #print method uses this
   awaiting <- nonce
   value <- nonce
-  err <- nonce
   resolve_ <- NULL
   reject_ <- NULL
 
@@ -156,7 +155,7 @@ make_async <- function(expr, orig=expr, ..., compileLevel=0, trace=trace_, targe
 
   reject %<-% function(val) {
     trace("async: stop (rejecting)\n")
-    err <<- val
+    value <<- val
     state <<- "rejected"
     reject_(val)
     val
@@ -167,23 +166,8 @@ make_async <- function(expr, orig=expr, ..., compileLevel=0, trace=trace_, targe
     reject_ <<- reject
   }
 
-  await_ %<-% function(cont, promise, success, failure, ...) {
-    list(promise, success, failure)
-    succ <- function(val) {
-      trace("await: success\n")
-      success(val)
-      pump()
-    }
-    fail <- function(val) {
-      trace("await: fail\n")
-      failure(val)
-      pump()
-    }
-    awaiting <<- promise
-    promises::then(promise, succ, fail)
-    trace("await: registered\n")
-    cont(...)
-  }
+  #await_ and awaitNext_
+  eval(await_handlers)
 
   pr <- add_class(promise(function(resolve, reject) {
     resolve_ <<- resolve
@@ -191,7 +175,8 @@ make_async <- function(expr, orig=expr, ..., compileLevel=0, trace=trace_, targe
   }), "async")
 
   pump <- make_pump(expr, ...,
-                    rtn=resolve, stp=reject, await=await_, trace=trace,
+                    rtn=resolve, stp=reject, await=await_,
+                    awaitNext=awaitNext_, trace=trace,
                     targetEnv=targetEnv)
   pr$orig <- orig
   pr$state <- environment()
@@ -201,6 +186,56 @@ make_async <- function(expr, orig=expr, ..., compileLevel=0, trace=trace_, targe
   pr$state$pump()
   pr
 }
+
+# shared with both async and stream
+await_handlers <- quote({
+  awaiting <- nonce
+
+  await_ %<-% function(cont, promise, success, failure) {
+    list(promise, success, failure)
+    succ <- function(val) {
+      trace("await: success\n")
+      awaiting <<- NULL
+      success(val)
+      pump()
+    }
+    fail <- function(val) {
+      trace("await: fail\n")
+      awaiting <<- NULL
+      failure(val)
+      pump()
+    }
+    awaiting <<- promise
+    promises::then(promise, succ, fail)
+    trace("await: registered\n")
+    cont()
+  }
+
+  awaitNext_ %<-% function(cont, strm, success, error, finish) {
+    list(strm, success, error, finish)
+    succ <- function(val) {
+      trace("awaitNext: got value")
+      awaiting <<- NULL
+      success(val)
+      pump()
+    }
+    err <- function(val) {
+      trace("awaitNext: stream error")
+      awaiting <<- NULL
+      error(val)
+      pump()
+    }
+    fin <- function() {
+      trace("awaitNext: stream finished")
+      awaiting <<- NULL
+      finish()
+      pump()
+    }
+    awaiting <<- strm
+    nextThen(strm, succ, err, fin)
+    cont()
+  }
+})
 
 #' @exportS3Method
 getEntry.async <- function(x) environment(x$state$pump)$entry

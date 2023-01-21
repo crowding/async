@@ -174,3 +174,17 @@ gfilter <- function(seq, pred) {
 }
 
 asyncOpts(compileLevel=0, paranoid=FALSE, verbose=TRUE)
+
+pump(switch_cps("", R("", "three"), four=R("", "wrong")), targetEnv=environment(), catch=FALSE)
+
+
+as <- async({
+    for (i in 1:10) {
+      if (i > 5) await(NULL)
+      if (i == 5) {
+        return(i)
+        notrun <<- FALSE
+      }
+    }
+    notrun <<- FALSE
+}, compileLevel=-1)

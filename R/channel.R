@@ -98,7 +98,7 @@ deque <- function(len=64) {
 #' `[awaitNext(ch)]` within an `async` or `stream` construct.
 #'
 #' The low-level interface to request values from a channel is to call
-#' `nextThen(ch, onNext, onError, onFinished)`, providing callback
+#' `nextThen(ch, onNext=, onError=, onClose=)`, providing callback
 #' functions for at least `onNext(val)`. Those callbacks will be
 #' appended to an internal queue, and will be called as soon as data
 #' is available, in the order that requests were received.
@@ -121,34 +121,35 @@ deque <- function(len=64) {
 #' function in its argument; your function will receive those three
 #' methods as arguments. Then use whatever means to arrange to call
 #' `emit(val)` some time in the future as data comes in. When you are
-#' done emitting values, call the `finish()` callback. To report an
+#' done emitting values, call the `close()` callback. To report an
 #' error use the `reject(err)` callback. The next requestor will
 #' receive the error. If there is more than one listener, other
-#' queued listeners will get a `finish` signal.
+#' queued listeners will get a `close` signal.
 #'
 #' @param impl A user-provided function; it will receive three
 #'   callback functions as arguments, in order, `emit(val)`,
-#'   `reject(err)` and `finish()`
+#'   `reject(err)` and `close()`
 #' @param max_queue The maximum number of outgoing values to store if
 #'   there are no listeners. Beyond this, calling `emit` will return
 #'   an error.
 #' @param max_awaiting The maximum number of pending requests. If
 #'   there are this many outstanding requests, for values, calling
 #'   `nextThen(ch, ...)` or `nextElem(ch)` will raise an error.
-#' @param wakeup Optional; provide a callback when there the outgoing data
-#'   queue is empty and there are still listeners.
+#' @param wakeup You may optionally provide a callback function here.
+#'   It will be called when the queue is empty and there is at least
+#'   one listener/outstanding promise.
 #' @return a channel object, supporting methods "nextThen" and "nextElem"
 #'
 #' @author Peter Meilstrup
 channel <- function(impl, max_queue=500L, max_awaiting=500L,
                     wakeup=function() NULL) {
   # list of callbacks waiting to be made having yet to be sent
-  # each is a list(resolve=, reject=, finish=
+  # each is a list(resolve=, reject=, close=
   outgoing <- deque()
   # list of values waiting for a callback
   awaiting <- deque()
   state <- "running"
-  errorvalue <- NULL
+  errorValue <- NULL
   odo <- 0
 
   emit <- function(val) {
@@ -161,21 +162,27 @@ channel <- function(impl, max_queue=500L, max_awaiting=500L,
     val
   }
 
-  reject <- function(err) {
+  reject <- function(...) {
     state <<- "error"
-    errorvalue <<- err
+    if (inherits(..1, "condition")) {
+      errorValue <<- ..1
+      if (nargs() > 1L)
+        warning("additional arguments ignored in reject()")
+    } else {
+      errorValue <<- simpleError(...)
+    }
     send()
   }
 
-  finish <- function() {
-    state <<- "finished"
+  close <- function() {
+    state <<- "closed"
     send()
   }
 
   formatChannel <- function(...) {
-    paste0("<Channel ",
-           outgoing$getLength(), " queued, ",
-           awaiting$getLength(), " awaiting, ",
+    paste0("<Channel: ",
+           outgoing$length(), " queued, ",
+           awaiting$length(), " awaiting, ",
            odo, " sent>")
   }
 
@@ -186,11 +193,11 @@ channel <- function(impl, max_queue=500L, max_awaiting=500L,
         switch(state,
                "error" = {
                  state <<- "stopped"
-                 listener$reject(errorvalue)
+                 listener$reject(errorValue)
                  odo <<- odo+1
                },
                "stopped",
-               "finished" = listener$finish(),
+               "closed" = listener$close(),
                "running" = {
                  val <- outgoing$getFirst(
                    or={
@@ -202,18 +209,19 @@ channel <- function(impl, max_queue=500L, max_awaiting=500L,
                  odo <<- odo+1
                }),
         error=function(err)
-          warning("Unhandled channel error on resolve: ", err))
+          warning("Unhandled channel error on send: ", err))
       listener <- awaiting$getFirst(or=break)
     }
+    NULL
   }
 
   nextThen <- function(onNext,
                        onError=function(err)
                          warning("Unhandled promise_iter error ", err),
-                       onFinished=function() NULL) {
+                       onClose=function() NULL) {
     if (!state %in% c("running", "error")) stop("Channel is no longer operating")
     if (awaiting$length() > max_awaiting) stop("Channel has too many listeners")
-    awaiting$append(list(resolve=onNext, reject=onError, finish=onFinished))
+    awaiting$append(list(resolve=onNext, reject=onError, close=onClose))
     send()
   }
 
@@ -224,8 +232,9 @@ channel <- function(impl, max_queue=500L, max_awaiting=500L,
     })
   }
 
-  impl(emit, reject, finish)
-  structure(list(nextThen=nextThen, nextElemOr=nextElemOr, formatChannel=formatChannel),
+  impl(emit, reject, close)
+  structure(list(nextThen=nextThen, nextElemOr=nextElemOr,
+                 formatChannel=formatChannel),
             class=c("channel", "funiteror", "iteror", "iter"))
 
 }
@@ -241,7 +250,7 @@ format.channel <- function(x, ...) {
 }
 
 #' @export
-nextThen <- function(x, onNext, onError, onFinish, ...) {
+nextThen <- function(x, onNext, onError, onClose, ...) {
   UseMethod("nextThen")
 }
 
@@ -250,7 +259,24 @@ nextThen.channel <- function(x,
                              onNext,
                              onError = function(err)
                                stop("Unhandled channel error: ", err),
-                             onFinish = function() NULL,
+                             onClose = function() NULL,
                              ...) {
-  x$nextThen(onNext, onError, onFinish, ...)
+  x$nextThen(onNext, onError, onClose, ...)
+}
+
+#' @export
+#' @rdname channel
+#' @return `is.channel(x)` returns TRUE if its argument is a channel object.
+is.channel <- function(x, ...) {
+  UseMethod("is.channel")
+}
+
+#' @exportS3Method is.channel channel
+is.channel.channel <- function(x, ...) {
+  TRUE
+}
+
+#' @exportS3Method is.channel default
+is.channel.default <- function(x, ...) {
+  FALSE
 }

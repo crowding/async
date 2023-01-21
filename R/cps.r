@@ -243,7 +243,8 @@ switch_cps <- function(.contextName, EXPR, ...) {
 
     # for the compiler to see the branches they need to be assigned names.
     for (i in seq_along(alts)) {
-      alts[[i]] <- alts[[i]](cont, ..., stp=stp, trace=trace, goto=goto_)
+      alts[[i]] <- alts[[i]](cont, ..., stp=stp,
+        bounce=bounce, bounce_val=bounce_val, trace=trace, goto=goto_)
       assign(paste0("alt", i), alts[[i]], envir=environment())
     }
 
@@ -254,11 +255,11 @@ switch_cps <- function(.contextName, EXPR, ...) {
       switch_ %<-% eval(bquote(splice=TRUE, function(val) {
         trace("switch: numeric\n")
         if (!is.numeric(val))
-          stp(paste0("switch: expected numeric, got ", mode(val)))
+          stp(simpleError(paste0("switch: expected numeric, got ", mode(val))))
         else {
           branch <- branches[[as.numeric(val)]]
           if (is.null(branch))
-            stp(paste0("Switch: expected numeric, got ", mode(val)))
+            stp(simpleError(paste0("Switch: expected numeric, got ", mode(val))))
           else switch(branch, ..(lapply(seq_along(branches),
                                         function(i)call(paste0("alt", i)))))
         }
@@ -296,12 +297,12 @@ switch_cps <- function(.contextName, EXPR, ...) {
       switch_ %<-% eval(bquote(function(val) {
         trace("switch: character\n")
         if (!is.character(val))
-          stp(paste0("switch: expected character, got ", mode(val)))
+          stp(simpleError(paste0("switch: expected character, got ", mode(val))))
         else .(if (is.null(default)) bquote({
           branch <- get0(val, branches, ifnotfound=NULL)
           if (is.null(branch))
-            stp(paste0("Switch: branch not found, with no default: `",
-                        as.character(val), "`"))
+            stp(simpleError(paste0("Switch: branch not found, with no default: `",
+                        as.character(val), "`")))
           else .(switchcall)
         }) else bquote({
           branch <- get0(val, branches, ifnotfound=.(default))
@@ -310,7 +311,8 @@ switch_cps <- function(.contextName, EXPR, ...) {
         )
       }))
     }
-    EXPR <- EXPR(switch_, ..., stp=stp, trace=trace, goto=goto)
+    EXPR <- EXPR(switch_, ..., stp=stp, trace=trace, goto=goto,
+                 bounce=bounce, bounce_val=bounce_val)
   }
 }
 
@@ -517,15 +519,13 @@ while_cps <- function(.contextName, cond, expr) {
 #' @import iterators
 for_cps <- function(.contextName, var, seq, expr) {
   list(.contextName, var, seq, expr)
-  function(cont, ..., bounce, bounce_val, nxt, brk, sto, trace=trace_) {
-    list(cont, bounce, bounce_val, maybe(nxt), maybe(brk), trace)
+  function(cont, ..., pause, bounce, bounce_val, nxt, brk, awaitNext, sto, stp, trace=trace_) {
+    list(cont, bounce, bounce_val, maybe(nxt), maybe(brk), maybe(awaitNext), trace)
     #quote the LHS at construction time
     var_ <- var(cont, ..., bounce=bounce, bounce_val=bounce_val,
-                sto=sto, trace=trace) #not our brk/nxt
-    if (!is_R(var_)) {
-      stop("Unexpected stuff in for() loop variable")
-    }
-
+                sto=sto, stp=stp, trace=trace, pause=pause, nxt=nxt,
+                brk=brk, awaitNext=awaitNext) #not our brk/nxt
+    if (!is_R(var_)) stop("Unexpected stuff in for() loop variable")
     var_ <- R_expr(var_)
     if (!is.name(var_)) stop("Expected a name in for() loop variable")
     var_ <- as.character(var_)
@@ -534,16 +534,48 @@ for_cps <- function(.contextName, var, seq, expr) {
     brk_ %<-% function() {
       cont(invisible(NULL))
     }
-    nxt_ %<-% function() {
-      bounce(do_)
+
+    if (is_missing(awaitNext)) {
+      nxt_ %<-% function(val) {
+        bounce(do_)
+      }
+    } else {
+      is_async <- FALSE
+      nxt_ %<-% function(val) { #hmm, may be called with 0 or 1 args, just ignores
+        val <- NULL
+        if (is_async) {
+          await_()
+        } else {
+          bounce(do_)
+        }
+      }
     }
-    again %<-% function(val) {
-      force(val)
-      bounce(do_)
-    }
-    body <- expr(again, ..., bounce=bounce,
+
+    body <- expr(nxt_, ..., bounce=bounce, pause=pause,
                  bounce_val=bounce_val, nxt=nxt_, brk=brk_,
-                 sto=sto, trace=trace) # our brk_
+                 sto=sto, stp=stp, trace=trace, awaitNext=awaitNext) # our brk_
+
+    state <- "xxx"
+    value <- NULL
+
+    received %<-% function() {
+      trace(paste0("for ", var_, ": received\n"))
+      switch(state,
+             "success"={state <<- "xxx"; sto(body, var_, value)},
+             "error"={state <<- "xxx"; stp(value)},
+             "closed"={state <<- "xxx"; cont(invisible(NULL))},
+             stp(simpleError(paste0("awaitNext: unexpected state ", state))))
+    }
+    awaited %<-% function(val) {
+      pause(received)
+    }
+    await_ %<-% function() {
+      trace(paste0("for ", var_, ": awaiting\n"))
+      awaitNext(awaited, seq_,
+                function(val) {state <<- "success"; value <<- val},
+                function(err) {state <<- "error"; value <<- err},
+                function() {state <<- "closed"; value <<- NULL})
+    }
     do_ %<-% function() {
       stopping <- FALSE
       trace(paste0("for ", var_, ": next\n"))
@@ -556,12 +588,26 @@ for_cps <- function(.contextName, var, seq, expr) {
         sto(body, var_, val)
       }
     }
-    for_ %<-% function(val) {
-      seq_ <<- async::iteror(val)
-      do_()
+    if (is_missing(awaitNext)) {
+      for_ %<-% function(val) {
+        seq_ <<- async::iteror(val)
+        do_()
+      }
+    } else {
+      for_ %<-% function(val) {
+        if (is.channel(val)) {
+          is_async <<- TRUE
+          seq_ <<- val
+          await_()
+        } else {
+          seq_ <<- async::iteror(val)
+          do_()
+        }
+      }
     }
-    getSeq <- seq(for_, ..., bounce=bounce, bounce_val=bounce_val,
-                  nxt=nxt, brk=brk, sto=sto, trace=trace) #not our brk
+    getSeq <- seq(for_, ..., pause=pause, bounce=bounce, bounce_val=bounce_val,
+                  nxt=nxt, brk=brk, sto=sto, stp=stp, trace=trace, #not our brk
+                  awaitNext=awaitNext)
   }
 }
 

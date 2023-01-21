@@ -140,8 +140,8 @@ finally_cps_ <- function(.contextName, expr, finally) {
                if (!is_missing(brk)) alist(`break`=brk()),
                if (!is_missing(goto)) alist(goto=goto(result))
              )),
-             stp(paste0("Unexpected after-finally action: ",
-                         as.character(after)))
+             stp(simpleError(paste0("Unexpected after-finally action: ",
+                             as.character(after))))
              )
     }))
     # if there is an uncaught saved error, then a jump out of

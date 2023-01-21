@@ -154,7 +154,7 @@ yieldFrom_cps <- function(.contextName, it) {
       yieldFrom_(NULL)
     }
 
-    it(iter_, ..., yield=yield, trace=trace)
+    it(iter_, ..., yield=yield, trace=trace, registerYield=registerYield)
   }
 }
 

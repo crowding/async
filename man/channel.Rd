@@ -2,14 +2,17 @@
 % Please edit documentation in R/channel.R
 \name{channel}
 \alias{channel}
+\alias{is.channel}
 \title{Create an object representing a sequence of future values.}
 \usage{
 channel(impl, max_queue = 500L, max_awaiting = 500L, wakeup = function() NULL)
+
+is.channel(x, ...)
 }
 \arguments{
 \item{impl}{A user-provided function; it will receive three
 callback functions as arguments, in order, \code{emit(val)},
-\code{reject(err)} and \code{finish()}}
+\code{reject(err)} and \code{close()}}
 
 \item{max_queue}{The maximum number of outgoing values to store if
 there are no listeners. Beyond this, calling \code{emit} will return
@@ -19,11 +22,14 @@ an error.}
 there are this many outstanding requests, for values, calling
 \code{nextThen(ch, ...)} or \code{nextElem(ch)} will raise an error.}
 
-\item{wakeup}{Optional; provide a callback when there the outgoing data
-queue is empty and there are still listeners.}
+\item{wakeup}{You may optionally provide a callback function here.
+It will be called when the queue is empty and there is at least
+one listener/outstanding promise.}
 }
 \value{
 a channel object, supporting methods "nextThen" and "nextElem"
+
+\code{is.channel(x)} returns TRUE if its argument is a channel object.
 }
 \description{
 A \code{channel} is an object with an interface that represents
@@ -46,7 +52,7 @@ The friendly way to consume values from a channel is to use
 \verb{[awaitNext(ch)]} within an \code{async} or \code{stream} construct.
 
 The low-level interface to request values from a channel is to call
-\code{nextThen(ch, onNext, onError, onFinished)}, providing callback
+\code{nextThen(ch, onNext=, onError=, onClose=)}, providing callback
 functions for at least \code{onNext(val)}. Those callbacks will be
 appended to an internal queue, and will be called as soon as data
 is available, in the order that requests were received.
@@ -69,10 +75,10 @@ The low-level interface to create a channel object is to call
 function in its argument; your function will receive those three
 methods as arguments. Then use whatever means to arrange to call
 \code{emit(val)} some time in the future as data comes in. When you are
-done emitting values, call the \code{finish()} callback. To report an
+done emitting values, call the \code{close()} callback. To report an
 error use the \code{reject(err)} callback. The next requestor will
 receive the error. If there is more than one listener, other
-queued listeners will get a \code{finish} signal.
+queued listeners will get a \code{close} signal.
 }
 \author{
 Peter Meilstrup

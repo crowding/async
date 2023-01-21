@@ -2,6 +2,71 @@
 
 `%is%` <- expect_equal
 
+# Due to passing all the handlers down in named arguments, it's easy
+# to drop one on the floor and forget to pass it along to child
+# functions.  So here's a static check that node constructors pass
+# down all the named args after ... that they receive.
+test_that("package consistency check: passing named handlers", {
+
+  `%--%` <- function(from, to) seq_len(to-from+1) + (from-1)
+
+  find_constructor <- function(expr) {
+    switch(
+      typeof(expr),
+      language={
+        if (is.name(expr[[1]])
+            && as.character(expr[[1]]) == "function") {
+          formals <- expr[[2]]
+          if ("..." %in% names(formals)) {
+            ix <- which(names(formals) == "...")[[1]]
+            handlers <- names(formals)[(ix+1) %--% length(formals)]
+            find_constructor_calls(expr[[3]], handlers)
+          }
+        } else {
+          for (i in as.list(expr)) {
+            if (!missing(i))
+              find_constructor(i)
+          }
+        }
+      },
+      NULL
+    )
+  }
+
+  find_constructor_calls <- function(expr, handlers) {
+    force(expr)
+    switch(
+      typeof(expr),
+      language={
+        isdots <- vapply(expr, identical, FALSE, quote(...))
+        if (any(isdots)) {
+          ix <- which(isdots)[[1]]
+          names <- names(expr[ (ix+1) %--% length(expr) ])
+          missing <- setdiff(handlers, names)
+          if (length(missing) > 0) {
+            stop("handler(s) ", deparse(missing), " missing from call ", deparse(expr))
+          }
+          expect_true(all(handlers %in% names))
+        } else {
+          for (i in as.list(expr)) {
+            if (!missing(i))
+              find_constructor_calls(i, handlers)
+          }
+        }
+      },
+      NULL
+    )
+  }
+
+  env <- getNamespace("async")
+  names <- grep("_cps$", names(env), value=TRUE)
+  for (name in names) {
+    f <- get(paste0(as.character(name, "_cps")), env)
+    find_constructor(body(f))
+  }
+
+})
+
 test_that("eval handler determines R scope,", {
 
   e <- environment()

@@ -4,12 +4,12 @@
 
 mock_channel <- function(...) {
   e <- NULL
-  ch <- channel(function(emit, reject, finish) {
+  ch <- channel(function(emit, reject, close) {
     e <<- environment()
   }, ...)
   ch$emit <- e$emit
   ch$reject <- e$reject
-  ch$finish <- e$finish
+  ch$close <- e$close
   ch
 }
 
@@ -171,7 +171,8 @@ expect_emits <- function(channel, expected, trigger=NULL, test=expect_equal) {
   nonce <- function() NULL
   val <- nonce
   nextThen(channel, onNext=function(value) val <<- value,
-           onFinish=function() stop("Unexpected finish"))
+           onError=function(err) stop(err),
+           onClose=function() stop("Unexpected channel closing"))
   force(trigger)
   wait_for_it()
   if (identical(val, nonce)) stop("Channel did not emit a value")
@@ -185,11 +186,11 @@ expect_channel_rejects <-
   nextThen(channel,
            onNext = function(value) stop("Expected channel error, got value"),
            onError = function(value) val <<- value,
-           onFinish = function() stop("Unexpected finish"))
+           onClose = function() stop("Unexpected finish"))
   force(trigger)
   wait_for_it()
   if (identical(val, nonce)) stop("Channel did not reject")
-  test(val, expected)
+  test(conditionMessage(val), expected)
 }
 
 expect_finishes <-
@@ -198,7 +199,7 @@ expect_finishes <-
     nextThen(channel,
              onNext = function(value) stop("Expected channel finish, got value"),
              onError = function(value) stop(value),
-             onFinish = function() finished <<- TRUE)
+             onClose = function() finished <<- TRUE)
     force(trigger)
     wait_for_it()
     expect_true(finished)

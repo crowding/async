@@ -356,7 +356,7 @@ on.exit_cps <- function(.contextName,
     list(.contextName, cont, registerExit, addExit)
 
     # at construction time, pass the constructor back up to pump --
-    # the current scope handlers don't apply
+    # the current scope's handlers don't apply
     handle <- registerExit(expr)
     add_p <- NULL
     after_p <- NULL
