@@ -1,6 +1,14 @@
 # async 0.3
 
-  * Generators are now displayed with a label corresponding to where in their code they are paused. The function `getNode(g)` queries and computes this label. For example:
+Version 0.3 of `async` contains a number of features, usability and performance improvements.
+
+* Coroutines now support single step debugging. Use `debugAsync(gen, TRUE)` to open a browser at each point the generator reaches and evaluates R expression. Use `debugAsync(gen, internal=TRUE)` to step through at a lower level, inside the `async` package implementation.
+  
+* There is now a delimited `goto` that works inside of `switch` statments.
+
+* Coroutines now support `on.exit` handlers.
+
+ * Generators are now displayed with a label corresponding to where in their code they are paused. The function `getNode(g)` queries and computes this label. For example:
 
 ```
     > g <- gen(for (i in 1:10) {yield(i); if (x %% 2 == 0) yield("odd!") else yield("odd!")})
@@ -23,13 +31,13 @@
     [1] ".for__again"
 ```
 
-  Upon creation the generator is paused at node `".for2.R__eval_"` i.e. the R expression in the second argument of "for"; which in this case is the expression `1:10`. After executing the first yield, the generator shows it is paused at `".for3.{1;__;"`, that is, at the "semicolon" following the first statement in the braces in the third argument of `for`; so the next thing the generator will execute is the subsequent "if" statement. After the next `yield`, the label `".for__again"` shows the generator's next action will be to return to the beginning of the `for` loop.
+To unpack the above, on creation the generator is paused at node `".for2.R__eval_"` i.e. the R expression in the second argument of "for"; which in this case is the expression `1:10`. After executing the first yield, the generator shows it is paused at `".for3.{1;__;"`, that is, at the "semicolon" following the first statement in the braces in the third argument of `for`; so the next thing the generator will execute is the subsequent "if" statement. After the next `yield`, the label `".for__again"` shows the generator's next action will be to return to the beginning of the `for` loop.
 
-* A side benefit of work on a compiler, generators and asyncs can draw a diagram of their structure. `drawGraph(myGen)` collects the graph structure and writes a Graphviz DOT file (which by default would be named `myGen.dot` in the current directory.)  f you have Graphviz installed it will be run to produce a PDF file.
+* Under the hood, the implementation has been refactored with the hope of enabling compilation; the package now includes the back half of a compiler. You can write `gen({...}, compileLevel=-1)`; this will take a bit of CPU time but shouldn't change the functionality eny (makign it faster is the front half of a compiler.
+
+  A side benefit of this is that coroutines can draw a picture of their graph structure,  `drawGraph(myGen)` collects a coroutine's graph structure and writes a Graphviz DOT file (which by default would be named `myGen.dot` in the current directory.)  If the Graphviz `dot` command is visible on your `$PATH` it will be invoked to render a PDF file.
   
-* Generators support single step debugging. Use `debugAsync(gen, TRUE)` to enable debugging at the next point the generator reaches an R expression. set `debugAsync(gen, internal=TRUE)` to debug at a lower level, inside `async` implementation.
-  
-* There is now a delimited `goto` that works inside of `switch` statments.
+* There is now an experimental implementation of `channel` datatype, which is like a combination of an iterator and a promise; a channel represents a sequence of values yet to be determined. An `async` can retrieve values from a channel using `awaitNext` or a `for` loop.
 
 # async 0.2.2
 
