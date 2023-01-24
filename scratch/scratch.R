@@ -188,3 +188,8 @@ as <- async({
     }
     notrun <<- FALSE
 }, compileLevel=-1)
+
+asyncOpts(verbose=TRUE)
+pump(switch_cps("", R("", "three"), four=R("", "wrong")), targetEnv=environment())
+expect_error(, "branch")
+

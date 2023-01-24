@@ -204,3 +204,21 @@ expect_finishes <-
     wait_for_it()
     expect_true(finished)
   }
+
+traceBinding <- function(name, value,
+                         prefix=get(".contextName", envir),
+                         envir=caller()) {
+    makeActiveBinding(
+      name,
+      function(new) if (missing(new)) value else {
+        value <<- new
+        tryCatch(
+        {
+          if(verbose) trace_(paste0(prefix, ": ", name, " <- ", as.character(new), "\n"))
+        },
+          error=function(err) {print(err); browser()}
+        )
+        value
+      },
+      envir)
+}

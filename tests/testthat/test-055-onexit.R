@@ -78,9 +78,7 @@ test_that("on.exit in async; can override", {
 
   expect_rejects_with(as, "changed my mind.", p$resolve("happy"))
 
-  # this works but the verbose traceback has me doing runExits twice...
   p <- mock_promise()
-  #asyncOpts(verbose=TRUE)
   debugAsync(as, internal=FALSE)
   as <- async({
     on.exit({
@@ -89,6 +87,18 @@ test_that("on.exit in async; can override", {
     await(p) + (s0me+n0nsense)
   })
   expect_resolves_with(as, "actually happy!", p$resolve("sad"))
+
+  # can also await in on.exit, but this propagates the error.
+  p <- mock_promise()
+  q <- mock_promise()
+  as <- async({
+    on.exit({
+      paste0(await(q), "what?!")
+    })
+    await(p) + (s0me+n0nsense)
+  })
+  p$resolve("hello")
+  expect_rejects_with(as, "s0me", q$resolve("wait"))
 
 })
 
@@ -111,7 +121,7 @@ test_that("extremely bananas: simultaneously errors and returns", {
   g %is% "5!"
 
   # Can "run" replicate this?
-  # FIXME: if you turn on the verbose it looks like it tries to exit twice?
+  g <- NULL
   expect_error(g <- run({
     on.exit({return(5)})
     for (i in 1:3) i
@@ -135,7 +145,7 @@ test_that("extremely bananas: simultaneously errors and returns", {
   # an error made its way to the top, and yet,
   x %is% "done!"
   # this kinda wrecks my mental model of R error handling tbh.
-  # the fact that it _also_ works if a generator is bananas.
-  expect_error(nextElemOr(g, NULL), "swallowed")
+  # the fact that it _also_ works in a generator is bananas.
+  expect_error(nextElemOr(g, NULL), "swallow")
 
 })
