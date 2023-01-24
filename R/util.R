@@ -193,17 +193,16 @@ expect_channel_rejects <-
   test(conditionMessage(val), expected)
 }
 
-expect_finishes <-
-  function(channel, trigger=NULL) {
-    finished <- FALSE
-    nextThen(channel,
-             onNext = function(value) stop("Expected channel finish, got value"),
-             onError = function(value) stop(value),
-             onClose = function() finished <<- TRUE)
-    force(trigger)
-    wait_for_it()
-    expect_true(finished)
-  }
+expect_channel_closes <- function(channel, trigger=NULL) {
+  finished <- FALSE
+  nextThen(channel,
+           onNext = function(value) stop("Expected channel finish, got value"),
+           onError = function(value) stop(value),
+           onClose = function() finished <<- TRUE)
+  force(trigger)
+  wait_for_it()
+  expect_true(finished)
+}
 
 traceBinding <- function(name, value,
                          prefix=get(".contextName", envir),

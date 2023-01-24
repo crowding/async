@@ -10,9 +10,10 @@ awaitNext(strm, or, error)
 \item{strm}{A \link{channel} or \link{stream} object.}
 
 \item{or}{This argument will be evaluated and returned in the case
-the channel closes or the stream closees normally.}
+the channel closes. If not specified, awaiting on a closed stream
+will throw an error with message "StopIteration".}
 
-\item{error}{Optional; a handler function to call in case of error.}
+\item{error}{Provide a function here to handle an error.}
 }
 \value{
 In the context of an \code{async} or \code{stream}, \code{awaitNext(x)}
@@ -20,5 +21,7 @@ returns the resolved value of a promise \code{x}, or stops with an
 error.
 }
 \description{
-\code{awaitNext} must be used within an \link{async} or \link{stream} coroutine.
+\code{awaitNext} can be used within an \link{async} or \link{stream} coroutine.
+When reached, the routine will recister to receive the next element
+from an async or a coroutine object.
 }

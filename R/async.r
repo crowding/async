@@ -104,9 +104,9 @@ await <- function(prom) {
 }
 
 await_cps <- function(.contextName, prom) { force(prom)
-  function(cont, ..., await, pause, stp, trace) {
+  function(cont, ..., await, stp, trace) {
     if (missing(await)) stop("await used, but this is not an async")
-    list(cont, await, pause, stp, trace)
+    list(cont, await, stp, trace)
     promis <- NULL
     success <- NULL
     value <- NULL
@@ -114,15 +114,12 @@ await_cps <- function(.contextName, prom) { force(prom)
       trace("await: resolve\n")
       if(success) cont(value) else stp(value)
     }
-    awaited %<-% function() {
-      pause(then)
-    }
     await_ %<-% function(val) {
       val <- promises::as.promise(val)
       promis <<- val
       trace("await: got promise\n")
       success <<- NULL
-      await(awaited,
+      await(then,
             promis,
             function(val) {success <<- TRUE; promis <<- NULL; value <<- val},
             function(err) {success <<- FALSE; promis <<- NULL; value <<- err})
@@ -135,6 +132,7 @@ await_cps <- function(.contextName, prom) { force(prom)
 make_async <- function(expr, orig=expr, ..., compileLevel=0, trace=trace_, targetEnv) {
   list(orig, expr, ..., trace)
   .contextName <- "async"
+  pause <- NULL
 
   nonce <- (function() function() NULL)()
   state <- "pending" #print method uses this
@@ -172,12 +170,16 @@ make_async <- function(expr, orig=expr, ..., compileLevel=0, trace=trace_, targe
   pr <- add_class(promise(function(resolve, reject) {
     resolve_ <<- resolve
     reject_ <<- reject
-  }), "async")
+  }), "async", "coroutine")
 
   pump <- make_pump(expr, ...,
                     rtn=resolve, stp=reject, await=await_,
                     awaitNext=awaitNext_, trace=trace,
                     targetEnv=targetEnv)
+
+  pause <- environment(pump)$pause_
+  bounce <- environment(pump)$bounce_
+
   pr$orig <- orig
   pr$state <- environment()
   if (compileLevel != 0) {
@@ -190,61 +192,86 @@ make_async <- function(expr, orig=expr, ..., compileLevel=0, trace=trace_, targe
 # shared with both async and stream
 await_handlers <- quote({
   awaiting <- nonce
+  await_state <- "xxx"
+
+  check_wake %<-% function()
+    switch(await_state,
+           "awaiting"={
+             trace("await: got callback while still running\n")
+             # pump is still running, awaitNext_cps should
+             # also catch this and simply not pause
+             await_state <<- "xxx"
+           },
+           "awaited"={
+             trace("await: waking up\n")
+             await_state <<- "xxx"
+             pump()
+           }
+           )
 
   await_ %<-% function(cont, promise, success, failure) {
     list(promise, success, failure)
+
     succ <- function(val) {
       trace("await: success\n")
       awaiting <<- NULL
       success(val)
-      pump()
+      check_wake()
     }
     fail <- function(val) {
       trace("await: fail\n")
       awaiting <<- NULL
       failure(val)
-      pump()
+      check_wake()
     }
     awaiting <<- promise
+    await_state <<- "awaiting"
     promises::then(promise, succ, fail)
     trace("await: registered\n")
-    cont()
+    await_state <<- "awaited"
+    if (is.null(awaiting))
+      bounce(cont) else pause(cont)
   }
 
   awaitNext_ %<-% function(cont, strm, success, error, finish) {
     list(strm, success, error, finish)
     succ <- function(val) {
-      trace("awaitNext: got value")
+      trace("awaitNext: got value\n")
       awaiting <<- NULL
       success(val)
-      pump()
+      check_wake()
     }
     err <- function(val) {
       trace("awaitNext: stream error")
       awaiting <<- NULL
       error(val)
-      pump()
+      check_wake()
     }
     fin <- function() {
-      trace("awaitNext: stream finished")
+      trace("awaitNext: stream finished\n")
       awaiting <<- NULL
       finish()
-      pump()
+      check_wake()
     }
+    await_state <<- "awaiting"
     awaiting <<- strm
     nextThen(strm, succ, err, fin)
-    cont()
+    await_state <<- "awaited"
+    if (is.null(awaiting))
+      bounce(cont) else pause(cont)
   }
 })
 
+getPump.async <- function(x) x$state$pump
+
 #' @exportS3Method
-getEntry.async <- function(x) environment(x$state$pump)$entry
+getEntry.async <- function(x) environment(getPump(x))$entry
 #' @exportS3Method
 getReturn.async <- function(x) x$state$resolve
 #' @exportS3Method
 getStop.async <- function(x) x$state$reject
 #' @exportS3Method
-getCurrent.async <- function(x) environment(x$state$pump)$cont
+getCurrent.async <- function(x) environment(getPump())$cont
 #' @exportS3Method
 getOrig.async <- function(x) x$orig
 #' @exportS3Method
@@ -263,26 +290,14 @@ getStartSet.async <- function(x) {
 
 #' @exportS3Method
 #' @rdname format
-getNode.async <- function(x, ...) {
-  environment(get("pump", environment(x$state$pump)))$getCont()
-}
-
-#' @exportS3Method
-debugAsync.async <- function(x, R=current$R, internal=current$internal) {
-  set <- environment(get("pump", x$state))$setDebug
-  current <- set()
-  set(R, internal)
-}
-
-#' @export
-print.async <- function(x, ...) {
-  cat(format(x, ...), sep="\n")
+getNode.coroutine <- function(x, ...) {
+  environment(getPump(x))$getCont()
 }
 
 #' @rdname format
 #' @exportS3Method
 format.async <- function(x, ...) {
-  envir <- environment(x$state$pump)
+  envir <- environment(getPump(x))
   code <- getOrig(x)
   a <- deparse(call("async", code), backtick=TRUE)
   b <- format(envir, ...)
@@ -319,7 +334,7 @@ compile.async <- function(x, level) {
         then(x, \(val){stop("Result went to the wrong promise!")},
                 \(err){stop("Error went to the wrong promise!")})
         munged$replace(resolve, reject)
-      }), "async")
+      }), "async", "coroutine")
       pr$orig <- x$orig
       pr$state <- munged
       if (paranoid) {

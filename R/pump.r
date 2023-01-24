@@ -132,7 +132,7 @@ make_pump <- function(expr, ...,
   }
 
   exit_list <- list()
-  if(verbose) traceBinding("after_exit", "xxx")
+  if(verbose) traceBinding("after_exit", NULL)
   after_exit <- "xxx"
 
   addExit %<-% function(cont, handle, add, after) {

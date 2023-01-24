@@ -218,8 +218,7 @@ channel <- function(impl, max_queue=500L, max_awaiting=500L,
   nextThen <- function(onNext,
                        onError=function(err)
                          warning("Unhandled promise_iter error ", err),
-                       onClose=function() NULL) {
-    if (!state %in% c("running", "error")) stop("Channel is no longer operating")
+                       onClose) {
     if (awaiting$length() > max_awaiting) stop("Channel has too many listeners")
     awaiting$append(list(resolve=onNext, reject=onError, close=onClose))
     send()

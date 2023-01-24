@@ -519,11 +519,11 @@ while_cps <- function(.contextName, cond, expr) {
 #' @import iterators
 for_cps <- function(.contextName, var, seq, expr) {
   list(.contextName, var, seq, expr)
-  function(cont, ..., pause, bounce, bounce_val, nxt, brk, awaitNext, sto, stp, trace=trace_) {
+  function(cont, ..., bounce, bounce_val, nxt, brk, awaitNext, sto, stp, trace=trace_) {
     list(cont, bounce, bounce_val, maybe(nxt), maybe(brk), maybe(awaitNext), trace)
     #quote the LHS at construction time
     var_ <- var(cont, ..., bounce=bounce, bounce_val=bounce_val,
-                sto=sto, stp=stp, trace=trace, pause=pause, nxt=nxt,
+                sto=sto, stp=stp, trace=trace, nxt=nxt,
                 brk=brk, awaitNext=awaitNext) #not our brk/nxt
     if (!is_R(var_)) stop("Unexpected stuff in for() loop variable")
     var_ <- R_expr(var_)
@@ -551,7 +551,7 @@ for_cps <- function(.contextName, var, seq, expr) {
       }
     }
 
-    body <- expr(nxt_, ..., bounce=bounce, pause=pause,
+    body <- expr(nxt_, ..., bounce=bounce,
                  bounce_val=bounce_val, nxt=nxt_, brk=brk_,
                  sto=sto, stp=stp, trace=trace, awaitNext=awaitNext) # our brk_
 
@@ -566,12 +566,9 @@ for_cps <- function(.contextName, var, seq, expr) {
              "closed"={state <<- "xxx"; cont(invisible(NULL))},
              stp(simpleError(paste0("awaitNext: unexpected state ", state))))
     }
-    awaited %<-% function(val) {
-      pause(received)
-    }
     await_ %<-% function() {
       trace(paste0("for ", var_, ": awaiting\n"))
-      awaitNext(awaited, seq_,
+      awaitNext(received, seq_,
                 function(val) {state <<- "success"; value <<- val},
                 function(err) {state <<- "error"; value <<- err},
                 function() {state <<- "closed"; value <<- NULL})
@@ -605,7 +602,7 @@ for_cps <- function(.contextName, var, seq, expr) {
         }
       }
     }
-    getSeq <- seq(for_, ..., pause=pause, bounce=bounce, bounce_val=bounce_val,
+    getSeq <- seq(for_, ..., bounce=bounce, bounce_val=bounce_val,
                   nxt=nxt, brk=brk, sto=sto, stp=stp, trace=trace, #not our brk
                   awaitNext=awaitNext)
   }

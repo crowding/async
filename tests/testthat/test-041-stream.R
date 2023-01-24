@@ -103,7 +103,7 @@ test_that("channel", {
   mc <- mock_channel(wakeup = function(x) wakeups <<- wakeups + 1)
   expect_emits(mc, "c", mc$emit("c"))
   wakeups %is% 1
-  expect_finishes(mc, mc$close())
+  expect_channel_closes(mc, mc$close())
   wakeups %is% 2
 
 })
@@ -187,5 +187,94 @@ test_that("async awaitNext handles channel error", {
   })
   ch$emit(10)
   expect_resolves_with(as, c("finally", "10"), ch$reject("ASDFGHJK"))
+
+})
+
+
+test_that("stream: can await and yield", {
+
+  p1 <- mock_promise()
+  p2 <- mock_promise()
+  st <- stream({
+    x <- await(p1)
+    yield(x)
+    x <- await(p2) + x
+    yield(x)
+  })
+  p3 <- nextElem(st)
+  p4 <- nextElem(st)
+  p1$resolve(10)
+  p2$resolve(15)
+  expect_resolves_with(p3, 10, p1$resolve(10))
+  expect_resolves_with(p4, 25, p2$resolve(15))
+  expect_channel_closes(st, NULL)
+
+})
+
+test_that("lazy vs eager streams", {
+
+#  asyncOpts(verbose=TRUE)
+  ch2 <- mock_channel()
+  ct2 <- 0
+  running <- FALSE
+  lazy <- stream(lazy=TRUE, {
+    running <<- TRUE
+    on.exit(running <<- FALSE)
+    for (i in ch2) {
+      yield(2*i)
+      ct2 <<- ct2 + 1
+    }
+  })
+  running %is% FALSE
+  pr <- nextElem(lazy)
+  wait_for_it()
+  running %is% TRUE
+  expect_resolves_with(pr, 24, ch2$emit(12))
+  ct2 %is% 0
+  pr <- nextElem(lazy)
+  wait_for_it()
+  ct2 %is% 1
+  ch2$emit(18)
+  wait_for_it()
+  ct2 %is% 1
+  expect_resolves_with(pr, 36, NULL)
+  ct2 %is% 1
+  expect_emits(lazy, 10, ch2$emit(5))
+  ct2 %is% 2
+  ch2$close()
+  running %is% TRUE
+  expect_channel_closes(lazy)
+  running %is% FALSE
+
+  ch1 <- mock_channel()
+  ct1 <- 0
+  running <- FALSE
+  eager <- stream(lazy=FALSE, {
+    running <<- TRUE
+    on.exit(running <<- FALSE)
+    for (i in ch1) {
+      yield(2*i)
+      ct1 <<- ct1 + 1
+    }
+  })
+
+  running %is% TRUE
+  pr <- nextElem(eager)
+  wait_for_it()
+  expect_resolves_with(pr, 24, ch1$emit(12))
+  ct1 %is% 1
+  pr <- nextElem(eager)
+  wait_for_it()
+  ct1 %is% 1
+  ch1$emit(18)
+  wait_for_it()
+  ct1 %is% 2
+  expect_resolves_with(pr, 36, NULL)
+  ct1 %is% 2
+  expect_emits(eager, 10, ch1$emit(5))
+  ct1 %is% 3
+  ch1$close()
+  running %is% FALSE
+  expect_channel_closes(eager)
 
 })

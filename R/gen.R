@@ -234,7 +234,7 @@ make_generator <- function(expr, orig=arg(expr), ..., trace=trace_) {
                     stp=stop_, yield=yield_, rtn=return_)
   pause_val <- get("pause_val_", envir=environment(pump))
 
-  g <- add_class(iteror(nextElemOr_), "generator")
+  g <- add_class(iteror(nextElemOr_), "generator", "coroutine")
   g
 }
 
@@ -297,7 +297,7 @@ compile.generator <- function(x, level) {
     }
     # create a new iteror with this munged generator's nextElemOr.
     if (level <= -1) {
-      new <- add_class(iteror(munged$nextElemOr_), c("generator"))
+      new <- add_class(iteror(munged$nextElemOr_), "generator", "coroutine")
       if (paranoid) { # enabled in unit tests
         expect_properly_munged(graph, new)
       }
@@ -309,7 +309,7 @@ compile.generator <- function(x, level) {
 }
 
 #' @export
-print.generator <- function(x, ...) {
+print.coroutine <- function(x, ...) {
   cat(format(x, ...), sep="\n")
 }
 
@@ -325,6 +325,9 @@ getState.generator <- function(x, ...) {
   environment(x$nextElemOr)$getState()
 }
 
+getPump <- function(x) UseMethod("getPump")
+getPump.generator <- function(x) get("pump", environment(x$nextElemOr))
+
 #' @export
 #' @rdname format
 getNode <- function(x, ...) {
@@ -334,7 +337,7 @@ getNode <- function(x, ...) {
 #' @exportS3Method
 #' @rdname format
 getNode.generator <- function(x, ...) {
-  environment(get("pump", environment(x$nextElemOr)))$getCont()
+  environment(getPump(x))$getCont()
 }
 
 #' Query / display coroutine properties and state.
@@ -351,9 +354,15 @@ getNode.generator <- function(x, ...) {
 #' `getState.async` might return "running", "awaiting", "resolved" or
 #' "rejected".
 #'
-#' `getNode` returns a string indicating where a coroutine's
-#' execution is paused. The string is constructed according to the
-#' parse tree of the coroutine expression.
+#' `getState.stream` might return "running", "awaiting", "yielding",
+#' "yielded", "resolved" or "rejected".
+#'
+#' `getNode` returns a string identifier indicating where a
+#' coroutine's execution was last paused. The string is like an
+#' adsress pointing to a spot in the orginal expression's parse tree;
+#' a string like `.{1.<-2.await__then` can be read like
+#' "in the first argument of `{`, in the second argument of `<-`, in a
+#' call to await(), at internal node `then`."
 #'
 #' `getOrig` returns the original expression given to the generator
 #' constructor.
@@ -380,9 +389,8 @@ debugAsync <- function(x, internal=FALSE) {
 }
 
 #' @exportS3Method
-debugAsync.generator <- function(x, R=current$R, internal=current$internal) {
-  sd <- get("setDebug", envir = environment(
-    get("pump", envir = environment(g$nextElemOr))))
+debugAsync.coroutine <- function(x, R=current$R, internal=current$internal) {
+  sd <- get("setDebug", envir = environment(getPump(x)))
   current <- sd()
   sd(R, internal)
 }
