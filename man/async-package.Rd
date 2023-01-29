@@ -4,22 +4,27 @@
 \alias{async-package}
 \title{The async package.}
 \description{
-The \code{async} package allows you to write sequential-looking code that can
-pause, return control to R, then pick up where it left off.
-Async constructs include generators and async/await blocks.
+The \code{async} package allows you to write sequential-looking code
+that can pause, return control to R, then pick up where it left
+off.  Async constructs include generators, async/await blocks, and
+streams (experimental as of async 0.3)
 }
 \details{
 A generator runs until it yields a value and then stops, returning
 control to R until another value is requested. An async block can
 pause and return control to R until some data is available, then
-resume. Generators implement the \link[iterators:iterators-package]{iterator}
-interface, while async blocks implement the \link[promises:promise]{promise}
-interface.
+resume. Generators implement the \link{iteror} interface (which is
+back-compatible with \link[iterators:iterators-package]{iterator}
+package.) Async blocks implement the \link[promises:promise]{promise}
+interface. The new \link{stream} construct implements the \link{channel}
+interface, which is defined in this package.
 \itemize{
 \item \code{\link[=gen]{gen(...)}} creates a generator (an iterator); within a generator use
 \code{\link[=yield]{yield(x)}} to return a value.
 \item \code{\link[=async]{async(...)}} creates an async block (a promise); within the \code{async}
 write \code{\link[=await]{await(x)}} to pause on \code{x} (another promise).
+\item \code{\link[=stream]{stream(...)}} creates a stream (an asynchronous iterator or
+\link{channel}); in writing a \code{stream} you can use both \code{await} and \code{yield}.)
 }
 }
 \author{

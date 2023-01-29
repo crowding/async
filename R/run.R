@@ -9,21 +9,20 @@
 #' collect all the values passed to yield() and return a list. If the
 #' expression contains a `yield()` but it is never called, `run()`
 #' returns an empty list. If the expression does not contain a `yield`
-#' at all, `run` returns the expressions' final value.
+#' at all, `run` returns the expression's final return value.
 #'
 #' `run(expr)` is similar to `as.list(gen(expr))`, except `run(expr)`
 #' evaluates its expression directly in the calling environment, while
 #' `gen` creates a new enclosed environment to run in.
 #'
-#' `run` is useful if you want to take advantage of a generator
-#' expression's extensions, such as using `for` loops over iterators,
-#' or using [goto()] in `switch` statements, in otherwise synchronous
-#' code. If you want to collect a variable-length sequence of values
-#' but don't need those features, using [collect] directly will be
-#' more efficient.
+#' `run` is useful if you want to take advantage of coroutine language
+#' extensions, such as using `for` loops over iterators, or using
+#' [goto()] in `switch` statements, in otherwise synchronous code. If
+#' you want to collect a variable-length sequence of values but don't
+#' need those features, using [collect] directly will be faster.
 #'
 #' @examples
-#' run(for (i in iseq(2, 5, Inf)) if (i %% 37 == 0 break) else yield(i)))
+#' run(type=0,for (i in iseq(2, Inf, by=5)) if (i %% 37 == 0) break else yield(i))
 #'
 #' @param expr A generator expression, same as you would write in
 #'   [gen]().

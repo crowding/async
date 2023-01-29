@@ -45,20 +45,19 @@ If the expression contains any calls to \code{yield()}, \code{run()} will
 collect all the values passed to yield() and return a list. If the
 expression contains a \code{yield()} but it is never called, \code{run()}
 returns an empty list. If the expression does not contain a \code{yield}
-at all, \code{run} returns the expressions' final value.
+at all, \code{run} returns the expression's final return value.
 
 \code{run(expr)} is similar to \code{as.list(gen(expr))}, except \code{run(expr)}
 evaluates its expression directly in the calling environment, while
 \code{gen} creates a new enclosed environment to run in.
 
-\code{run} is useful if you want to take advantage of a generator
-expression's extensions, such as using \code{for} loops over iterators,
-or using \code{\link[=goto]{goto()}} in \code{switch} statements, in otherwise synchronous
-code. If you want to collect a variable-length sequence of values
-but don't need those features, using \link{collect} directly will be
-more efficient.
+\code{run} is useful if you want to take advantage of coroutine language
+extensions, such as using \code{for} loops over iterators, or using
+\code{\link[=goto]{goto()}} in \code{switch} statements, in otherwise synchronous code. If
+you want to collect a variable-length sequence of values but don't
+need those features, using \link{collect} directly will be faster.
 }
 \examples{
-run(for (i in iseq(2, 5, Inf)) if (i \%\% 37 == 0 break) else yield(i)))
+run(type=0,for (i in iseq(2, Inf, by=5)) if (i \%\% 37 == 0) break else yield(i))
 
 }

@@ -253,6 +253,25 @@ format.channel <- function(x, ...) {
   x$formatChannel(...)
 }
 
+#' Receive values from channels by callback.
+#'
+#' `nextThen` is the callback-oriented interface to work with
+#' channels.  Provide three callback functions to receive the next
+#' element, error, and channel closing; these callbacks will be stored
+#' in a queue and called when values are available.
+#'
+#' `subscribe` is similar to nextThen except that its `onNext` will be
+#' called for each value the channel emits. It is simply implemented
+#' in terms of nextThen, with a callback that re-registers itself.
+#'
+#' @param x A [channel] object
+#' @param onNext For [nextThen], a function to be called with the next
+#'   emitted value. For [subscribe], a function to be called with each
+#'   emitted value until the stream finishes.
+#' @param onError Function to be called if channel stops with an
+#'   error.
+#' @param onClose Function to be called if the channel finishes normally.
+#' @param ... Undocumented.
 #' @export
 nextThen <- function(x, onNext, onError, onClose, ...) {
   UseMethod("nextThen")
@@ -283,4 +302,60 @@ is.channel.channel <- function(x, ...) {
 #' @exportS3Method is.channel default
 is.channel.default <- function(x, ...) {
   FALSE
+}
+
+
+#' @export
+#' @rdname nextThen
+subscribe <- function(x, ...) UseMethod("subscribe")
+
+#' @exportS3Method
+subscribe.channel <- function(x, onNext, onError, onClose, ...) {
+  list(onNext, onError, onClose)
+  myNext <- function(value) {
+    onNext(value)
+    nextThen(x, myNext, onError, onClose)
+  }
+  nextThen(x, myNext, onError, onClose)
+}
+
+#' Combine several channels into one.
+#'
+#' `combine(...)` takes any number of [promise] or [channel]
+#' objects. It awaits each one, and returns a [channel] object
+#' which re-emits every value from its target promises, in whatever
+#' order they are received.
+#' @param ... Each argument should be a [promise] or a [channel].
+#' @return a [channel] object.
+#' @author Peter Meilstrup
+combine <- function(...) {
+  args <- list(...)
+  channel(\(emit, reject, close) {
+    remaining <- 0
+    running <- FALSE
+    decrement <- function(){
+      remaining <<- remaining-1
+      if (running && remaining == 0){
+        running <<- FALSE; close()
+      }
+    }
+    for (arg in args) {
+      if (is.channel(arg)) {
+        remaining <- remaining + 1
+        subscribe(arg,
+                  emit,
+                  reject,
+                  decrement)
+      } else if (is.promise(arg)) {
+        remaining <- remaining + 1
+        then(arg,
+             \(val) {emit(val); decrement()},
+             reject)
+      } else {
+        stop("Arguments to combine() should be promises or channels")
+      }
+    }
+    if (remaining == 0) close()
+    else running <- TRUE
+  })
 }

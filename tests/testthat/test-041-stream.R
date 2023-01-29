@@ -278,3 +278,24 @@ test_that("lazy vs eager streams", {
   expect_channel_closes(eager)
 
 })
+
+test_that("collecting channel", {
+  st <- stream(for (i in 1:10) yield(i))
+  expect_resolves_with(collect.channel(st), as.list(1:10))
+))
+
+test_that("combining channels", {
+
+  pr1 <- mock_promise()
+  ch1 <- mock_channel()
+  pr2 <- mock_promise()
+
+  out <- combine(pr1,ch1,pr2)
+
+  expect_emits(out, "foo", pr1$resolve("foo"))
+  expect_emits(out, "bar", ch1$emit("bar"))
+  expect_emits(out, "baz", ch1$emit("baz"))
+  expect_emits(out, "qux", pr2$resolve("qux"))
+  expect_channel_closes(out, ch1$close())
+
+}

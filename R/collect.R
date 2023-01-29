@@ -141,61 +141,19 @@ collector <- function(fn, type=list()) {
   fn(yield, extract)
 }
 
-
-collect.channel <- function(st, type=list()) {
+#' Collect all values emitted by a channel.
+#'
+#' `collect.channel` is analagous to `as.list.iteror`; it takes in a
+#' channel and returns a promise. When the channel closes, the promise
+#' will resolve with a vector containing all items returned by the channel.
+#' @export
+#' @param ch a [channel] object.
+#' @param type Optionally provide a vector of the desired output type
+#'        (similarly to using `vapply`); defaults to `list()`
+collect.channel <- function(ch, type=list()) {
   promise(\(resolve, reject) {
     collector(type=type, \(yield, extract) {
-      again <- \() nextThen(st, onNext, reject, onClose)
-      onNext <- \(val) {yield(val); again()}
-      onClose <- \() resolve(extract(TRUE))
-      again()
+      subscribe(ch, yield, reject, \() resolve(extract(TRUE)))
     })
-  })
-}
-
-#' Combine several channels into one.
-#'
-#' `combine(...)` takes any number of [promise] or [channel]
-#' objects. It awaits each one, and returns a [channel] object
-#' which re-emits every value from its target promises, in whatever
-#' order they are received.
-#' @param ... Each argument should be a [promise] or a [channel].
-#' @return a [channel] object.
-#' @author Peter Meilstrup
-combine <- function(...) {
-  args <- list(...)
-  channel(\(emit, reject, close) {
-    remaining <- 0
-    running <- FALSE
-    decrement <- function(){
-      remaining <<- remaining-1
-      if (running && remaining == 0){
-        running <<- FALSE; close()
-      }
-    }
-    consume <- function(ch) {
-      force(ch)
-      doAwait <- function() {
-        nextThen(ch,
-                 \(val) {emit(val); doAwait()},
-                 \(err) reject(err),
-                 decrement)
-      }
-      doAwait()
-    }
-    for (i in args) {
-      if (is.channel(arg)) {
-        consume(ch)
-      } else if (is.promise(i)) {
-        remaining <- remaining + 1
-        then(i,
-             \(val) {emit(val); decrement()},
-             \(err) reject(err))
-      } else {
-        stop("Arguments to combine() should be promises or channels")
-      }
-    }
-    if (remaining == 0) close()
-    else running <- TRUE
   })
 }

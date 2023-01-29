@@ -2,7 +2,8 @@
 % Please edit documentation in R/async-description.R
 \name{asyncOpts}
 \alias{asyncOpts}
-\title{Get or set global options for the async package.}
+\title{Get or set global options for the async package. These options are
+mostly used in package development or unit testing.}
 \usage{
 asyncOpts(
   verbose = get("verbose", parent.env(environment())),
@@ -12,21 +13,23 @@ asyncOpts(
 )
 }
 \arguments{
-\item{verbose}{If TRUE, coroutines will print an extremely chatty
-play-by-play of the steps they are taking.}
+\item{verbose}{if TRUE, coroutines will print an extremely chatty
+play-by-play of what they are doing.}
 
-\item{compileLevel}{Default compile level for new generators. See \url{gen}.}
+\item{compileLevel}{Default compile level for new generators. See
+\url{gen}.}
 
-\item{paranoid}{if TRUE, perform verious integrity checks on the
-result of compilation. Meant to be enabled during testing.}
+\item{paranoid}{if TRUE, perform various time-consuming integrity
+checks on the result of compilation. Meant to be enabled during
+testing.}
 
-\item{destructive}{if TRUE, tear down interpreted coroutines while
-compiling them.}
+\item{destructive}{defaults TRUE: tear down interpreted coroutines
+while building compiled replacements. Used in package debugging.}
 }
 \value{
 a list containing the current settings.
 }
 \description{
-If new settings are provided in arguments they take effect for any new
-generators or asyncs created.
+If new settings are provided in arguments they take effect for any
+new generators or asyncs created.
 }

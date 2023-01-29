@@ -202,10 +202,9 @@ asyncOpts(paranoid=FALSE, verbose=TRUE)
 
 st <- stream(for (i in 1:10) {
   await(delay(1)); print(i); yield(i)
-}, compileLevel=0, lazy=FALSE)
+}, lazy=FALSE)
 
-st <- stream(for (i in 1:10) yield(i))
 
-x <- collect.channel(st)
+
 
 st <- stream(for (i in 1:10) {await(delay(1)); print(i); yield(i)}, compileLevel=-1, lazy=TRUE)
