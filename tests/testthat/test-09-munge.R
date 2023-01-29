@@ -7,7 +7,7 @@ before_and_after <- function(expr, and_then, ...) {
 
 test_that("can compile generator and print it", {
   g <- gen(for (i in 1:10) yield(i))
-  gc <- async:::compile(g, level=-1)
+  gc <- compile(g, level=-1)
   expect_output(print(gc))
 })
 
@@ -66,6 +66,11 @@ test_that("can compile and print async", {
   p <- mock_promise()
   a <- async(await(p) + 1, compileLevel=-1)
   expect_output(print(a))
+})
+
+test_that("can compile and print stream", {
+  sc <- stream(for (i in 1:10) {await(delay(1)); print(i); yield(i)}, compileLevel=-1, lazy=TRUE)
+  expect_output(print(sc))
 })
 
 test_that("munged async with a try/finally", {

@@ -69,13 +69,11 @@ test_that("on.exit in async; can override", {
   })
   expect_resolves_with(as, "changed my mind!", p$reject("sad"))
 
-  # this doesn't work in compiled.
   p <- mock_promise()
   as <- async({
     on.exit(stop("changed my mind."))
     await(p)
   }, compileLevel=-1)
-
   expect_rejects_with(as, "changed my mind.", p$resolve("happy"))
 
   p <- mock_promise()

@@ -12,7 +12,7 @@ unname <- function(x) `names<-`(x, NULL)
 
 by_class <- function(vec) {
   out <- list()
-  for (class in unique(names(vec))) {
+  for (class in sort(unique(names(vec)))) {
     out[[class]] <- unname(vec[names(vec) == class])
   }
   out
@@ -21,7 +21,7 @@ by_class <- function(vec) {
 contains <- function(env, candidate, cmp=identical) {
   # FIXME: this should be a hashset or something?
   # maybe make something like memo::pointer_key(identity, list)("two")
-  for (key in names(env)) {
+  for (key in sort(names(env))) {
     if (key == "...") next
     if (is_forced_(key, env))
       if (cmp(candidate, env[[key]]))
@@ -221,7 +221,7 @@ walk <- function(gen, forGraph=FALSE) {
     contextNodes[[contextName]][[thisNodeName]] <- thisNodeName
   }
   trace_("Analyzing contexts:\n")
-  for (contextName in names(contexts)) {
+  for (contextName in sort(names(contexts))) {
     trace_(paste0("  Context: ", contextName, "\n"))
     # gather all nonlocal names used across this context
     for (kind in c("read", "store", "util", "call", "tail", "tramp", "hand")) {
@@ -230,11 +230,11 @@ walk <- function(gen, forGraph=FALSE) {
     }
     context <- contexts[[contextName]]
     stores <- contextProperties[[contextName]][["store"]]
-    for (thisNodeName in names(contextNodes[[contextName]])) {
+    for (thisNodeName in sort(names(contextNodes[[contextName]]))) {
       # does the node have a local name in its context?
       nodeProperties[[thisNodeName]][["localName"]] <- character(0)
       thisNode <- nodes[[thisNodeName]]
-      for (nm in names(context)) {
+      for (nm in sort(names(context))) {
         if (nm %in% stores) next # a state pointer isn't a stable name
         #watch out for unforced args like ifnotfound=stop("Not found")
         if (nm != "..." && is_forced_(nm, context)) {

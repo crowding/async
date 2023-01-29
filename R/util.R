@@ -51,6 +51,7 @@ expect_properly_munged <- function(graph, gc) {
   expect_edges_isomorphic(graph, graphc)
 }
 
+
 expect_only_one_context <- function(graphc) {
   # Walking gc should have only picked up one context
   expect_equal(length(graphc$contexts), 1)
@@ -68,8 +69,8 @@ expect_state_pointers_closed <- function(graphc) {
   # in the same context.
   con <- names(graphc$contexts)
   env <- as.list(graphc$contexts, all.names=TRUE)[[1]]
-  for (var in unique(c(graphc$contextProperties[[con]][["read"]],
-                       graphc$contextProperties[[con]][["store"]]))) {
+  for (var in sort(unique(c(graphc$contextProperties[[con]][["read"]],
+                       graphc$contextProperties[[con]][["store"]])))) {
     val <- graphc$contexts[[con]][[var]]
     if (is.function(val) && !is.quotation(val) && !is.null(body(val))) {
       #is it tailcalled?
@@ -77,12 +78,21 @@ expect_state_pointers_closed <- function(graphc) {
         expect_identical(environment(val), env)
       } else {
         if (!is_child_of(environment(val), env)) {
-#          cat("a non-tailcall, ", var, ", \n") #Hmm.
+          # cat("a non-tailcall, ", var, ", \n") #Hmm.
           # Functions that have been munged/translated, as well as
           # functions that should not be translated, should not
           # be under the async package namespace.
+          # Unless they should, because they are callbacks to a
+          # stream constructor, which _is_ under async, but it
+          # should not have a visible .contextName
+          expect_false(exists(".contextName", environment(val), inherits=TRUE))
           e <- environment(graphc$contexts[[con]][[var]])
-          expect_false(is_child_of(e, getNamespace("async")))
+          expect_false(exists(".contextName", e, inherits=TRUE))
+          expect_false(exists(".packageName", e, inherits=FALSE))
+          expect_false(exists(".__NAMESPACE__.", e, inherits=FALSE))
+          # actually this happens now, because `channel` is in async
+          # and the channel callbacks are replaceable vars:
+          #expect_false(is_child_of(e, getNamespace("async")))
         }
       }
     }

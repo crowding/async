@@ -11,7 +11,7 @@ awaitNext(strm, or, error)
 
 \item{or}{This argument will be evaluated and returned in the case
 the channel closes. If not specified, awaiting on a closed stream
-will throw an error with message "StopIteration".}
+will raise an error with message "StopIteration".}
 
 \item{error}{Provide a function here to handle an error.}
 }
@@ -22,6 +22,6 @@ error.
 }
 \description{
 \code{awaitNext} can be used within an \link{async} or \link{stream} coroutine.
-When reached, the routine will recister to receive the next element
+When reached, \code{awaitNext} will register to receive the next element
 from an async or a coroutine object.
 }

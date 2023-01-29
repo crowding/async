@@ -1,5 +1,5 @@
 test_that("Compiler level -1 does munging", {
-  expect_equal(  asyncOpts()$compileLevel, 0)
+  expect_equal(asyncOpts()$compileLevel, 0)
   g <- gen(repeat yield(TRUE))
   expect_false(exists("entry", environment(g$nextElemOr)))
 

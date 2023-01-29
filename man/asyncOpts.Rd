@@ -7,7 +7,8 @@
 asyncOpts(
   verbose = get("verbose", parent.env(environment())),
   compileLevel = get("compileLevel", parent.env(environment())),
-  paranoid = get("paranoid", parent.env(environment()))
+  paranoid = get("paranoid", parent.env(environment())),
+  destructive = get("destructive", parent.env(environment()))
 )
 }
 \arguments{
@@ -18,6 +19,9 @@ play-by-play of the steps they are taking.}
 
 \item{paranoid}{if TRUE, perform verious integrity checks on the
 result of compilation. Meant to be enabled during testing.}
+
+\item{destructive}{if TRUE, tear down interpreted coroutines while
+compiling them.}
 }
 \value{
 a list containing the current settings.

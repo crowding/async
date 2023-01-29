@@ -22,6 +22,7 @@
 NULL
 
 paranoid <- FALSE
+destructive <- TRUE
 verbose <- FALSE
 trace_ <- function(x) if(verbose) cat(x)
 
@@ -36,17 +37,22 @@ compileLevel <- 0
 #' @param compileLevel Default compile level for new generators. See [gen]().
 #' @param paranoid if TRUE, perform verious integrity checks on the
 #'   result of compilation. Meant to be enabled during testing.
+#' @param destructive if TRUE, tear down interpreted coroutines while
+#'   compiling them.
 #' @return a list containing the current settings.
 #' @export
 asyncOpts <- function(
     verbose=get("verbose", parent.env(environment())),
     compileLevel=get("compileLevel", parent.env(environment())),
-    paranoid=get("paranoid", parent.env(environment()))) {
-  list(verbose, compileLevel, paranoid)
+    paranoid=get("paranoid", parent.env(environment())),
+    destructive=get("destructive", parent.env(environment()))) {
+  list(verbose, compileLevel, paranoid, destructive)
   unlockBinding("compileLevel", getNamespace("async"))
+  unlockBinding("destructive", getNamespace("async"))
   unlockBinding("verbose", getNamespace("async"))
   unlockBinding("paranoid", getNamespace("async"))
   list(verbose=verbose<<-verbose,
        compileLevel=compileLevel<<-compileLevel,
-       paranoid=paranoid<<-paranoid)
+       paranoid=paranoid<<-paranoid,
+       destructive=destructive<<-destructive)
 }

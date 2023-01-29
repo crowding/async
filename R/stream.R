@@ -1,6 +1,73 @@
 #` @export
+#' Create an asynchronous iterator by writing sequential code.
+#'
+#' (Experimental as of async 0.4.) `stream(...)` constructs a [channel]
+#' object, i.e. an asynchronous iterator, which will compute and
+#' return values according to sequential code written in `expr`. A
+#' `stream` is a coroutine wearing a [channel] interface in the same
+#' way that `async` is a coroutine wearing a [promise] interface, and a
+#' [gen] is a coroutine sitting behind an [iteror] interface.
+#'
+#' In a stream expression, you can call `yield()` to emit a value, and
+#' `await()` to wait for a value from a [promise]. To have your stream
+#' wait for values from another stream or [channel], call
+#' `awaitNext()`; you can also use `awaitNext` when you are writing an
+#' `async`. You can also use a simple `for` loop to consume all future
+#' values from a stream or channel.
+#'
+#' The lower-level interface to consume values from a stream is by using
+#' [nextThen] from the [channel] interface.
+#'
+#' Streams come in both "lazy" and "eager" varieties. If `lazy=TRUE`,
+#' a stream starts idle, and does not process anything
+#' until it is woken up by a call to its channel's `nextThen`. It will
+#' pause after reaching `yield` if there are no more outstanding
+#' requests. If `lazy=FALSE`, a stream will begin executing
+#' immediately, not pausing on `yield`, possibly queuing up emitted
+#' values until it needs to `await` something.
+#'
+#' (For comparison, in this package, [gen] are lazy in that they do
+#' not start executing until a call to `nextElemOr` and pause
+#' immediately after `yield`, while [async] blocks are eager,
+#' starting at construction and running until they hit an `await`.)
+#'
+#' @examples
+#'
+#' # emit values _no more than_ once per second
+#' count_to <- function(n, interval=1) {
+#'   list(n, interval) #force
+#'   stream({
+#'     for (i in 1:n) {await(delay(interval)); yield(i)}
+#'   })
+#' }
+#'
+#' accumulate <- function(in) { force(in)
+#'   stream({
+#'     sum <- 0;
+#'     for (i in in) {sum <- sum + i; yield(sum)}
+#'   })
+#' }
+#'
+#' @param expr A coroutine expression, using some combination of
+#'   `yield`, `await`, `awaitNext`, `yieldFrom`, standard control flow
+#'   operators and other calls.
+#' @param ... Undocumented.
+#' @param split_pipes See description under [async]; defaults to
+#'   `TRUE`.
+#' @param lazy If true, pause at start and after yield() if there are no
+#'   listeners.
+#' @param trace An optional tracing function.
+#' @param compileLevel Compilation level.
+#' @param debugR Set TRUE to single-step debug at R level.  call.
+#' @param debugInternal Set TRUE to single-step debug at coroutine
+#'   implementation level. Use [debugAsync()] to enable or disable
+#'   debugging on a stream after it has been created.
+#' @return An object with (at least) classes "stream", "channel",
+#'   "coroutine", "iteror".
+#' @author Peter Meilstrup
 stream <- function(expr, ..., split_pipes=TRUE, lazy=TRUE, trace=trace_,
-                   compileLevel=get("compileLevel", parent.env(environment()))) {
+                   compileLevel=get("compileLevel", parent.env(environment())),
+                   debugR=FALSE, debugInternal=FALSE) {
   envir <- arg_env(expr)
   expr <- arg(expr)
   .contextName <- "wrapper"
@@ -11,9 +78,10 @@ stream <- function(expr, ..., split_pipes=TRUE, lazy=TRUE, trace=trace_,
              trace=arg(trace),
              dots(...))
   set_dots(environment(), args_)
-  strm <- make_stream(..., lazy=lazy, targetEnv=new.env(parent=envir),
-                      compileLevel=compileLevel)
-  #if (compileLevel != 0) str <- compile(strm, compileLevel)
+  strm <- make_stream(..., lazy=lazy,
+                      compileLevel=compileLevel,
+                      targetEnv=new.env(parent=envir))
+  debugAsync(strm, R=debugR, internal=debugInternal)
   strm
 }
 
@@ -23,6 +91,7 @@ make_stream <- function(expr, orig=expr, ...,
   .contextName <- "stream"
 
   nonce <- (function() function() NULL)()
+  if (verbose) traceBinding("state", "xxx")
   state <- "xxx" #print method uses this
   awaiting <- nonce
   yielded <- nonce
@@ -36,13 +105,13 @@ make_stream <- function(expr, orig=expr, ...,
   pause_val <- NULL
   pause <- NULL
 
-  getState %<-% function() state
+  getState %<g-% function() state
 
   return_ %<-% function(val) {
     trace("stream: return\n")
     state <<- "resolved"
     value <<- val
-    close_(val) # avoid gathering this as a tailcall
+    close_() # avoid gathering this as a tailcall
     val
   }
 
@@ -57,14 +126,14 @@ make_stream <- function(expr, orig=expr, ...,
   yield_ %<-% function(cont, val) {
     yielded <<- val
     state <<- "yielding"
-    doEmit(val)
+    emit_(val)
     if (!lazy || state == "woken") {
       trace("stream: continuing\n")
       state <<- "running"
       bounce_val(cont, val)
     } else {
       trace("stream: pausing\n")
-      state <<- "yielded"  # what does "cont" point to here?
+      state <<- "yielded"
       pause_val(cont, val)
     }
   }
@@ -72,12 +141,8 @@ make_stream <- function(expr, orig=expr, ...,
   eval(await_handlers) # await_ and awaitNext_; see async.r
   #defines "awaiting" and makes updates to "state"
 
-  doClose %<-% function(val) close_()
-  doReject %<-% function(val) reject_(val)
-  doEmit %<-% function(val) emit_(val)
-
   pump <- make_pump(expr, ...,
-                    rtn=doClose, stp=doReject, await=await_,
+                    rtn=return_, stp=stop_, await=await_,
                     awaitNext=awaitNext_, yield=yield_,
                     trace=trace, targetEnv=targetEnv)
 
@@ -86,7 +151,7 @@ make_stream <- function(expr, orig=expr, ...,
   pause_val <- environment(pump)$pause_val_
   pause <- environment(pump)$pause_
 
-  wakeup <- function(x) {
+  wakeup %<g-% function(x) {
     trace("stream: wakeup\n")
     switch(state,
            "yielding" = {state <<- "woken"},
@@ -105,74 +170,64 @@ make_stream <- function(expr, orig=expr, ...,
   ch$orig <- orig
   ch$state <- environment()
   ch$wakeup <- wakeup
-  if (compileLevel != 0) {
-    ch <- compile(ch, level=compileLevel)
-  }
   if (lazy) {
     state <- "yielded"
   } else {
     state <- "running"
-    ch$state$pump()
   }
+  tmp <- lazy # bc "lazy" will get moved in compilation if destructive=TRUE
+  if (compileLevel != 0) {
+    ch <- compile(ch, level=compileLevel)
+  }
+  if (!tmp) ch$state$pump()
   ch
 }
 
-
-#' @rdname format
 #' @exportS3Method
-format.stream <- function(x, ...) {
-  envir <- environment(x$state$pump)
-  code <- getOrig(x)
-  a <- deparse(call("async", code), backtick=TRUE)
-  b <- format(envir, ...)
-  state <- getState(x)
-  cont <- getNode(x)
-  c <- paste0(c("<stream [",
-                state,
-                " at `", cont, "`",
-                if (state=="stopped")
-                  c(": ", capture.output(print(envir$err))),
-                "]>"), collapse="")
-  d <- NextMethod()
-  c(a, b, c, d)
+reconstitute.stream <- function(orig, munged) {
+  st <- add_class(channel(munged$replace, wakeup=munged$wakeup),
+                  "stream", "coroutine")
+  st$orig <- orig$orig
+  st$state <- munged
+  st$wakeup <- munged$wakeup
+  st
 }
 
+
 #' @exportS3Method
-#' @rdname format
 getNode.stream <- function(x, ...) {
   environment(x$state$pump)$getCont()
 }
 
-#' @export
-#' @rdname format
+#' @exportS3Method
 getState.stream <- function(x) x$state$getState()
-
 #' @exportS3Method
-debugAsync.stream <- function(x, R=current$R, internal=current$internal) {
-  set <- environment(get("pump", x$state))$setDebug
-  current <- set()
-  set(R, internal)
-}
-
-#' @exportS3Method
-print.stream <- function(x, ...) {
-  cat(format(x, ...), sep="\n")
-}
-
-#' @exportS3Method
-#' @rdname format
 getOrig.stream <- function(x, ...) x$orig
+#' @exportS3Method
+getPump.stream <- function(x, ...) x$state$pump
+#' @exportS3Method
+getReturn.stream <- function(x, ...) x$state$return_
+#' @exportS3Method
+getStop.stream <- function(x, ...) x$state$stop_
+
+#' @exportS3Method
+getStartSet.stream <- function(x,...) {
+  c(NextMethod(), list(
+    replace = x$state$replace,
+    getState = x$state$getState,
+    wakeup = x$state$wakeup))
+}
 
 #' Wait for the next value from a channel or stream.
 #'
 #' `awaitNext` can be used within an [async] or [stream] coroutine.
-#' When reached, the routine will recister to receive the next element
+#' When reached, `awaitNext` will register to receive the next element
 #' from an async or a coroutine object.
 #'
 #' @param strm A [channel] or [stream] object.
 #' @param or This argument will be evaluated and returned in the case
 #'   the channel closes. If not specified, awaiting on a closed stream
-#'   will throw an error with message "StopIteration".
+#'   will raise an error with message "StopIteration".
 #' @param error Provide a function here to handle an error.
 #' @return In the context of an `async` or `stream`, `awaitNext(x)`
 #'   returns the resolved value of a promise `x`, or stops with an
@@ -187,12 +242,13 @@ awaitNext_cps <- function(.contextName,
                           or,
                           error) {
   list(.contextName, strm, maybe(or), maybe(error))
+
   function(cont, ..., awaitNext, stp, trace) {
     if (missing(awaitNext)) stop("awaitNext used, but this is not an async")
     list(cont, awaitNext, stp, trace)
+
     nonce <- function(x) NULL
-    traceBinding("state")
-    state <<- "xxx"
+    state <- "xxx"
     value <- NULL
     awaiting <- FALSE
 

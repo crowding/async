@@ -41,12 +41,17 @@
 # continue to the node passed to it.  make_pump() operates this
 # trampoline.
 #
-# "cps_" stood for "continuation passing style," but we are actually now
-# building a static graph, rather than passing continuations around as
-# arguments at runtime.
+# "cps_" stands for "continuation passing style," which describes the
+# way that pausing works; callbacks like "bounce", "await", "windup"
+# and "yield" take a continuation argument which represents the future
+# of the computation representing to the next step in the
+# computation. However, continuation arguments are only used in
+# handlers, and not for control flow or indirection; most movement
+# between nodes is by ordinary tail calls, the better to form a call
+# graph the compiler can collect.
 #
 # This code is directly executed for interpreted asyncs (with
-# `asyncOpts(compileLevel 0)`, but these functions are also the input
+# `asyncOpts(compileLevel=0)`, but these functions are also the input
 # for compiled asyncs. Compiling R generally is impossible, so
 # therefore there are some rules on how the nodes below are written,
 # call these restrictions `R--`:
@@ -71,7 +76,7 @@
 #   scope. However, the graph walker does not inspect them to see what
 #   variables a helper function uses, unless you explicitly put that function
 #   in the start set.
-# * No early returns -- a return() and stop() placed in the middle of a
+# * No early returns -- a return() placed in the middle of a
 #   function doesn't do the same thing when functions are spliced together.
 
 `%<-%` <- function(to, from) {

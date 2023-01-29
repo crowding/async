@@ -119,6 +119,7 @@ test_that("awaitNext from async()", {
     }
     l
   })
+
   ch$emit(2)
   ch$emit(4)
   ch$emit(6)
@@ -201,11 +202,11 @@ test_that("stream: can await and yield", {
     x <- await(p2) + x
     yield(x)
   })
+
   p3 <- nextElem(st)
   p4 <- nextElem(st)
   p1$resolve(10)
-  p2$resolve(15)
-  expect_resolves_with(p3, 10, p1$resolve(10))
+  expect_resolves_with(p3, 10, NULL)
   expect_resolves_with(p4, 25, p2$resolve(15))
   expect_channel_closes(st, NULL)
 
@@ -213,7 +214,6 @@ test_that("stream: can await and yield", {
 
 test_that("lazy vs eager streams", {
 
-#  asyncOpts(verbose=TRUE)
   ch2 <- mock_channel()
   ct2 <- 0
   running <- FALSE

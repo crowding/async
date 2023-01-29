@@ -238,6 +238,11 @@ channel <- function(impl, max_queue=500L, max_awaiting=500L,
 
 }
 
+#' @export
+is.channel <- function(x) {
+  inehrits(x, "channel")
+}
+
 #' @exportS3Method
 print.channel <- function(x, ...) {
   cat(format(x, ...), sep="\n")

@@ -129,7 +129,9 @@ await_cps <- function(.contextName, prom) { force(prom)
 }
 
 #' @import promises
-make_async <- function(expr, orig=expr, ..., compileLevel=0, trace=trace_, targetEnv) {
+make_async <- function(expr, orig=expr, ...,
+                       compileLevel=0, trace=trace_, targetEnv,
+                       debugR, debugInternal) {
   list(orig, expr, ..., trace)
   .contextName <- "async"
   pause <- NULL
@@ -143,7 +145,7 @@ make_async <- function(expr, orig=expr, ..., compileLevel=0, trace=trace_, targe
 
   getState %<-% function() state
 
-  resolve %<-% function(val) {
+  return_ %<-% function(val) {
     trace("async: return (resolving)\n")
     state <<- "resolved"
     value <<- val
@@ -151,7 +153,7 @@ make_async <- function(expr, orig=expr, ..., compileLevel=0, trace=trace_, targe
     val
   }
 
-  reject %<-% function(val) {
+  stop_ %<-% function(val) {
     trace("async: stop (rejecting)\n")
     value <<- val
     state <<- "rejected"
@@ -159,7 +161,7 @@ make_async <- function(expr, orig=expr, ..., compileLevel=0, trace=trace_, targe
     val
   }
 
-  replace %<-% function(resolve, reject) {
+  replace %<g-% function(resolve, reject) {
     resolve_ <<- resolve
     reject_ <<- reject
   }
@@ -173,7 +175,7 @@ make_async <- function(expr, orig=expr, ..., compileLevel=0, trace=trace_, targe
   }), "async", "coroutine")
 
   pump <- make_pump(expr, ...,
-                    rtn=resolve, stp=reject, await=await_,
+                    rtn=return_, stp=stop_, await=await_,
                     awaitNext=awaitNext_, trace=trace,
                     targetEnv=targetEnv)
 
@@ -185,6 +187,7 @@ make_async <- function(expr, orig=expr, ..., compileLevel=0, trace=trace_, targe
   if (compileLevel != 0) {
     pr <- compile(pr, level=compileLevel)
   }
+  debugAsync(pr, R=debugR, internal=debugInternal)
   pr$state$pump()
   pr
 }
@@ -198,8 +201,8 @@ await_handlers <- quote({
     switch(await_state,
            "awaiting"={
              trace("await: got callback while still running\n")
-             # pump is still running, awaitNext_cps should
-             # also catch this and simply not pause
+             # pump is still running, stream.r::awaitNext_cps will be
+             # watching for this and simply not pause
              await_state <<- "xxx"
            },
            "awaited"={
@@ -262,87 +265,34 @@ await_handlers <- quote({
   }
 })
 
+#' @exportS3Method
 getPump.async <- function(x) x$state$pump
-
-#' @exportS3Method
-getEntry.async <- function(x) environment(getPump(x))$entry
-#' @exportS3Method
-getReturn.async <- function(x) x$state$resolve
-#' @exportS3Method
-getStop.async <- function(x) x$state$reject
-#' @exportS3Method
-getCurrent.async <- function(x) environment(getPump())$cont
 #' @exportS3Method
 getOrig.async <- function(x) x$orig
 #' @exportS3Method
-getStartSet.async <- function(x) {
-  list(entry=getEntry(x),
-       resolve=getReturn(x),
-       reject=getStop(x),
-       replace=x$state$replace,
-       pump=get("pump", envir=x$state),
-       base_winding=environment(get("pump", (x$state)))$base_winding,
-       getCont=environment(get("pump", (x$state)))$getCont,
-       runPump=environment(get("pump", (x$state)))$runPump,
-       setDebug=environment(get("pump", (x$state)))$setDebug,
-       getState=get("getState", x$state))
-}
 
 #' @exportS3Method
-#' @rdname format
-getNode.coroutine <- function(x, ...) {
-  environment(getPump(x))$getCont()
-}
-
-#' @rdname format
-#' @exportS3Method
-format.async <- function(x, ...) {
-  envir <- environment(getPump(x))
-  code <- getOrig(x)
-  a <- deparse(call("async", code), backtick=TRUE)
-  b <- format(envir, ...)
-  state <- getState(x)
-  cont <- getNode(x)
-  c <- paste0(c("<async [",
-                state,
-                " at `", cont, "`",
-                if (state=="stopped")
-                  c(": ", capture.output(print(envir$err))),
-                "]>"), collapse="")
-  d <- NextMethod()
-  c(a, b, c, d)
-}
-
-#' @export
-#' @rdname format
 getState.async <- function(x) x$state$getState()
 
-compile.async <- function(x, level) {
-  if (abs(level) >= 1) {
-    if (paranoid) graph <- walk(x)
-    munged <- munge( x )
-    munged$orig <- x$orig
-    if (abs(level) >= 3) {
-      stop("TODO: Aggressive inlining")
-    } else if (abs(level) >= 2) {
-      stop("TODO: Basic inlining/constant folding")
-    }
-    # create a new promise with this
-    if (level <= -1) {
-      pr <- add_class(promise(function(resolve, reject) {
-        # assign "resolve_" and "reject_" callbacks in the base function...
-        then(x, \(val){stop("Result went to the wrong promise!")},
-                \(err){stop("Error went to the wrong promise!")})
-        munged$replace(resolve, reject)
-      }), "async", "coroutine")
-      pr$orig <- x$orig
-      pr$state <- munged
-      if (paranoid) {
-        expect_properly_munged(graph, pr)
-      }
-      pr
-    } else if (level >= 1) {
-      stop("TODO: code generation")
-    }
-  } else x
+#' @exportS3Method
+getStartSet.async <- function(x,...) {
+  c(NextMethod(),
+    list(
+      replace = x$state$replace,
+      getState = x$state$getState
+))
+}
+
+#' @exportS3Method
+reconstitute.async <- function(orig, munged) {
+  list(orig, munged)
+  pr <- add_class(promise(function(resolve, reject) {
+    # assign "resolve_" and "reject_" callbacks in the base function...
+    then(orig, \(val){stop("Result went to the wrong promise!")},
+         \(err){stop("Error went to the wrong promise!")})
+    munged$replace(resolve, reject)
+  }), "async", "coroutine")
+  pr$orig <- orig$orig
+  pr$state <- munged
+  pr
 }

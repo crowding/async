@@ -114,7 +114,7 @@ make_pump <- function(expr, ...,
     cont()
   }
 
-  stop_ %<g-% function(val) {
+  stop_ %<-% function(val) {
     trace(paste0("pump: stop: ", conditionMessage(val), "\n"))
     value <<- val
     after_exit <<- "stop"
@@ -123,7 +123,7 @@ make_pump <- function(expr, ...,
     #pumpCont <<- function() doExits()
   }
 
-  return_ %<g-% function(val) {
+  return_ %<-% function(val) {
     trace("pump: return\n")
     force(val)
     value <<- val
@@ -266,7 +266,7 @@ make_pump <- function(expr, ...,
       tryCatch({tmp <- cont(); return(tmp)}, error=function(err){
         trace(paste0("pump: caught error: ",
                      conditionMessage(err), "\n"))
-        current_winding <<- base_winding
+        current_winding <<- function(cont)base_winding(cont)
         if (after_exit == "stop") {
           warning("discarding previous error: ", value)
         }
@@ -286,9 +286,9 @@ make_pump <- function(expr, ...,
         if (!action %in%
               c("pause", "pause_val", "exit", "stop", "return", "rewind")) {
           trace(paste0("pump: exiting abnormally: ", action, "\n"))
-          # silly compiler, count these as tailcalls I guess
+          # silly compiler, count these as tailcalls I guess?
           pumpCont <<- function() doExits()
-          current_winding <<- base_winding
+          current_winding <<- function(cont) base_winding(cont)
           action <<- "rewind"
           after_exit <<- "xxx"
           cont() # run the pump here, once

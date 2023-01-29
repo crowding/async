@@ -193,3 +193,19 @@ asyncOpts(verbose=TRUE)
 pump(switch_cps("", R("", "three"), four=R("", "wrong")), targetEnv=environment())
 expect_error(, "branch")
 
+g <- gen({print("one"); yield("one"); print("two"); yield("two")})
+
+p <- mock_promise()
+a <- async(await(p) + 1)
+
+asyncOpts(paranoid=FALSE, verbose=TRUE)
+
+st <- stream(for (i in 1:10) {
+  await(delay(1)); print(i); yield(i)
+}, compileLevel=0, lazy=FALSE)
+
+st <- stream(for (i in 1:10) yield(i))
+
+x <- collect.channel(st)
+
+st <- stream(for (i in 1:10) {await(delay(1)); print(i); yield(i)}, compileLevel=-1, lazy=TRUE)

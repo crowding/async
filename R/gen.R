@@ -238,101 +238,36 @@ make_generator <- function(expr, orig=arg(expr), ..., trace=trace_) {
   g
 }
 
-#' @export
-getEntry <- function(x) UseMethod("getEntry")
-#' @export
-getReturn <- function(x) UseMethod("getReturn")
-#' @export
-getStop <- function(x) UseMethod("getStop")
-#' @export
-getCurrent <- function(x) UseMethod("getCurrent")
-#' @export
-getOrig <- function(x) UseMethod("getOrig")
-#' @export
-getStartSet <- function(x) UseMethod("getStartSet")
-
-#' @exportS3Method
-getEntry.generator <- function(x)
-  environment(get("pump", envir=environment(x$nextElemOr)))$entry
-#' @exportS3Method
-getReturn.generator <- function(x)
-  environment(get("pump", envir=environment(x$nextElemOr)))$return_
-#' @exportS3Method
-getStop.generator <- function(x)
-  environment(get("pump", envir=environment(x$nextElemOr)))$stop_
 #' @exportS3Method
 getCurrent.generator <- function(x)
-  environment(get("pump", envir=environment(x$nextElemOr)))$cont
+  environment(getPump(x))$cont
 #' @exportS3Method
-getOrig.generator <- function(x)
+getOrig.generator <- function(x) {
   expr(get("orig", envir=environment(x$nextElemOr)))
+}
 
+#' @exportS3Method
 getStartSet.generator <- function(x) {
-  #everything whose name you want to remain stable after munging,
-  #for instance so the above accessors can find them.
-  list(entry=getEntry(x),
-       stop_=getStop(x),
-       return_=getReturn(x),
-       pump=get("pump", envir=environment(x$nextElemOr)),
-       runPump=environment(get("pump", environment(x$nextElemOr)))$runPump,
-       base_winding=environment(get("pump", environment(x$nextElemOr)))$base_winding,
-       doWindup=environment(get("pump", environment(x$nextElemOr)))$doWindup,
-       nextElemOr_=x$nextElemOr,
-       setDebug=environment(get("pump", environment(x$nextElemOr)))$setDebug,
-       getCont=environment(get("pump", environment(x$nextElemOr)))$getCont,
-       getState=get("getState", environment(x$nextElemOr)))
+  c(NextMethod(x), list(
+    nextElemOr_=  x$nextElemOr,
+    #doWindup = environment(getPump(x))$doWindup),
+    getState = environment(x$nextElemOr)$getState))
 }
 
 #' @exportS3Method
-compile.generator <- function(x, level) {
-  # returns an environment with munged nodes/storage
-  if (paranoid) graph <- walk(x)
-  if (abs(level) >= 1) {
-    munged <- munge( x )
-    munged$orig <- get("orig", environment(x$nextElemOr))
-    if (abs(level) >= 3) {
-      stop("TODO: Aggressive inlining")
-    } else if (abs(level) >= 2) {
-      stop("TODO: Inlining")
-    }
-    # create a new iteror with this munged generator's nextElemOr.
-    if (level <= -1) {
-      new <- add_class(iteror(munged$nextElemOr_), "generator", "coroutine")
-      if (paranoid) { # enabled in unit tests
-        expect_properly_munged(graph, new)
-      }
-      new
-    } else if (level >= 1) {
-      stop("TODO: code generation")
-    }
-  } else x
-}
-
-#' @export
-print.coroutine <- function(x, ...) {
-  cat(format(x, ...), sep="\n")
-}
-
-#' @export
-#' @rdname format
-getState <- function(x, ...) {
-  UseMethod("getState")
+reconstitute.generator <- function(orig, munged) {
+  environment(munged$nextElemOr_)$orig <- environment(orig$nextElemOr)$orig
+  new <- add_class(iteror(munged$nextElemOr_), "generator", "coroutine")
+  new
 }
 
 #' @exportS3Method
-#' @rdname format
 getState.generator <- function(x, ...) {
   environment(x$nextElemOr)$getState()
 }
 
-getPump <- function(x) UseMethod("getPump")
+#' @exportS3Method
 getPump.generator <- function(x) get("pump", environment(x$nextElemOr))
-
-#' @export
-#' @rdname format
-getNode <- function(x, ...) {
-  UseMethod("getNode")
-}
 
 #' @exportS3Method
 #' @rdname format
@@ -381,16 +316,4 @@ format.generator <- function(x, ...) {
                   c(": ", capture.output(print(envir$err))),
                 "]>"), collapse="")
   c(a, b, c)
-}
-
-#' @export
-debugAsync <- function(x, internal=FALSE) {
-  UseMethod("debugAsync")
-}
-
-#' @exportS3Method
-debugAsync.coroutine <- function(x, R=current$R, internal=current$internal) {
-  sd <- get("setDebug", envir = environment(getPump(x)))
-  current <- sd()
-  sd(R, internal)
 }

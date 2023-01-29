@@ -66,7 +66,7 @@ iteror.function <- function(obj, ..., catch, sigil) {
   } else {
     if (!missing(sigil)) {
       force(sigil)
-      fn <-function(or) {
+      fn <- function(or) {
         x <- obj(); if (identical(x, sigil)) or else x
       }
     } else if (!missing(catch)) {
@@ -88,7 +88,6 @@ iteror.function <- function(obj, ..., catch, sigil) {
 #' @export
 iteror.default <- function(obj, ...) {
   if (is.function(obj)) {
-    browser()
     iteror.function(obj, ...)
   } else {
     i <- 0

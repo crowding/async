@@ -447,3 +447,30 @@ test_that("graph of switch with goto", {
                           handlers=TRUE, vars=TRUE, envs=FALSE))
 
 })
+
+test_that("stream with on.exit", {
+
+  ch <- mock_channel()
+  fizzFilter <- stream({
+    on.exit({
+      yield("and that's all!")
+    })
+    for (i in ch) {
+      if(i %% 3 == 0) {
+        if (i %% 5 == 0) {
+          yield("FizzBuzz")
+          on.exit(yield("bonus!"))
+        } else {
+          yield("Fizz")
+        }
+      } else if (i %% 5 == 0) {
+        yield("Buzz")
+      }
+    }
+  })
+
+  expect_silent(drawGraph(fizzFilter, filename("fizzFilter"),
+                          handlers=TRUE, vars=TRUE, envs=TRUE))
+
+})
+

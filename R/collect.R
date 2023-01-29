@@ -104,10 +104,14 @@ tree_filter <- function(tree, filter) {
 #'   }
 #' }
 collect <- function(fn, type=list()) {
+  collector(function(yield, extract) {fn(yield); extract(TRUE)}, type)
+}
+
+collector <- function(fn, type=list()) {
   size <- 64
   a <- vector(mode(type), length=size)
   i <- 0
-  fn(function(val, name=NULL) {
+  yield <- function(val, name=NULL) {
     i <<- i + 1
     if (i >= size) {
       size <<- min(2 * size, i)
@@ -118,8 +122,80 @@ collect <- function(fn, type=list()) {
         names(a) <- ""
       names(a)[[i]] <<- name
     }
-    a[[i]] <<- val
+    if (is.null(val)) {
+      a[i] <<- list(val)
+    } else {
+      a[[i]] <<- val
+    }
+  }
+  extract <- function(reset=FALSE) {
+    if(reset) {
+      tmp <- a[seq_len(i)]
+      a <<- vector(mode(type), length=size)
+      i <<- 0
+      tmp
+    } else {
+      a[seq_len(i)]
+    }
+  }
+  fn(yield, extract)
+}
+
+
+collect.channel <- function(st, type=list()) {
+  promise(\(resolve, reject) {
+    collector(type=type, \(yield, extract) {
+      again <- \() nextThen(st, onNext, reject, onClose)
+      onNext <- \(val) {yield(val); again()}
+      onClose <- \() resolve(extract(TRUE))
+      again()
+    })
   })
-  length(a) <- i
-  a
+}
+
+#' Combine several channels into one.
+#'
+#' `combine(...)` takes any number of [promise] or [channel]
+#' objects. It awaits each one, and returns a [channel] object
+#' which re-emits every value from its target promises, in whatever
+#' order they are received.
+#' @param ... Each argument should be a [promise] or a [channel].
+#' @return a [channel] object.
+#' @author Peter Meilstrup
+combine <- function(...) {
+  args <- list(...)
+  channel(\(emit, reject, close) {
+    remaining <- 0
+    running <- FALSE
+    decrement <- function(){
+      remaining <<- remaining-1
+      if (running && remaining == 0){
+        running <<- FALSE; close()
+      }
+    }
+    consume <- function(ch) {
+      force(ch)
+      doAwait <- function() {
+        nextThen(ch,
+                 \(val) {emit(val); doAwait()},
+                 \(err) reject(err),
+                 decrement)
+      }
+      doAwait()
+    }
+    for (i in args) {
+      if (is.channel(arg)) {
+        consume(ch)
+      } else if (is.promise(i)) {
+        remaining <- remaining + 1
+        then(i,
+             \(val) {emit(val); decrement()},
+             \(err) reject(err))
+      } else {
+        stop("Arguments to combine() should be promises or channels")
+      }
+    }
+    if (remaining == 0) close()
+    else running <- TRUE
+  })
 }

@@ -47,7 +47,6 @@ Or I need to just not write them.
 So why is the call to pump() not being translated to the right function _pump_?
 That's in _trans_, right?
 
-
 ## on.exit weirdness.
 
  i need to draw some diagrams to figure out what's up with this. 
@@ -63,3 +62,20 @@ That's in _trans_, right?
    * normal exit overridden
    * stop
    * stop overridden
+
+## refactoring.
+
+Okay, I'm failing to munge `when paranoid=TRUE` but _not_ when `paranoid=FALSE` because when walking the second generator it thinks the local name of a node is "pump_v_current_winding". Why? for some reason. But why does `paranoid=TRUE` make this happen?
+
+So what is the difference between 
+
+> graphc$nodeProperties[["base_winding"]]$localName
+[1] "pump_v_current_winding"
+
+so it's in walk(gc) it's coming up with this.
+
+`cnodes$base_winding`
+
+Okay this is strange because it's `paranoid=TRUE` that's causing this to happen? and paranoid _ONLY_ does the second graph walk and munge. And that's not failing?
+
+This is like a weird heisenbug, It crops up if i have paranoid=TRUE checks, but they shouldn't modify anything. Thinking maybe the order in which a hash table is traversed???? I added a `sort` around all my for loops that go over `names()` of an env. That appears to have stopped it for now??? 

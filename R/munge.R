@@ -14,7 +14,7 @@ munge <- function(# the async/generator to munge
   dest.env$.contextName <- "."
 
   # Collect information in the storage used by the functions in each context.
-  for (contextName in names(graph$contexts)) {
+  for (contextName in sort(names(graph$contexts))) {
     trace_(paste0("Context: ", contextName, "\n"))
     context <- graph$contexts[[contextName]]
     props <- graph$contextProperties[[contextName]]
@@ -24,8 +24,10 @@ munge <- function(# the async/generator to munge
       as.character(paste0(contextName, "_v_", contextVars, recycle0=TRUE)),
       names=contextVars)
 
-    calls <- unlist(as.list(props, all.names=TRUE)[c("tail", "tramp", "hand", "windup", "util")],
-                    use.names=FALSE)
+    calls <- unlist(
+      as.list(props, all.names=TRUE)[
+        c("tail", "tramp", "hand", "windup", "util")],
+      use.names=FALSE)
 
     # The local labels for each edge are collected in edges.
     callTranslations <- (
@@ -57,8 +59,8 @@ munge <- function(# the async/generator to munge
         stop("Unforced arguments found in munging: ",
              paste(names(f)[[!f]], collapse=", "))
       }
-      for (varName in setdiff(names(varTranslations),
-                              graph$contextProperties[[contextName]]$store)) {
+      for (varName in sort(setdiff(names(varTranslations),
+                                   graph$contextProperties[[contextName]]$store))) {
         newName <- varTranslations[[varName]]
         move_value(graph, contextName, varName, dest.env, newName,
                    varTranslations, callTranslations)
@@ -81,7 +83,7 @@ munge <- function(# the async/generator to munge
     }
     nms <- c(varTranslations, callTranslations, utilTranslations)
 
-    for (nodeName in names(graph$contextNodes[[contextName]])) {
+    for (nodeName in sort(names(graph$contextNodes[[contextName]]))) {
       # nodeName is the translated node name that walk() came up with
       node <- graph$nodes[[nodeName]]
       nodeBody <- body(node)
@@ -97,7 +99,7 @@ munge <- function(# the async/generator to munge
     }
     if (length(utilTranslations) > 0) {
       trace_(" Moving utils:\n")
-      for (fnam in names(utilTranslations)) {
+      for (fnam in sort(names(utilTranslations))) {
         func <- graph$contexts[[contextName]][[fnam]]
         if (identical(environment(func), context)) {
           trace_(paste0("   Companion function: `", contextName, "`$`", fnam,
@@ -117,17 +119,17 @@ munge <- function(# the async/generator to munge
     }
     if (length(varTranslations) > 0) {
       trace_(" Moving state:\n")
-      for (varName in intersect(graph$contextProperties[[contextName]]$store,
-                                names(varTranslations))) {
+      for (varName in sort(intersect(graph$contextProperties[[contextName]]$store,
+                                     names(varTranslations)))) {
         newName <- varTranslations[[varName]]
         move_value(graph, contextName, varName, dest.env, newName,
                    varTranslations, callTranslations)
       }
     }
-    if (paranoid) {
-      trace_(" Moving state:\n")
-      for (nodeName in names(graph$contextNodes[[contextName]])) {
-        for (exit in names(graph$nodeEdgeProperties[[nodeName]])) {
+    if (destructive) {
+      trace_("Removing exits:\n")
+      for (nodeName in sort(names(graph$contextNodes[[contextName]]))) {
+        for (exit in sort(names(graph$nodeEdgeProperties[[nodeName]]))) {
           env <- graph$contexts[[contextName]]
           if (exists(exit, envir=env, inherits=FALSE)) {
             rm(list=exit, envir=graph$contexts[[contextName]], inherits=FALSE)
@@ -151,7 +153,7 @@ move_value.quotation <- function(graph, contextName, varName, dest.env, newName,
   # _without_ modifying their environment.
   dest.env[[newName]] <-
     graph$contexts[[contextName]][[varName]]
-  if(paranoid)
+  if(destructive)
     rm(list=varName, envir=graph$contexts[[contextName]])
 }
 
@@ -159,7 +161,7 @@ move_value.function <- function(graph, contextName, varName, dest.env, newName,
                                 varTranslations, callTranslations) {
   written <- varName %in% graph$contextProperties[[contextName]]$store
   value <- get(varName, graph$contexts[[contextName]])
-  if (paranoid)
+  if (destructive)
     rm(list=varName, envir=graph$contexts[[contextName]])
   isNonce <- is.null(body(value))
   if (isNonce) {
@@ -217,7 +219,7 @@ move_value.default <- function(graph, contextName, varName, dest.env, newName,
     trace_(paste0("   Constant: `", varName, "` -> `", newName, "`\n"))
   }
   value <- get(varName, graph$contexts[[contextName]])
-  if(paranoid)
+  if(destructive)
     rm(list=varName, envir=graph$contexts[[contextName]])
   dest.env[[newName]] <- value
 }
