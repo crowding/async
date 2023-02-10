@@ -177,6 +177,7 @@ strrev <- function(x)
          \(x) paste0(rev(x), collapse=""),
          "")
 
+#' @import testthat
 expect_emits <- function(channel, expected, trigger=NULL, test=expect_equal) {
   nonce <- function() NULL
   val <- nonce
@@ -189,6 +190,7 @@ expect_emits <- function(channel, expected, trigger=NULL, test=expect_equal) {
   test(val, expected)
 }
 
+#' @import testthat
 expect_channel_rejects <-
   function(channel, expected, trigger=NULL, test=expect_match) {
   nonce <- function() NULL
@@ -203,6 +205,7 @@ expect_channel_rejects <-
   test(conditionMessage(val), expected)
 }
 
+#' @import testthat
 expect_channel_closes <- function(channel, trigger=NULL) {
   finished <- FALSE
   nextThen(channel,

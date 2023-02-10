@@ -13,7 +13,9 @@ collect.channel(ch, type = list())
 (similarly to using \code{vapply}); defaults to \code{list()}}
 }
 \description{
-\code{collect.channel} is analagous to \code{as.list.iteror}; it takes in a
-channel and returns a promise. When the channel closes, the promise
-will resolve with a vector containing all items returned by the channel.
+\code{collect.channel} takes a \link{channel} as argument and returns a
+\link{promise}.  It behaves as an analogue of \link{as.list.iteror}; all
+values emitted by the channel will be collected into a list (or
+other vector.) When the source channel closes, the promise will
+resolve with the collected list.
 }

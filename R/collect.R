@@ -143,13 +143,15 @@ collector <- function(fn, type=list()) {
 
 #' Collect all values emitted by a channel.
 #'
-#' `collect.channel` is analagous to `as.list.iteror`; it takes in a
-#' channel and returns a promise. When the channel closes, the promise
-#' will resolve with a vector containing all items returned by the channel.
+#' `collect.channel` takes a [channel] as argument and returns a
+#' [promise].  It behaves as an analogue of [as.list.iteror]; all
+#' values emitted by the channel will be collected into a list (or
+#' other vector.) When the source channel closes, the promise will
+#' resolve with the collected list.
 #' @export
 #' @param ch a [channel] object.
 #' @param type Optionally provide a vector of the desired output type
-#'        (similarly to using `vapply`); defaults to `list()`
+#'   (similarly to using `vapply`); defaults to `list()`
 collect.channel <- function(ch, type=list()) {
   promise(\(resolve, reject) {
     collector(type=type, \(yield, extract) {

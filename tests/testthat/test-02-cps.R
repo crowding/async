@@ -175,13 +175,17 @@ test_that("repeat", {
   pump(cps, targetEnv=environment())
   out %is% c(5, 3, 1, -1)
 
-  expect_error(pump(if_cps("", R("", TRUE), break_cps(""), R("", 2)), targetEnv=environment()), "break")
-  expect_error(pump(if_cps("", R("", TRUE), next_cps(""), R("", 2)), targetEnv=environment()), "next")
+  expect_error(pump(if_cps("", R("", TRUE), break_cps(""), R("", 2)),
+                    targetEnv=environment()), "break")
+  expect_error(pump(if_cps("", R("", TRUE), next_cps(""), R("", 2)),
+                    targetEnv=environment()), "next")
 })
 
 test_that("while", {
-  pump(while_cps("", R("", TRUE), break_cps("")), targetEnv=environment()) %is% NULL
-  pump(while_cps("", break_cps(""), R("", TRUE)), targetEnv=environment()) %is% NULL
+  pump(while_cps("", R("", TRUE), break_cps("")),
+       targetEnv=environment()) %is% NULL
+  pump(while_cps("", break_cps(""), R("", TRUE)),
+       targetEnv=environment()) %is% NULL
 
   x <- 0
   cps <- while_cps("", R("", x < 5), R("", x <- x + 1))
@@ -202,7 +206,8 @@ test_that("while", {
 
 test_that("for", {
   x <- 0
-  pump(for_cps("", R("", i), R("", 1:10), R("", {x <- x + i})), targetEnv=environment())
+  pump(for_cps("", R("", i), R("", 1:10), R("", {x <- x + i})),
+       targetEnv=environment())
   x %is% 55
   #
 
@@ -253,15 +258,18 @@ test_that("pump forces value or error", {
 })
 
 test_that("switch", {
-  expect_error(pump(switch_cps("", R("", "three"), four=R("", "wrong")), targetEnv=environment()), "branch")
+  expect_error(pump(switch_cps("", R("", "three"), four=R("", "wrong")),
+                    targetEnv=environment()), "branch")
   pump(switch_cps("", R("", "three"),
                   four=R("", "wrong"),
-                  three=R("", "right")), targetEnv=environment()) %is% "right"
+                  three=R("", "right")),
+       targetEnv=environment()) %is% "right"
   expect_error(
     pump(switch_cps("", R("", "C"),
                     R("", 0),
                     R("", 0),
-                    three=R("", 0)), targetEnv=environment()),
+                    three=R("", 0)),
+         targetEnv=environment()),
     "default")
 
   # variance from R: R will accept a numeric arg to a labeled `switch`
@@ -274,10 +282,12 @@ test_that("switch", {
                     ignored=R("", stop()),
                     R("", stop()),
                     R("", 5),
-                    R("", stop())), targetEnv=environment()) %is% 5,
+                    R("", stop())),
+         targetEnv=environment()) %is% 5,
     "uplicate")
 
-  pump(switch_cps("", R("", "default"), special=R("", 22), R("", 33)), targetEnv=environment()) %is% 33
+  pump(switch_cps("", R("", "default"), special=R("", 22), R("", 33)),
+       targetEnv=environment()) %is% 33
 })
 
 test_that("Makes fully qualified names when async package not attached", {

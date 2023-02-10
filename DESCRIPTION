@@ -1,7 +1,7 @@
 Package: async
-Title: Generators, Coroutines, Streams, Async / Await and Yield
-Version: 0.2.99
-Date: 2022-12-26
+Title: Generators, Streams, Async, Await and Yield.
+Version: 0.3
+Date: 2023-01-23
 Authors@R: 
     person(given = "Peter",
            family = "Meilstrup",
@@ -17,18 +17,21 @@ Description: Write sequential-looking code that pauses and resumes.
              These work similarly to generator and async constructs
              from 'Python' or 'JavaScript'. Objects produced are
              compatible with the 'iterators' and 'promises' packages.
+             Version 0.3 supports on.exit, single-step debugging,
+             stream() for making asynchronous iterators, and
+             delimited goto() within switch() calls.
 License: GPL-2
 Encoding: UTF-8
 LazyData: true
-Depends: R (>= 3.5.0)
+Depends: R (>= 4.0)
 Imports:
-        nseval (>= 0.4.99),
+        nseval (>= 0.4),
         later,
         promises,
-        iterators
+        iterators,
+        testthat (>= 3.0.0),
 Suggests:
     rmarkdown,
-    testthat (>= 3.0.0),
     knitr,
     magrittr,
     audio,

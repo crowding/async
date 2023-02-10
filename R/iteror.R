@@ -1,8 +1,11 @@
-# The "iterators" package uses stop("StopIteration") and tryCatch to
-# signal end of iteration, but tryCatch has a lot of overhead. In the
-# context of a generator, when you are in a "for" loop over an
-# iterator, you have to be setting up and tearing down the trycatch on
-# each iteration. so that you can return control from the generator.
+#' An efficient and succinct iteration protocol
+#'
+#' The "iterators" package uses stop("StopIteration") and tryCatch to
+#' signal end of iteration, but tryCatch has a not-insiginificant
+#' amount of overhead. In the context of a generator, when you are in a
+# "for" loop over an iterator, you have to be setting up and tearing
+# down the trycatch on each iteration. so that you can return control
+# from the generator.
 #
 # The main method for "iteror" is "nextElemOr" rather than
 # "nextElem". Instead of exceptions, "nextElemOr" uses a lazily
@@ -53,13 +56,13 @@ iteror <- function(it, ...) {
   UseMethod("iteror")
 }
 
-#' @export
+#' @exportS3Method
 iteror.iteror <- identity
 
-#' @export
+#' @exportS3Method iteror iter
 iteror.iter <- identity
 
-#' @export
+#' @exportS3Method iteror "function"
 iteror.function <- function(obj, ..., catch, sigil) {
   if ("or" %in% names(formals(obj))) {
     fn <- obj
@@ -85,7 +88,7 @@ iteror.function <- function(obj, ..., catch, sigil) {
   structure(list(nextElemOr=fn), class=c("funiteror", "iteror", "iter"))
 }
 
-#' @export
+#' @exportS3Method
 iteror.default <- function(obj, ...) {
   if (is.function(obj)) {
     iteror.function(obj, ...)
@@ -106,14 +109,12 @@ nextElemOr <- function(obj, or, ...) {
   UseMethod("nextElemOr")
 }
 
-#' @export
+#' @exportS3Method
 nextElemOr.funiteror <- function(obj, or, ...) {
   obj$nextElemOr(or, ...)
 }
 
-#' @importFrom iterators nextElem
-NULL
-#' @export
+#' @exportS3Method iterators::nextElem iteror
 nextElem.iteror <- function(obj, ...) {
   nextElemOr(obj, stop("StopIteration"), ...)
 }
@@ -153,7 +154,7 @@ nextElemOr.iter <- function(iter, or) {
 }
 
 #' @exportS3Method
-ihasNext.iteror <- function(obj, ...) {
+ihasNext.iteror <- function(iter, ...) {
   noValue <- sigil("noValue")
   endIter <- sigil("endIter")
   last <- noValue
@@ -161,7 +162,7 @@ ihasNext.iteror <- function(obj, ...) {
     switch(query,
            "next"={
              if (identical(last, noValue))
-               last <<- nextElemOr(obj, endIter)
+               last <<- nextElemOr(iter, endIter)
              if (identical(last, endIter))
                or
              else
@@ -169,7 +170,7 @@ ihasNext.iteror <- function(obj, ...) {
            },
            "has"={
              if (identical(last, noValue))
-               last <<- nextElemOr(obj, endIter)
+               last <<- nextElemOr(iter, endIter)
              !identical(last, endIter)
            },
            stop("unknown query: ", query)

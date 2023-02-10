@@ -204,7 +204,8 @@ st <- stream(for (i in 1:10) {
   await(delay(1)); print(i); yield(i)
 }, lazy=FALSE)
 
-
-
-
 st <- stream(for (i in 1:10) {await(delay(1)); print(i); yield(i)}, compileLevel=-1, lazy=TRUE)
+
+
+x <- iteror(iterators::iter(c(3,2,1,2), recycle=TRUE))
+nextElem(x)

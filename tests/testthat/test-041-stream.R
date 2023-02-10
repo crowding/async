@@ -282,7 +282,7 @@ test_that("lazy vs eager streams", {
 test_that("collecting channel", {
   st <- stream(for (i in 1:10) yield(i))
   expect_resolves_with(collect.channel(st), as.list(1:10))
-))
+})
 
 test_that("combining channels", {
 
@@ -298,4 +298,4 @@ test_that("combining channels", {
   expect_emits(out, "qux", pr2$resolve("qux"))
   expect_channel_closes(out, ch1$close())
 
-}
+})

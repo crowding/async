@@ -161,11 +161,11 @@ make_dot <- function(nodeGraph,
         c(arrowhead="odot", taillabel=" ", labelangle=0, fontsize=15, arrowsize=2.25,
           labeldistance=.9, fontcolor="blue",
           switch({as.character(props$call[[2]][[1]])},
-                 ret=c(headlabel="⮍"),
+                 ret=c(headlabel="\u2b8d"),
                  yield=,
-                 pause=c(headlabel="⏸",labeldistance=0.8),
-                 windup=c(headlabel="⤽", fontsize=20),
-                 unwind=c(headlabel="⤼", fontsize=20)))
+                 pause=c(headlabel="\u23f8",labeldistance=0.8),
+                 windup=c(headlabel="\u293d", fontsize=20),
+                 unwind=c(headlabel="\u293c", fontsize=20)))
       }
       )}
   edge <- function(nodeGraph, from, local) {
