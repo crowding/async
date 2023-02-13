@@ -11,7 +11,8 @@ vignette: >
 
 This is an R package implementing *generators*, *async* blocks, and *streams*; (which are collectively known as "coroutines.")
 
-[![R-CMD-check](https://github.com/crowding/async/workflows/R-CMD-check/badge.svg)](https://github.com/crowding/async/actions) [![](https://www.r-pkg.org/badges/version/async?color=purple)](https://cran.r-project.org/package=async) [![Codecov test coverage](https://codecov.io/gh/crowding/async/branch/main/graph/badge.svg)](https://app.codecov.io/gh/crowding/async?branch=main)
+[![](https://www.r-pkg.org/badges/version/async?color=purple)](https://cran.r-project.org/package=async)[![check-standard](https://github.com/crowding/async/actions/workflows/check-standard.yaml/badge.svg)](https://github.com/crowding/async/actions/workflows/check-standard.yaml)
+[![test-coverage](https://github.com/crowding/async/actions/workflows/test-coverage.yaml/badge.svg)](https://github.com/crowding/async/actions/workflows/test-coverage.yaml)
 
 # New features in version 0.3
 
