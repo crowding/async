@@ -285,3 +285,19 @@ iseq <- function(from=1L, to=Inf, by=1L) {
       if (i < to) or else i
     })
 }
+
+#' Iteror that chains multiple arguments together into a single iterator
+#'
+#' Generates an [iteror] that returns elements from the first argument until it
+#' is exhausted. Then generates an iterator from the next argument and returns
+#' elements from it. This process continues until all arguments are exhausted
+#' Chaining is useful for treating consecutive sequences as a single sequence.
+#'
+#' @export
+#' @param ... multiple arguments to iterate through in sequence
+#' @return iteror that iterates through each argument in sequence
+#'
+#' @examples
+#' it <- ichain(1:3, 4:5, 6)
+#' as.list(it)
+#'

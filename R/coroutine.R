@@ -37,6 +37,7 @@ getStop <- function(x) UseMethod("getStop")
 getCurrent <- function(x) UseMethod("getCurrent")
 getStartSet <- function(x) UseMethod("getStartSet")
 compile <- function(x, level, ...) UseMethod("compile")
+reconstitute <- function(orig, munged) UseMethod("reconstitute")
 
 #' @exportS3Method
 getEnv.coroutine <- function(x, ...) {
@@ -146,4 +147,17 @@ format.coroutine <- function(x, ...) {
   c(a, b, c, d)
 }
 
-reconstitute <- function(orig, munged) UseMethod("reconstitute")
+# Transform a [nseval::quo] of a function definition
+# into a coroutine definition, e.g.
+coroutine_function <- function(arg, head, ...) {
+  extra <- list(...)
+  fn <- expr(arg)
+  args <- fn[[2]]
+  body <- fn[[3]]
+  forcer <- as.call(c(list(quote(list)), lapply(names(args), as.name)))
+  body <- as.call(list(quote(`{`),
+                       forcer,
+                       as.call(c(list(head, body, local=FALSE), extra))))
+  fn <- call("function", args, body)
+  quo_(fn, env(arg))
+}

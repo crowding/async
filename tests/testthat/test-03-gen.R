@@ -243,26 +243,59 @@ test_that("generator works wnen async package not attached", {
   l %is% c(1, 2, 3, 5, 6, 7, 9, 10)
 })
 
-if(FALSE) {
-  test_that("generator functions", {
+test_that("generator functions", {
 
-    f <- gen(function(x) {for (i in 1:x) yield(i)})
-    expect_true(is.function(f))
-    expect_equal(formals(x), alist(x=))
+  f <- gen(function(x) {for (i in 1:x) yield(i)})
+  expect_true(is.function(f))
+  expect_equal(as.list(formals(f)), alist(x=))
 
-    g <- f(5)
-    expect_true(is(g, "generator"))
-    sum(as.numeric(as.list(g))) %is% 15
+  g <- f(5)
+  expect_true(is(g, "generator"))
+  sum(as.numeric(as.list(g))) %is% 15
 
-    g1 <- f(6)
-    g2 <- f(7)
-    g3 <- f(8)
-    sum(as.numeric(as.list(g1))) %is% 21
-    sum(as.numeric(as.list(g3))) %is% 36
-    sum(as.numeric(as.list(g2))) %is% 28
+  g1 <- f(6)
+  g2 <- f(7)
+  g3 <- f(8)
+  sum(as.numeric(as.list(g1))) %is% 21
+  sum(as.numeric(as.list(g3))) %is% 36
+  sum(as.numeric(as.list(g2))) %is% 28
 
+})
+
+test_that("generator functions", {
+
+  gseq <- gen(function(from, to, by=1) {
+    if (by > 0) {
+      while (to >= from) {
+        yield(from)
+        from <- from + by
+      }
+    } else {
+      while (to <= from) {
+        yield(from)
+        from <- from + by
+      }
+    }
   })
-}
+
+  expect_type(gseq, "closure")
+  expect_false(is(gseq, "iteror"))
+  names(formals(gseq)) %is% c("from", "to", "by")
+
+  # you need to force your args to do this:
+  iters <- list()
+  for (i in 1:10) {
+    iters[[i]] <- gseq(1, i)
+  }
+  x <- collect(type=0, \(yield) {
+    for (it in iters) {
+      repeat yield(nextElemOr(it, break), " ")
+    }
+  })
+  sum(x) %is% 220
+
+})
+
 
 test_that("nextElem followed by call", {
   #this turned out to have been nextElemOr_cps not forcing its "cont"

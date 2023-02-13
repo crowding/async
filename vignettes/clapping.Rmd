@@ -55,30 +55,22 @@ object.
 
 To make a generator for this pattern, we just enclose the body of the
 function in a call to `gen()`, and change each `cat()` to
-`yield()`. We can also move the outer loop into the `recycle` argument of an [iteror].
+`yield()`. We can also move the outer loop into the `recycle` argument
+of an [iteror].
 
 ```{R}
 library(async) # for gen
-gen_pattern <- function(counts = c(3, 2, 1, 2)) { force(counts)
-  gen({
-    repeat {
-      for (n in counts) {
-        for (j in 1:n)
-          yield(1)
-        yield(0)
-      }
+counts <- c(3, 2, 1, 2)
+pattern <- gen({
+  repeat {
+    for (n in counts) {
+      for (j in 1:n)
+        yield(1)
+      yield(0)
     }
-  })
-}
+  }
+})
 ```
-
-Adding `force(counts)` is a good idea because of R's lazy evaluation +
-mutable bindings.  A generator captures its environment like an inner
-function, so it's a good idea to fix the value of `counts` before the
-outer function returns. Meanwhile, fixing the number of `repeats`
-ahead of time is no longer necessary; a generator can be in principle
-infinite but it will only generate data as long as you keep requesting
-more.
 
 The code inside `gen(...)` does not run, yet. The call to `gen`
 constructs an [iteror](). Iteror is an implementation of iterators
@@ -86,25 +78,39 @@ defined in the async package; its objects are cross compatible with
 the established `iterators` package but can have somewhat better
 performance. The main method for an iteror is `nextElemOr(x, or)`
 where the second argument specifies what to do to signal the end
-of iteration.
-
-When `nextElemOr()` is called on a generator, the generator runs its
-code only up to where `yield` is called. The generator returns this
-value, and saves its state to pause until the next call to `nextElemOr()`.
-
-So we can get values out of our generator like this:
+of iteration. So we can get out our pattern like this:
 
 ```{R}
-p <- gen_pattern()
-for (i in 1:23) {
-  cat(nextElemOr(p, break))
+for (i in 1:24) {
+  cat(nextElemOr(pattern, break))
 }
 cat("\n")
 ```
 
+When `nextElemOr()` is called on a generator, the generator runs its
+code only up to where `yield` is called. The generator returns this
+value, and saves its state, pausing until the next call to `nextElemOr()`.
+
+We'll have to create a few copies of this kind of generator, so we can reuse it
+by making a function. You can wrap `gen` around a function
+expression; this will define a _generator function_ (a function that
+constructs a generator.)
+
+```{R}
+gen_pattern <- gen(function(counts = c(3, 2, 1, 2)) {
+  repeat {
+    for (n in counts) {
+      for (j in 1:n)
+        yield(1)
+      yield(0)
+    }
+  }
+})
+```
+
 Because `gen(...)` builds an [iteror](), you you can apply iteror
 methods to it. For instance you can collect just the first 24 items
-with `ilimit()`
+with `ilimit()`:
 
 ```{R}
 show_head <- function(x, n=24) {
@@ -127,7 +133,7 @@ curl::curl_download(paste0(baseurl, "/clap%20(4).WAV"), samplepaths[1])
 curl::curl_download(paste0(baseurl, "/clap%20(5).WAV"), samplepaths[2])
 ```
 
-Although R is not known for audio performance, there is an `audio`
+Although R is not really known for audio performance, there is an `audio`
 package playing sound samples, which we can use like this:
 
 ```{R, eval=FALSE}
@@ -197,20 +203,20 @@ g <- gen_pattern() |> ilimit(24) |> iapply(cat) |> isink(cat("\n"))
 
 ### Some iterator functions using generators
 
-Generators and coroutines enjoy some syntax extensions over base R;
-one is that use can use a regular `for` loop with an iteror. So we can
-equivalently write `iapply` and `isink` using generator syntax.
+Generators enjoy some syntax extensions over base R; one extension is
+that they can use a regular `for` loop with an iteror. So we can
+equivalently write the above `iapply` and `isink` using even more
+concise generator syntax.
 
 ```{R}
-gapply <- function(it, f, ...) { list(it, f, ...)
-  gen( for (x in it) yield(f(x, ...)) )
-}
-
-gsink <- function(it, then=invisible(NULL)) { force(it)
-  gen({ for (i in it) NULL ; yield(then)}) |> nextElemOr(then, then)
-}
+gapply <- gen(function(it, f, ...) for (x in it) yield(f(x, ...)) )
+gsink <- run(function(it) for (i in it) NULL)
 ```
 
+Here `run` is like `gen` but it runs immediately, collecting all
+values, rather than making an iteror.  In this case, since `run` is
+called with a function expression, `gsink` is a function that when
+called will consume all items from the iterator `it`.
 
 ## Phasing and combining
 

@@ -23,20 +23,27 @@
 #' collection. So we can collect the first 100 values from the above
 #' generator and compute their mean:
 #'
-#' ```r
-#' rwalk |> itertools2::take(100) |> as.numeric() |> mean()
-#' ```
+#'     rwalk |> itertools2::take(100) |> as.numeric() |> mean()
+#'
 #' When `nextElemOr(rwalk, ...)` is called, the generator executes its
-#' "inside" expression until it reaches a call to `yield().` THe
-#' generator 'pauses', preserving its execution state, and `nextElem`
-#' then returns what was passed to `yield`. The next time
-#' `nextElem(rwalk)` is called, the generator resumes executing its
-#' inside expression starting after the `yield()`.
+#' "inside" expression, in a local environment, until it reaches a
+#' call to `yield().` THe generator 'pauses', preserving its execution
+#' state, and `nextElem` then returns what was passed to `yield`. The
+#' next time `nextElem(rwalk)` is called, the generator resumes
+#' executing its inside expression starting after the `yield()`.
 #'
-#' The generator expression is evaluated in a local environment.
+#' If you call `gen` with a function expression, as in:
 #'
-#' Generators are _not_ based on forking or parallel OS processes; they
-#' run in the same R process where `nextElem` is called.
+#'     gseq <- gen(function(x) for (i in 1:x) yield(i))
+#'
+#' then instead of returning a single generator it will return a
+#' _generator function_ (i.e. a function that constructs and returns a
+#' generator.) The above is morally equivalent to:
+#'
+#'     gseq <- function(x) {force(x); gen(for (i in 1:x) yield(i))}
+#'
+#' so the generator function syntax just saves you writing the [force]
+#' call.
 #'
 #' A generator expression can use any R functions, but a call to
 #' `yield` may only appear in the arguments of a "pausable" function.
@@ -69,17 +76,25 @@
 #' @export
 gen <- function(expr, ..., split_pipes=FALSE, trace=trace_,
                 compileLevel=options$compileLevel) {
-  envir <- arg_env(expr)
-  expr <- arg(expr)
+  expr_ <- arg(expr); expr <- NULL
+  if (identical(expr(expr_)[[1]], quote(`function`))) {
+    defn <- coroutine_function(expr_,
+                               quote(async::gen),
+                               ...,
+                               split_pipes=split_pipes,
+                               compileLevel=compileLevel)
+    return(value(defn))
+  }
   .contextName <- "wrapper"
-  args_ <- c(cps_translate(expr,
+  envir <- env(expr_)
+  args_ <- c(cps_translate(expr_,
                            endpoints=gen_endpoints,
                            split_pipes=split_pipes),
-             orig=forced_quo(expr),
+             orig=forced_quo(expr_),
              trace=arg(trace),
              dots(...))
   set_dots(environment(), args_)
-  gen <- make_generator(..., targetEnv=new.env(parent=envir))
+  gen <- make_generator(..., callingEnv=envir)
   if (compileLevel != 0) gen <- compile(gen, compileLevel)
   gen
 }
@@ -158,9 +173,11 @@ yieldFrom_cps <- function(.contextName, it) {
   }
 }
 
-make_generator <- function(expr, orig=arg(expr), ..., trace=trace_) {
+make_generator <- function(expr, orig=arg(expr), ..., trace=trace_,
+                           local=TRUE, callingEnv) {
   list(expr, ..., orig, trace)
   .contextName <- "gen"
+  targetEnv <- if(local) new.env(parent=callingEnv) else callingEnv
   # gen_cps <- function(.contextName, expr) {
   #   list(.contextName, expr)
   #     list(stp, rtn, pause, pause_val, trace)
@@ -231,7 +248,8 @@ make_generator <- function(expr, orig=arg(expr), ..., trace=trace_) {
   })
 
   pump <- make_pump(expr, ..., trace=trace, catch=FALSE,
-                    stp=stop_, yield=yield_, rtn=return_)
+                    stp=stop_, yield=yield_, rtn=return_,
+                    targetEnv=targetEnv)
   pause_val <- get("pause_val_", envir=environment(pump))
 
   g <- add_class(iteror(nextElemOr_), "generator", "coroutine")

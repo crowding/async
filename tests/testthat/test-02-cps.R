@@ -339,3 +339,32 @@ test_that("Makes fully qualified names when async package not attached", {
   expect_identical(expr(xout), target)
 
 })
+
+# becomes
+# function(x, y) {list(x, y); async::gen(for (i in x) yield(i+y), local=FALSE)}
+test_that("coroutine function transform", {
+
+  x <- coroutine_function(quo(
+    function(x, y) {
+      for (i in x) yield(i+y)
+    }),
+    head=quote(async::gen),
+    split_pipes=FALSE)
+
+  x %is% quo(function(x, y) {
+    list(x, y)
+    async::gen({
+        for (i in x) yield(i + y)
+    }, local = FALSE, split_pipes=FALSE)
+  })
+
+  x <- coroutine_function(quo(\(...) for (i in list(...)) yield(i)),
+                          head=quote(async::stream))
+
+  x %is% quo(function(...) {
+    list(...)
+    async::stream(for (i in list(...)) yield(i), local = FALSE)
+  })
+
+})
+

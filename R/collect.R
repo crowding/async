@@ -103,6 +103,11 @@ tree_filter <- function(tree, filter) {
 #'     for (i in vec) total <- emit(total+i)
 #'   })
 #' }
+#'
+#' # we could implement `iterors::as.list.iteror` thus:
+#' as.list.iteror <- function(it) {
+#'   collect(\(yield) repeat yield(nextElemOr(it, break)))
+#' }
 collect <- function(fn, type=list()) {
   collector(function(yield, extract) {fn(yield); extract(TRUE)}, type)
 }
@@ -113,13 +118,14 @@ collect <- function(fn, type=list()) {
 #'   values when your inner function returns. Instead, it provides
 #'   your inner function with two callbacks, one to add a value and
 #'   the second to extract the value; so you can use that callback to
-#'   extract values at a later time. `collector` is used in the
-#'   implementation of [gather].
+#'   extract values at a later time. For an example of `collector`
+#'   usage see the definition of [gather].
 collector <- function(fn, type=list()) {
   size <- 64
   a <- vector(mode(type), length=size)
   i <- 0
   yield <- function(val, name=NULL) {
+    force(val)
     i <<- i + 1
     if (i >= size) {
       size <<- min(2 * size, i)
