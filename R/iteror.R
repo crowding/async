@@ -1,68 +1,79 @@
-#' An efficient and succinct iteration protocol
+#' An efficient and compact iteration protocol.
 #'
-#' The "iterators" package uses stop("StopIteration") and tryCatch to
-#' signal end of iteration, but tryCatch has a not-insiginificant
-#' amount of overhead. In the context of a generator, when you are in a
-# "for" loop over an iterator, you have to be setting up and tearing
-# down the trycatch on each iteration. so that you can return control
-# from the generator.
-#
-# The main method for "iteror" is "nextElemOr" rather than
-# "nextElem". Instead of exceptions, "nextElemOr" uses a lazily
-# evaluated "or" argument to signal the end of iteration.  The "or"
-# argument is lazily evaluated, and will only be forced at the stop of
-# iteration; this means the consumer can provide a "break" or "return"
-# to respond to the end of the loop.
-#
-# sum <- 0
-# it <- iteror(in)
-# repeat {
-#   val <- nextElemOr(iter, break)
-#   sum <- sum + val;
-# }
-#
-# Compare with the usual technique of consuming an iterator with
-# `nextElem()`:
-#
-# sum <- 0
-# it <- iter(in)
-# tryCatch(
-#   repeat {
-#     val <- nextElem(iter)
-#     sum <- sum + val
-#   },
-#   error=function(x) if (!iteration_has_ended(e)) stop(e)
-# )
-#
-# Another way to use the "or" argument is to give it a sigil value;
-# that is, a value that you know will not appear in the values yielded
-# by the generator. If the result of nextElemOr is this sigil value,
-# then you know the iterator has ended. In R it is commonplace to use
-# `NULL` as a sigil, but you do sometimes want to have an iterator
-# return literal `NULL`s. A more general way is to use a one-time
-# sigil value; the function `sigil()` returns a nonce, i.e. a new
-# value that is not [`identical()`] to any other object in the R session.
-#
-# stopped <- sigil()
-# sum <- 0
-# repeat {
-#   i <- nextElemOr(iter, stopped)
-#   if (identical(i, stopped)) break
-#   sum <- sum + i
-# }
-
+#' To create an iteror, call the constructor `iteror` providing either
+#' a vector or a function as argument. The returned object will
+#' support the method `nextElemOr(obj, or)` to extract successive
+#' values.
+#'
+#' The main method for "iteror" is "nextElemOr" rather than
+#' "nextElem". Instead of using exceptions, "nextElemOr" uses a lazily
+#' evaluated "or" argument to signal the end of iteration.  The "or"
+#' argument will only be forced when end of iteration is reached; this
+#' means the consumer can provide an action like "break", "next" or
+#' "return" to take at the the end of iteration. Summing over an
+#' iteror this way looks like:
+#'
+#' ```
+#' sum <- 0
+#' it <- iteror(in)
+#' repeat {
+#'   val <- nextElemOr(iter, break)
+#'   sum <- sum + val;
+#' }
+#' ```
+#'
+#' Another way to use the "or" argument is to give it a sigil value;
+#' that is, a special value that will be interpreted as end of
+#' iteration.  If the result of calling `nextElemOr` is `identical()`
+#' to the sigil value you provided, then you know the iterator has
+#' ended. In R it is commonplace to use `NULL` or `NA`, in the role of
+#' a sigil, but that only works until you have an iterator that needs
+#' to yield NULL. A safer alternative is to use a one-shot sigil
+#' value; the result of `new.env()` will work, as it returns a value
+#' that by construction is not [identical] to any other object in
+#' the R session. This pattern looks like:
+#'
+#' ```
+#' sum <- 0
+#' stopped <- new.env()
+#' repeat {
+#'   val <- nextElemOr(iter, stopped)
+#'   if (identical(val, stopped)) break
+#'   sum <- sum + val
+#' }
+#' ```
+#'
 #' @export
-iteror <- function(it, ...) {
+#' @param obj An object to iterate with. If `obj` is a vector, the
+#'   iterator will go over the elements of that vector and you can use
+#'   `recycle`.  If `obj` is a function, that function will be called
+#'   to compute successive elements. This function should have a
+#'   leading argument named `or` and behave accordingly (only forcing
+#'   and returning `or` to signal end of iteration.)  If you provide a
+#'   function that does not have an `or` argument, you will need to
+#'   specify either `catch` or `sigil`.
+#' @param ... extra parameters specific to class methods.
+#' @return `iteror(obj)` returns an object of class `c('iteror',
+#'   'iter')`.
+#'
+iteror <- function(obj, ...) {
   UseMethod("iteror")
 }
 
 #' @exportS3Method
-iteror.iteror <- identity
+iteror.iteror <- function(obj, ...) obj
 
 #' @exportS3Method iteror iter
-iteror.iter <- identity
+iteror.iter <- function(obj, ...) obj
 
 #' @exportS3Method iteror "function"
+#' @rdname iteror
+#' @param catch If `obj` is a function without an `or` argument, specify
+#'   e.g. `catch="StopIteration"` to interpret errors with that
+#'   message as end of iteration.
+#' @param sigil If `obj` is a function without an `or` argument, specify
+#'   which value to watch for end of iteration. Stop will be signaled
+#'   if the function result is [identical()] to `sigil`.
 iteror.function <- function(obj, ..., catch, sigil) {
   if ("or" %in% names(formals(obj))) {
     fn <- obj
@@ -88,23 +99,44 @@ iteror.function <- function(obj, ..., catch, sigil) {
   structure(list(nextElemOr=fn), class=c("funiteror", "iteror", "iter"))
 }
 
+
 #' @exportS3Method
-iteror.default <- function(obj, ...) {
+#' @rdname iteror
+#' @param recycle If `obj` is a vector, and `recycle` is TRUE, the
+#'   iterator will re-cycle the elements of `obj` without stopping.
+iteror.default <- function(obj, ..., recycle=FALSE) {
   if (is.function(obj)) {
     iteror.function(obj, ...)
   } else {
     i <- 0
     n <- length(obj)
-    iteror.function(function(or, ...) {
-      if (i < n) {
-        i <<- i + 1
+    if (recycle) {
+      x <- iteror.function(function(or, ...) {
+        i <<- i %% n + 1
         obj[[i]]
-      } else or
-    }, ...)
+      }, ...)
+    } else {
+      x <- iteror.function(function(or, ...) {
+        if (i < n) {
+          i <<- i + 1
+          obj[[i]]
+        } else or
+      }, ...)
+    }
+    x$length <- n
+    x$recycle <- recycle
+    x$state <- environment(x$nextElemOr)
+    x
   }
 }
 
 #' @export
+#' @rdname iteror
+#' @param obj An [iteror]
+#' @param or If the iteror has reached its end, an argument that
+#'   will be forced and returned.
+#' @return `nextElemOr` returns the next element in the iteror, or
+#'   else forces and returns its `or` argument.
 nextElemOr <- function(obj, or, ...) {
   UseMethod("nextElemOr")
 }
@@ -117,6 +149,11 @@ nextElemOr.funiteror <- function(obj, or, ...) {
 #' @exportS3Method iterators::nextElem iteror
 nextElem.iteror <- function(obj, ...) {
   nextElemOr(obj, stop("StopIteration"), ...)
+}
+
+#' @exportS3Method
+format.iteror <- function(x, ...) {
+  "<iteror>"
 }
 
 # `sigil()` creates a unique value, with an optional name attached.
@@ -144,11 +181,11 @@ ihasNext.default <- function(obj) ihasNext(iteror(obj))
 `%then%` <- function(a, b) { force(a); force(b); a }
 
 #' @exportS3Method
-nextElemOr.iter <- function(iter, or) {
+nextElemOr.iter <- function(obj, or, ...) {
   # :( this means that if you use nextElemOr over a regular iter, you
   # are setting up and tearing down a tryCatch in each iteration...
   tryCatch(
-    nextElem(iter),
+    iterators::nextElem(obj),
     error=function(e)
       if (!identical(conditionMessage(e), 'StopIteration')) stop(e) else or)
 }
@@ -178,7 +215,7 @@ ihasNext.iteror <- function(iter, ...) {
   }, class=c("ihasNextOr", "iteror", "ihasNext", "iter"))
 }
 
-#' @exportS3Method
+#' @exportS3Method iterators::nextElem ihasNextOr
 nextElem.ihasNextOr <- function(obj, ...) {
   obj(stop("StopIteration", call.=FALSE), query="next", ...)
 }
@@ -211,21 +248,14 @@ as.list.iteror <- function(x, n=as.integer(2^31-1), ...) {
   a
 }
 
-icount <- function(count) {
-  i <- 0L
-  if(missing(count)) {
-    iteror(function(or) {
-      i <<- i + 1L
-    })
-  } else {
-    iteror(function(or) {
-      if (i >= count) or else i <<- i + 1L
-    })
-  }
-}
-
-ilimit <- function(iterable, n) {
-  it <- iteror(iterable)
+#' Limit the number of elements emitted by an iterator.
+#' @param it an [iteror] os something that converts to an iteror.
+#' @param n How many elements to take.
+#' @return a new [iteror] wrapping the provided one, which will stop
+#'   after the specified number of elements.
+#' @export
+ilimit <- function(it, n) {
+  it <- iteror(it)
   n <- as.integer(n)
   i <- 0L
   iteror(function(or, ...) {
@@ -236,85 +266,12 @@ ilimit <- function(iterable, n) {
   })
 }
 
-bench_iterators <- function() {
-  # holy hell what the heck is iter() DOING??? 10x overhead!?
-  # ah, it is switching depending on whether it's a function(n) or not.
-  # and recycle() and that all takes some time.
-  # they should specialize at construction time and return a closure.
-  microbenchmark(
-    as.list(iter(1:500)),
-    as.list(iter(local({
-      x <- 0;
-      function() if (x < 500) x <<- x + 1 else stop("StopIteration")
-    }))),
-    as.list(new_iterator(local({
-      x <- 0;
-      function() if (x < 500) x <<- x + 1 else stop("StopIteration")
-    }))),
-    as.list(iteror(local({
-      x <- 0;
-      function(or) if (x < 500) x <<- x + 1 else or
-    }))),
-    as.list(iteror(1:500)),
-    as.list(ihasNext(icount(500))),
-    as.list(ihasNextOr(icountor(500))),
-    as.list(icount(500)),
-    as.list(icountor(500)),
-    as.list(ilimit(icount(), 500)),
-    as.list(ilimitor(icountor(), 500)))
-}
-
-filter.iteror <- function(it, predicate) {
-  iteror(function(or) {
-    repeat
-      if (predicate(x <- nextElem(it, return(or))))
-        return(x)
-  })
-}
-
-imap <- function(it, fn) {
-  iteror(function(or) {
-    repeat {
-      x <- nextElemOr(it, return(or))
-      return(fn(x, next))
-    }
-  })
-}
-
-ichain <- function(its) {
-  its <- iteror(its)
-  it <- emptyIteror()
-  iteror(function(or) {
-    repeat {
-      return(nextElemOr(it, {
-        it <<- iteror(nextElemOr(its, return(or)))
-        next
-      }))
-    }
-  })
-}
-
-chain <- function(...) {
-  ichain(list(...))
-}
-
-izip <- function(...) {
-  iterors <- lapply(list(...), iteror)
-
-  if (length(iterors) == 0) return(emptyIteror())
-
-  iteror(function(or) {
-    lapply(iterors, nextElemOr, return(or))
-  })
-}
-
-emptyIteror <- function() iteror(function(or) or)
-
-accumulate <- function(it, func=`+`) {
-  sum <- 0
-  iteror(function(or) sum <<- func(sum, nextElemOr(it, return(or))))
-}
-
+#' Iterator equivalent of [seq].
+#' @param from The starting value of the sequence.
+#' @param to The value to stop at.
+#' @param by How much to increment at each step.
+#' @return a new [iteror] which will yield the sequence specified.
+#' @export
 iseq <- function(from=1L, to=Inf, by=1L) {
   i <- from - by
   if (by > 0L)

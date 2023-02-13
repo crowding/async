@@ -1,4 +1,3 @@
-
 # Scan a function and return all names used, labeled by their
 # (possibly overlapping) "roles":
 #

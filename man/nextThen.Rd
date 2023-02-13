@@ -25,12 +25,13 @@ error.}
 }
 \description{
 \code{nextThen} is the callback-oriented interface to work with
-channels.  Provide three callback functions to receive the next
-element, error, and channel closing; these callbacks will be stored
-in a queue and called when values are available.
+\link{channel} objects. Provide the channel callback functions to
+receive the next element, error, and closing signals; your
+callbacks will be stored in a queue and called when values are
+available.
 }
 \details{
-\code{subscribe} is similar to nextThen except that its \code{onNext} will be
-called for each value the channel emits. It is simply implemented
+\code{subscribe} is similar to nextThen except that your \code{onNext} will be
+called for each value the channel emits. It is just implemented
 in terms of nextThen, with a callback that re-registers itself.
 }

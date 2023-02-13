@@ -1,9 +1,7 @@
-
-#' Execute a generator expression immediately, collecting values.
+#' Execute a generator expression immediately, collecting yielded values.
 #'
-#' `run(expr)` with an expression directly writen, will transform that
-#' expression to run asynchronously, but then run it without pausing;
-#' any values yielded are returned in a list.
+#' `run(expr)` with an expression directly writen, will parse that
+#' expression as a coroutine, but then run it without pausing.
 #'
 #' If the expression contains any calls to `yield()`, `run()` will
 #' collect all the values passed to yield() and return a list. If the
@@ -19,7 +17,8 @@
 #' extensions, such as using `for` loops over iterators, or using
 #' [goto()] in `switch` statements, in otherwise synchronous code. If
 #' you want to collect a variable-length sequence of values but don't
-#' need those features, using [collect] directly will be faster.
+#' need those features, using [collect] directly will have better
+#' performance.
 #'
 #' @examples
 #' run(type=0,for (i in iseq(2, Inf, by=5)) if (i %% 37 == 0) break else yield(i))
@@ -30,22 +29,22 @@
 #'   in [vapply].)
 #' @param ... Undocumented.
 #' @param split_pipes See [async]; defaults to FALSE.
-#' @param return If `expr` contains any `yield` calls, a vector of the
-#'   same mode as `type`. Otherwise the return value of the
-#'   expression.
+#' @return If `expr` contains any `yield` calls, a vector of the
+#'   same mode as `type`; otherwise the return value of `expr`.
 #' @param debugR Will open a browser at the first and subsequent R
 #'   evaluations allowing single-stepping through user code.
 #' @param debugInternal Will set a breakpoint at the implementation
 #'   level, allowing single-stepping through `async` package code.
+#' @param trace a tracing function.
 #' @export
 run <- function(expr, type=list(), ..., split_pipes=FALSE, trace=trace_,
                 debugR=FALSE, debugInternal=FALSE) {
   .contextName <- "run"
   expr <- arg(expr)
   envir <- env(expr)
-  set_arg(expr_, cps_translate(expr,
-                           endpoints=gen_endpoints,
-                           split_pipes=split_pipes))
+  nseval:::set_arg(expr, cps_translate(expr,
+                                       endpoints=gen_endpoints,
+                                       split_pipes=split_pipes))
   state <- "running"
   result <- NULL
   collecting <- FALSE
@@ -54,7 +53,7 @@ run <- function(expr, type=list(), ..., split_pipes=FALSE, trace=trace_,
   stop_ <- function(err) {result <<- err; state <<- "stopped"}
   y <- function(val, name=NULL) stop("Yield was not registered")
   yield <- function(cont, val) {val <- y(val); cont(val)}
-  pump <- make_pump(expr_, ..., targetEnv=envir, registerYield=registerYield_,
+  pump <- make_pump(expr, ..., targetEnv=envir, registerYield=registerYield_,
                     rtn=return_, stp=stop_, yield=yield, catch=FALSE)
   environment(pump)$setDebug(R=debugR, internal=debugInternal)
 

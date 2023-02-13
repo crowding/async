@@ -101,12 +101,20 @@ tree_filter <- function(tree, filter) {
 #'   total <- 0
 #'   collect(type=0, function(emit) {
 #'     for (i in vec) total <- emit(total+i)
-#'   }
+#'   })
 #' }
 collect <- function(fn, type=list()) {
   collector(function(yield, extract) {fn(yield); extract(TRUE)}, type)
 }
 
+#' @export
+#' @rdname collect
+#' @description `collector()` works similarly but does not gather
+#'   values when your inner function returns. Instead, it provides
+#'   your inner function with two callbacks, one to add a value and
+#'   the second to extract the value; so you can use that callback to
+#'   extract values at a later time. `collector` is used in the
+#'   implementation of [gather].
 collector <- function(fn, type=list()) {
   size <- 64
   a <- vector(mode(type), length=size)
@@ -141,18 +149,18 @@ collector <- function(fn, type=list()) {
   fn(yield, extract)
 }
 
-#' Collect all values emitted by a channel.
+#' Gather all values emitted by a channel.
 #'
-#' `collect.channel` takes a [channel] as argument and returns a
-#' [promise].  It behaves as an analogue of [as.list.iteror]; all
-#' values emitted by the channel will be collected into a list (or
-#' other vector.) When the source channel closes, the promise will
-#' resolve with the collected list.
+#' `gather` takes a [channel] as argument and returns a [promise]. It
+#' is analogous to what [as.list] does for [iteror]s. All values
+#' emitted by the channel will be collected into a list (or other
+#' vector.) When the source channel closes, the promise will resolve
+#' with the collected list.
 #' @export
 #' @param ch a [channel] object.
 #' @param type Optionally provide a vector of the desired output type
 #'   (similarly to using `vapply`); defaults to `list()`
-collect.channel <- function(ch, type=list()) {
+gather <- function(ch, type=list()) {
   promise(\(resolve, reject) {
     collector(type=type, \(yield, extract) {
       subscribe(ch, yield, reject, \() resolve(extract(TRUE)))

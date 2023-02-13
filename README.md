@@ -7,11 +7,21 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-# The `async` package: Generators and async/await for R
+# The `async` package: Generators, async/await, and asynchronous streams for R
 
-This is an R package implementing *generators* and *async* blocks.
+This is an R package implementing *generators*, *async* blocks, and *streams*; (which are collectively known as "coroutines.")
 
 [![R-CMD-check](https://github.com/crowding/async/workflows/R-CMD-check/badge.svg)](https://github.com/crowding/async/actions) [![](https://www.r-pkg.org/badges/version/async?color=purple)](https://cran.r-project.org/package=async) [![Codecov test coverage](https://codecov.io/gh/crowding/async/branch/main/graph/badge.svg)](https://app.codecov.io/gh/crowding/async?branch=main)
+
+# New features in version 0.3
+
+* Single step through a coroutine using `debugAsync(obj, R=TRUE)` to inspect at R level, or `debugAsync(obj, internal=TRUE`
+* `switch` supports `goto()` to transfer to a different branch
+* Coroutines now support `on.exit`
+* Experimental implementation of `channel` interface and `stream()` coroutine.
+* Coroutines are printed with a label indicating where in their code they are paused
+
+For more details see [NEWS.md]().
 
 ## Generators
 
@@ -21,11 +31,11 @@ returns the value. The next time you call the generator it picks up
 where it left off and runs until the next `yield`.
 
 [iterators]: https://CRAN.R-project.org/package=iterators
-[itertools]: https://itertools.r-forge.r-project.org/
-From the "outside" a generator implements the `iterator` interface as
-defined by the [iterators] package You extract each yielded value with
-`nextElem(g)`, and you can use generators anywhere you can use an
-iterator, and with tools from the [iterators] or [itertools] packages.
+
+From the "outside" a generator implements the `iteror` interface.  You
+extract each yielded value with `nextElemOr(g, ...)`, and you can use
+generators anywhere you can use an iterator. The `iteror` class is
+cross compatible with the [iterators]() package.
 
 ### Example: Collatz sequence
 
@@ -37,7 +47,7 @@ each subsequent element is produced by applying the rule:
 
 [conjectured]: https://en.wikipedia.org/wiki/Collatz_conjecture
 An infinite sequence of numbers will continue form each staring point
-`x[1]`, but it is [conjectured] that all sequences will
+`x[1]`, but it is [conjectured]() that all sequences will
 eventually reach the loop 1, 4, 2, 1, 4, 2, .... The following
 generator produces the Collatz sequence, starting from `x`, and
 terminating when (or if?) the sequence reaches 1.
@@ -55,20 +65,20 @@ collatz <- function(x) { force(x)
 ```
 
 The call to `gen` produces a generator. You can get values one at a
-time with `nextElem()`
+time with `nextElemOr()`.
 
 ```r
 ctz <- collatz(12)
 ctz <- collatz(12)
-nextElem(ctz)
+nextElemOr(ctz)
 # [1] 12
-nextElem(ctz)
+nextElemOr(ctz)
 # [1] 6
-nextElem(ctz)
+nextElemOr(ctz)
 # [1] 3
-nextElem(ctz)
+nextElemOr(ctz)
 # [1] 10
-nextElem(ctz)
+nextElemOr(ctz)
 # [1] 5
 ```
 
@@ -115,7 +125,7 @@ Ring a bell 5 times at 10 second intervals (subject to R being idle):
 ```r
 async({
   for (i in 1:5) {
-    await(delay(10))  #delay() uses later::later()
+    await(delay(10))   #delay() uses later::later()
     cat("Beep", i, "\n")
     beepr::beep(2)
   }

@@ -79,3 +79,7 @@ so it's in walk(gc) it's coming up with this.
 Okay this is strange because it's `paranoid=TRUE` that's causing this to happen? and paranoid _ONLY_ does the second graph walk and munge. And that's not failing?
 
 This is like a weird heisenbug, It crops up if i have paranoid=TRUE checks, but they shouldn't modify anything. Thinking maybe the order in which a hash table is traversed???? I added a `sort` around all my for loops that go over `names()` of an env. That appears to have stopped it for now??? 
+
+## static check for forcing all args
+
+I fixed a bug in break_cps where it wasn't forcing "cont" and this caused semicolons to be screwy. Seems like I could statically check that context constructors are forcing all the continuation args they use. Extend the static check for handler-passing to check for argument forcing...

@@ -2,7 +2,7 @@
 % Please edit documentation in R/run.R
 \name{run}
 \alias{run}
-\title{Execute a generator expression immediately, collecting values.}
+\title{Execute a generator expression immediately, collecting yielded values.}
 \usage{
 run(
   expr,
@@ -25,20 +25,21 @@ in \link{vapply}.)}
 
 \item{split_pipes}{See \link{async}; defaults to FALSE.}
 
+\item{trace}{a tracing function.}
+
 \item{debugR}{Will open a browser at the first and subsequent R
 evaluations allowing single-stepping through user code.}
 
 \item{debugInternal}{Will set a breakpoint at the implementation
 level, allowing single-stepping through \code{async} package code.}
-
-\item{return}{If \code{expr} contains any \code{yield} calls, a vector of the
-same mode as \code{type}. Otherwise the return value of the
-expression.}
+}
+\value{
+If \code{expr} contains any \code{yield} calls, a vector of the
+same mode as \code{type}; otherwise the return value of \code{expr}.
 }
 \description{
-\code{run(expr)} with an expression directly writen, will transform that
-expression to run asynchronously, but then run it without pausing;
-any values yielded are returned in a list.
+\code{run(expr)} with an expression directly writen, will parse that
+expression as a coroutine, but then run it without pausing.
 }
 \details{
 If the expression contains any calls to \code{yield()}, \code{run()} will
@@ -55,7 +56,8 @@ evaluates its expression directly in the calling environment, while
 extensions, such as using \code{for} loops over iterators, or using
 \code{\link[=goto]{goto()}} in \code{switch} statements, in otherwise synchronous code. If
 you want to collect a variable-length sequence of values but don't
-need those features, using \link{collect} directly will be faster.
+need those features, using \link{collect} directly will have better
+performance.
 }
 \examples{
 run(type=0,for (i in iseq(2, Inf, by=5)) if (i \%\% 37 == 0) break else yield(i))

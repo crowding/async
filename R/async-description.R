@@ -26,12 +26,9 @@
 #' @author Peter Meilstrup
 NULL
 
-paranoid <- FALSE
-destructive <- TRUE
-verbose <- FALSE
-trace_ <- function(x) if(verbose) cat(x)
+options <- as.environment(list(compileLevel=0, paranoid=FALSE, verbose=FALSE, destructive=TRUE))
+trace_ <- function(x) if(options$verbose) cat(x)
 
-compileLevel <- 0
 
 #' Get or set global options for the async package. These options are
 #' mostly used in package development or unit testing.
@@ -50,17 +47,13 @@ compileLevel <- 0
 #' @return a list containing the current settings.
 #' @export
 asyncOpts <- function(
-    verbose=get("verbose", parent.env(environment())),
-    compileLevel=get("compileLevel", parent.env(environment())),
-    paranoid=get("paranoid", parent.env(environment())),
-    destructive=get("destructive", parent.env(environment()))) {
-  list(verbose, compileLevel, paranoid, destructive)
-  unlockBinding("compileLevel", getNamespace("async"))
-  unlockBinding("destructive", getNamespace("async"))
-  unlockBinding("verbose", getNamespace("async"))
-  unlockBinding("paranoid", getNamespace("async"))
-  list(verbose=verbose<<-verbose,
-       compileLevel=compileLevel<<-compileLevel,
-       paranoid=paranoid<<-paranoid,
-       destructive=destructive<<-destructive)
+    verbose=options$verbose,
+    compileLevel=options$compileLevel,
+    paranoid=options$paranoid,
+    destructive=options$destructive) {
+  assign("verbose", verbose, envir=options)
+  assign("compileLevel", compileLevel, envir=options)
+  assign("paranoid", paranoid, envir=options)
+  assign("destructive", destructive, envir=options)
+  as.list(options)
 }

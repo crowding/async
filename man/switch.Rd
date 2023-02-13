@@ -6,26 +6,32 @@
 \usage{
 goto(branch = NULL)
 }
+\arguments{
+\item{branch}{A character string naming the new branch. If missing or NULL,
+jumps back to re-evaluate the switch argument.}
+}
 \description{
 The \code{switch} function implemented for coroutines in the \code{async}
-package is more strict than the one in base R. Base R \code{switch} will
-silently return NULL if no branch matches the result of the switch
-expression. In \code{async()}, \code{switch} will always either take one of
-the given branches or throw an error. Otherwise, the same
-conventions (one unnamed argument for a default; fallthrough for
-empty arguments) apply as \url{base::switch}.
+package is more strict than the one in base R. In a coroutine,
+\code{switch} will always either take one of the given branches or throw
+an error, whereas base R \code{switch} will silently return NULL if no
+branch matches switch argument. Otherwise, the same conventions
+apply as \url{base::switch} (e.g. empty switch branches fall through;
+a character switch may have one unnamed argument as a default.)
 }
 \details{
 Coroutine \code{switch} also supports a delimited form of \code{goto}. Within
 a branch, \code{goto("other_branch")} will stop executing the present
-branch and jump to the new branch named.  Calling \code{goto()} without
+branch and jump to the named branch.  Calling \code{goto()} without
 arguments will jump back to re-evaluate the switch expression.
 
-If a \code{goto} appears in a \code{try} call, as in
+If a \code{goto} appears in a try-finally call, as in:
 
 \if{html}{\out{<div class="sourceCode">}}\preformatted{switch("branch",
-   branch=try(\{...; goto("otherBranch")\}, finally=\{cleanup()\}),
-   otherBranch=... )
+   branch=tryCatch(\{...; goto("otherBranch")\},
+                   finally=\{cleanup()\}),
+   otherBranch=\{...\}
+)
 }\if{html}{\out{</div>}}
 
 the \code{finally} clause will be executed \emph{before} switching to the new branch.

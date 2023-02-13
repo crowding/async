@@ -64,6 +64,7 @@
 #'   like `trace=browser` for "single stepping" through an async.
 #' @param split_pipes Rewrite chained calls that use `await`
 #'   (see below)
+#' @param compileLevel Compilation level; same options as for [gen].
 #'
 #' @param ... Undocumented.
 #' @param prefix A function to print debugging messages. `trace=cat`
@@ -81,13 +82,13 @@
 #'
 #' @export
 async <- function(expr, ..., split_pipes=TRUE, trace=trace_,
-                  compileLevel=get("compileLevel", parent.env(environment()))) {
+                  compileLevel=options$compileLevel) {
   .contextName <- "wrapper"
   expr <- arg(expr)
   force(trace)
   envir <- env(expr)
   translated_ <- cps_translate(expr, async_endpoints, split_pipes=split_pipes)
-  args <- c(translated_, orig=forced_quo(expr(expr)), trace=quo(trace), dots(...))
+  args <- c(translated_, orig=forced_quo(nseval::expr(expr)), trace=quo(trace), dots(...))
   set_dots(environment(), args)
   make_async(..., targetEnv=new.env(parent=env(expr)), compileLevel=compileLevel)
 }
@@ -104,17 +105,17 @@ await <- function(prom) {
 }
 
 await_cps <- function(.contextName, prom) { force(prom)
-  function(cont, ..., await, stp, trace) {
+  function(cont, ..., pause, await, stp, trace) {
     if (missing(await)) stop("await used, but this is not an async")
-    list(cont, await, stp, trace)
+    list(cont, await, pause, stp, trace)
     promis <- NULL
     success <- NULL
     value <- NULL
-    then %<-% function() {
+    named(then <- function() {
       trace("await: resolve\n")
       if(success) cont(value) else stp(value)
-    }
-    await_ %<-% function(val) {
+    })
+    named(await_ <- function(val) {
       val <- promises::as.promise(val)
       promis <<- val
       trace("await: got promise\n")
@@ -123,7 +124,7 @@ await_cps <- function(.contextName, prom) { force(prom)
             promis,
             function(val) {success <<- TRUE; promis <<- NULL; value <<- val},
             function(err) {success <<- FALSE; promis <<- NULL; value <<- err})
-    }
+    })
     prom(await_, ..., pause=pause, await=await, stp=stp, trace=trace)
   }
 }
@@ -143,29 +144,31 @@ make_async <- function(expr, orig=expr, ...,
   resolve_ <- NULL
   reject_ <- NULL
 
-  getState %<-% function() state
+  named(getState <- function() state)
 
-  return_ %<-% function(val) {
+  named(return_ <- function(val) {
     trace("async: return (resolving)\n")
     state <<- "resolved"
     value <<- val
     resolve_(val) # avoid gathering this as a tailcall
     val
-  }
+  })
 
-  stop_ %<-% function(val) {
+  named(stop_ <- function(val) {
     trace("async: stop (rejecting)\n")
     value <<- val
     state <<- "rejected"
     reject_(val)
     val
-  }
+  })
 
-  replace %<g-% function(resolve, reject) {
+  globalNamed(replace <- function(resolve, reject) {
     resolve_ <<- resolve
     reject_ <<- reject
-  }
+  })
 
+  await_ <- NULL
+  awaitNext_ <- NULL
   #await_ and awaitNext_
   eval(await_handlers)
 
@@ -197,7 +200,7 @@ await_handlers <- quote({
   awaiting <- nonce
   await_state <- "xxx"
 
-  check_wake %<-% function()
+  named(check_wake <- function()
     switch(await_state,
            "awaiting"={
              trace("await: got callback while still running\n")
@@ -210,9 +213,9 @@ await_handlers <- quote({
              await_state <<- "xxx"
              pump()
            }
-           )
+           ))
 
-  await_ %<-% function(cont, promise, success, failure) {
+  named(await_ <- function(cont, promise, success, failure) {
     list(promise, success, failure)
 
     succ <- function(val) {
@@ -234,9 +237,9 @@ await_handlers <- quote({
     await_state <<- "awaited"
     if (is.null(awaiting))
       bounce(cont) else pause(cont)
-  }
+  })
 
-  awaitNext_ %<-% function(cont, strm, success, error, finish) {
+  named(awaitNext_ <- function(cont, strm, success, error, finish) {
     list(strm, success, error, finish)
     succ <- function(val) {
       trace("awaitNext: got value\n")
@@ -262,20 +265,23 @@ await_handlers <- quote({
     await_state <<- "awaited"
     if (is.null(awaiting))
       bounce(cont) else pause(cont)
-  }
+  })
 })
 
 #' @exportS3Method
-getPump.async <- function(x) x$state$pump
+getPump.async <- function(x, ...) x$state$pump
 #' @exportS3Method
-getOrig.async <- function(x) x$orig
+getOrig.async <- function(x, ...) x$orig
 #' @exportS3Method
 
 #' @exportS3Method
-getState.async <- function(x) x$state$getState()
+#' @rdname format
+#' @return `getState(a)` on an [async] might return "running", "awaiting", "resolved" or
+#' "rejected".
+getState.async <- function(x, ...) x$state$getState()
 
 #' @exportS3Method
-getStartSet.async <- function(x,...) {
+getStartSet.async <- function(x, ...) {
   c(NextMethod(),
     list(
       replace = x$state$replace,

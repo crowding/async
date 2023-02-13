@@ -77,34 +77,34 @@ deque <- function(len=64) {
 }
 
 
-#' Create an object representing a sequence of future values.
+#' An object representing a sequence of future values.
 #'
-#' A `channel` is an object with an interface that represents
-#' a sequence of values yet to be determined. It is something like a
-#' combination of a [promise] and an [iteror].
+#' A `channel` is an object that represents a sequence of values yet
+#' to be determined. It is something like a combination of a [promise]
+#' and an [iteror].
 #'
-#' It may be used to represent and work with data coming in over a
-#' connection, data values being logged over time, a queue of incoming
-#' requests, and things of that nature.
+#' The channel interface could be used to represent and work with data
+#' coming in over a connection, data values being logged over time, a
+#' queue of incoming requests, and things of that nature.
 #'
-#' The friendly way to create a channel and use them in asynchronous
-#' programming is to use a [stream] coroutine. Inside of `stream()`,
-#' use `await` to wait on promises, `awaitNext` to wait on other
-#' streams and `yield(val)` to yield values. To signal end of iteration
+#' The friendly way to create a channel and use it in asynchronous
+#' programming is to use a [stream] coroutine. Inside of `stream()`
+#' call [await] to wait on promises, [awaitNext] to wait on other
+#' streams and [yield] to yield values. To signal end of iteration
 #' use `return()` (which will discard its value) and to signal an
 #' error use `stop()`.
 #'
 #' The friendly way to consume values from a channel is to use
-#' `[awaitNext(ch)]` within an `async` or `stream` construct.
+#' awaitNext within an `async` or `stream` coroutine.
 #'
 #' The low-level interface to request values from a channel is to call
-#' `nextThen(ch, onNext=, onError=, onClose=)`, providing callback
+#' [nextThen]`(ch, onNext=, onError=, onClose=)]`, providing callback
 #' functions for at least `onNext(val)`. Those callbacks will be
 #' appended to an internal queue, and will be called as soon as data
 #' is available, in the order that requests were received.
 #'
-#' You can also treat a channel as an iterator over promises, calling
-#' `nextElem(pri)` to return a [promise] representing the next
+#' You can also treat a channel as an [iteror] over promises, calling
+#' `nextElemOr(pri)` to return a [promise] representing the next
 #' available value. Each promise created this way will be resolved in
 #' the order that data come in. Note that this way there is no special
 #' signal for end of iteration; a promise will reject with
@@ -113,17 +113,17 @@ deque <- function(len=64) {
 #' Be careful with the iterator-over-promises interface though: if you
 #' call `as.list.iteror(pr)` you may get stuck in an infinite loop, as
 #' `as.list` keeps calling `nextElem` and receives more promises to
-#' represent values that exist only hypothetically. This is the main
+#' represent values that exist only hypothetically. This is one
 #' reason for the `max_listeners` limit.
 #'
-#' The low-level interface to create a channel object is to call
+#' The low-level interface to _create_ a channel object is to call
 #' `channel(function(emit, reject, cancel) {...})`, providing your own
 #' function in its argument; your function will receive those three
-#' methods as arguments. Then use whatever means to arrange to call
-#' `emit(val)` some time in the future as data comes in. When you are
-#' done emitting values, call the `close()` callback. To report an
-#' error use the `reject(err)` callback. The next requestor will
-#' receive the error. If there is more than one listener, other
+#' callback methods as arguments. Then use whatever means to arrange
+#' to call `emit(val)` some time in the future as data comes in. When
+#' you are done emitting values, call the `close()` callback. To
+#' report an error use the callback `reject(err)` The next requestor
+#' will receive the error. If there is more than one listener, other
 #' queued listeners will get a `close` signal.
 #'
 #' @param impl A user-provided function; it will receive three
@@ -159,7 +159,7 @@ channel <- function(impl, max_queue=500L, max_awaiting=500L,
       stop("Outgoing queue is full!")
     outgoing$append(val)
     send()
-    val
+    invisible(val)
   }
 
   reject <- function(...) {
@@ -238,11 +238,6 @@ channel <- function(impl, max_queue=500L, max_awaiting=500L,
 
 }
 
-#' @export
-is.channel <- function(x) {
-  inehrits(x, "channel")
-}
-
 #' @exportS3Method
 print.channel <- function(x, ...) {
   cat(format(x, ...), sep="\n")
@@ -256,12 +251,13 @@ format.channel <- function(x, ...) {
 #' Receive values from channels by callback.
 #'
 #' `nextThen` is the callback-oriented interface to work with
-#' channels.  Provide three callback functions to receive the next
-#' element, error, and channel closing; these callbacks will be stored
-#' in a queue and called when values are available.
+#' [channel] objects. Provide the channel callback functions to
+#' receive the next element, error, and closing signals; your
+#' callbacks will be stored in a queue and called when values are
+#' available.
 #'
-#' `subscribe` is similar to nextThen except that its `onNext` will be
-#' called for each value the channel emits. It is simply implemented
+#' `subscribe` is similar to nextThen except that your `onNext` will be
+#' called for each value the channel emits. It is just implemented
 #' in terms of nextThen, with a callback that re-registers itself.
 #'
 #' @param x A [channel] object
@@ -290,20 +286,20 @@ nextThen.channel <- function(x,
 #' @export
 #' @rdname channel
 #' @return `is.channel(x)` returns TRUE if its argument is a channel object.
-is.channel <- function(x, ...) {
+#' @param x an object.
+is.channel <- function(x) {
   UseMethod("is.channel")
 }
 
 #' @exportS3Method is.channel channel
-is.channel.channel <- function(x, ...) {
+is.channel.channel <- function(x) {
   TRUE
 }
 
 #' @exportS3Method is.channel default
-is.channel.default <- function(x, ...) {
+is.channel.default <- function(x) {
   FALSE
 }
-
 
 #' @export
 #' @rdname nextThen

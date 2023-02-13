@@ -1,4 +1,3 @@
-
 test_that("on.exit", {
 
   closed <- FALSE
@@ -42,9 +41,9 @@ test_that("on.exit in generator", {
     on.exit(closed <<- TRUE)
     yieldFrom(1:3)
   })
-  nextElem(g) %is% 1
-  nextElem(g) %is% 2
-  nextElem(g) %is% 3
+  nextElemOr(g, NULL) %is% 1
+  nextElemOr(g, NULL) %is% 2
+  nextElemOr(g, NULL) %is% 3
   expect_false(closed)
   nextElemOr(g, "done") %is% "done"
   expect_true(closed)
@@ -55,7 +54,7 @@ test_that("on.exit in generator", {
     expect_false(closed)
     yield(s0me+nons3nse)
   })
-  expect_error(nextElem(g), "s0me")
+  expect_error(nextElemOr(g, NULL), "s0me")
   expect_true(closed)
 
 })
@@ -103,19 +102,15 @@ test_that("on.exit in async; can override", {
 test_that("extremely bananas: simultaneously errors and returns", {
 
   # okay now, here is what R does:
-  f <- function(x) {on.exit(return("5!")); stop("asplode")}
-  g <- NULL
-  expect_error(g <- f(), "splode")
-  # and yet somehow,
-  g %is% "5!"
-  # you can even override a stop with a return
+  # you override a stop with a return
   r <- function() {
     on.exit(return("5!"))
     stop("this throws")
   }
   g <- NULL
+  # expect_error sees an error:
   expect_error(g <- r(), "throws")
-  # And yet,
+  # And yet, it returned a value.
   g %is% "5!"
 
   # Can "run" replicate this?

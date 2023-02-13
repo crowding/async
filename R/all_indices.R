@@ -1,4 +1,3 @@
-
 all_indices <- function(x, levels=Inf) UseMethod("all_indices")
 
 #' @exportS3Method
@@ -6,9 +5,6 @@ all_indices.environment <- function(x, levels=Inf) {
   x <- as.list.environment(x, all.names=TRUE, sorted=TRUE)
   all_indices.list(x, levels=levels)
 }
-
-#' @exportS3Method
-all_indices.hashbag <- all_indices.environment
 
 #' @exportS3Method
 all_indices.list <- function(x, levels=Inf) {

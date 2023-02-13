@@ -17,8 +17,8 @@ To illustrate what this means, and the the generators package in
 general, I will use R to perform a suitable piece of music,
 specifically Steve Reich's "Clapping Music."
 
-The piece is starts with a loop counting out groups of 3, 2, 1, 2, 3,
-2, 1, 2, 3... with each group seperated by one rest. This adds up to a
+The piece starts with a loop counting out groups of 3, 2, 1, 2, 3, 2,
+1, 2, 3... with each group separated by one rest. This adds up to a
 12-note loop:
 
 ![Musical score showing loop](clapping_music.svg)
@@ -53,8 +53,9 @@ this pattern into data, rather than terminal output.
 The `generators` package allows us to enclose a data-generating process into an
 object.
 
-To make a generator for this patter, we just enclose the body of the
-function in a call to `gen()`, and change each `cat()` to `yield()`.
+To make a generator for this pattern, we just enclose the body of the
+function in a call to `gen()`, and change each `cat()` to
+`yield()`. We can also move the outer loop into the `recycle` argument of an [iteror].
 
 ```{R}
 library(async) # for gen
@@ -74,35 +75,40 @@ gen_pattern <- function(counts = c(3, 2, 1, 2)) { force(counts)
 Adding `force(counts)` is a good idea because of R's lazy evaluation +
 mutable bindings.  A generator captures its environment like an inner
 function, so it's a good idea to fix the value of `counts` before the
-outer function returns; this is the same as if you return an inner
-function that uses arguments to an outer function. Meanwhile, fixing
-the number of `repeats` ahead of time is no longer necessary; a
-generator can be in principle infinite and it will only generate data
-as long as you keep requesting more.
+outer function returns. Meanwhile, fixing the number of `repeats`
+ahead of time is no longer necessary; a generator can be in principle
+infinite but it will only generate data as long as you keep requesting
+more.
 
 The code inside `gen(...)` does not run, yet. The call to `gen`
-constructs an
-[iterator][iterators::iterators-package],
-which supports the method `nextElem`. When `nextElem()` is called on a
-generator, the generator runs its code only up to the point where
-`yield` is called. The generator returns this value, and pauses state
-until the next call to `nextElem()`.
+constructs an [iteror](). Iteror is an implementation of iterators
+defined in the async package; its objects are cross compatible with
+the established `iterators` package but can have somewhat better
+performance. The main method for an iteror is `nextElemOr(x, or)`
+where the second argument specifies what to do to signal the end
+of iteration.
+
+When `nextElemOr()` is called on a generator, the generator runs its
+code only up to where `yield` is called. The generator returns this
+value, and saves its state to pause until the next call to `nextElemOr()`.
+
+So we can get values out of our generator like this:
 
 ```{R}
-library(iterators)
 p <- gen_pattern()
-for (i in 1:23) { cat(nextElem(p)) }; cat("\n")
+for (i in 1:23) {
+  cat(nextElemOr(p, break))
+}
+cat("\n")
 ```
 
-`gen(...)` constructs and returns an
-[iterator](https://CRAN.R-project.org/package=iterators),
-which means you can apply iterator methods to it. For instance you can collect
-just the first 24 items with `ilimit()`:
+Because `gen(...)` builds an [iteror](), you you can apply iteror
+methods to it. For instance you can collect just the first 24 items
+with `ilimit()`
 
 ```{R}
-library(magrittr)
 show_head <- function(x, n=24) {
-  x %>% itertools::ilimit(n) %>% as.list() %>% deparse() %>% cat(sep="\n")
+  x |> ilimit(n) |> as.list() |> deparse() |> cat(sep="\n")
 }
 show_head(gen_pattern(), 24)
 ```
@@ -141,9 +147,8 @@ library(profvis) # for pause
 iplay <- function(g, samples, bpm) {
   interval <- 60 / bpm
   target <- Sys.time()
-  tryCatch(
     repeat {
-      x <- nextElem(g)
+      x <- nextElemOr(g, break)
       target <- target + interval
       while({now <- Sys.time(); Sys.time() - now > 0.15})
         Sys.sleep(target - now - 0.15)
@@ -154,73 +159,58 @@ iplay <- function(g, samples, bpm) {
       } else {
         cat(".")
       }
-    },
-    error=function(e) {
-      if (identical(conditionMessage(e), 'StopIteration'))
-        invisible(NULL)
-      else stop(e)
-    })
+    }
 }
 ```
 
 So we should hear our pattern now:
 
 ```{R, eval=FALSE}
-gen_pattern() %>% itertools::ilimit(36) %>% iplay(claps, 360)
+gen_pattern() |> ilimit(36) |> iplay(claps, 360)
 ```
 
-### Some iterator functions
+### Some iteror (iterator) functions
 
-Here's a couple of utility functions that will come in handy. One
-is an iterator equivalent of `lapply` for iterators, which I'll call
-`iapply`. The other one is `isink` which just consumes all elements
-from an iterator.
+Here's a couple of utility functions that will come in handy. One is
+an iteror equivalent of `lapply`, which I'll call `iapply`. The
+other one is `isink` which just consumes and throws away all elements
+from an iteror.
 
-```r
+```{R}
 iapply <- function(it, f, ...) { list(it, f, ...)
-  itertools::new_iterator(function() {
-    f(nextElem(it), ...)
+  iteror(function(or) {
+    f(nextElemOr(it, return(or)), ...)
   })
 }
 
 isink <- function(it, then=invisible(NULL)) {
-  tryCatch(
-    repeat {nextElem(it)},
-    error=function(e) {
-      if (!identical(conditionMessage(e), 'StopIteration'))
-        stop(e)
-    })
- then
-}
-```
-
-### Some iterator functions using generators
-
-Note that in a generator, you can write a `for` loop with an iterator
-in the argument. So we can equivalently write `iapply` and `isink` like this:
-
-```r
-iapply <- function(it, f, ...) { list(it, f, ...)
-  gen({
-    for (x in it) yield(f(x, ...))
-  })
-}
-```
-
-```r
-isink <- function(it, then=NULL) {
-  gen({
-    for (i in it) next
-    yield(then)
-  }) %>% nextElem() %>% invisible()
+  repeat nextElemOr(it, break)
+  then
 }
 ```
 
 For example, run an iterator through `iapply(cat)` and `isink` to print it:
 
-```r
-g <- gen_pattern() |> itertools::ilimit(24) |> iapply(cat) |> isink(cat("\n"))
+```{R}
+g <- gen_pattern() |> ilimit(24) |> iapply(cat) |> isink(cat("\n"))
 ```
+
+### Some iterator functions using generators
+
+Generators and coroutines enjoy some syntax extensions over base R;
+one is that use can use a regular `for` loop with an iteror. So we can
+equivalently write `iapply` and `isink` using generator syntax.
+
+```{R}
+gapply <- function(it, f, ...) { list(it, f, ...)
+  gen( for (x in it) yield(f(x, ...)) )
+}
+
+gsink <- function(it, then=invisible(NULL)) { force(it)
+  gen({ for (i in it) NULL ; yield(then)}) |> nextElemOr(then, then)
+}
+```
+
 
 ## Phasing and combining
 
@@ -234,8 +224,8 @@ that does this "skip," by consuming a value without yielding it:
 drop_one_after <- function(g, n, sep=character(0)) {  list(g, n, sep)
   gen(
     repeat {
-      for (i in 1:n) yield(nextElem(g))
-      nextElem(g) #drop
+      for (i in 1:n) yield(nextElemOr(g, break))
+      nextElemOr(g, break) #drop
       cat(sep) # print a seperator after every skip
     }
   )
@@ -244,11 +234,11 @@ drop_one_after <- function(g, n, sep=character(0)) {  list(g, n, sep)
 
 Here's a count from one to 12, skipping after three (i.e. skipping every fourth):
 
-```r
-iterators::icount() %>%
-itertools::ilimit(12) %>%
-drop_one_after(3, "\n") %>%
-iapply(cat, "") %>%
+```{R}
+iseq() |>
+ilimit(12) |>
+drop_one_after(3, "\n") |>
+iapply(cat, "") |>
 isink()
 ```
 
@@ -260,14 +250,16 @@ every step, playing the louder sample for a value of 2.
 
 Then, all together:
 
-```r
+```{r}
 clapping_music <- function(n=12, counts=c(3,2,1,2), sep=" ") {
   cell <- sum(counts+1) # how long?
   a <- gen_pattern(counts)
-  b <- gen_pattern(counts) %>% drop_one_after(n*cell, sep)
+  b <- gen_pattern(counts) |> drop_one_after(n*cell, sep)
   # add them together and limit the output
   gen(for (i in 1:(n*(cell+1)*cell)) {
-    yield(nextElem(a) + nextElem(b))
+    x <- nextElemOr(a, break)
+    y <- nextElemOr(b, break)
+    yield(x+y)
   })
 }
 ```
@@ -276,20 +268,21 @@ To narrate this: we are constructing two independent instances of our
 12-note generator. One of these patterns is made to skip one beat every N
 bars. Then we create a third generator that adds together the two.
 
-```r
-clapping_music(4, sep="\n") %>% iapply(cat) %>% isink(cat("\n"))
+```{R}
+clapping_music(4, sep="\n") |> iapply(cat) |> isink(cat("\n"))
 ```
 
 ## A performance
 
-Now we should be able to hear our performance
+Now we should be able to hear our performance:
 
 ```{r, eval=FALSE}
 iplay(clapping_music(n=4, sep="\n"), claps, 480)
 ```
 
-R is definitely not a multimedia environment, plus the `audio` package
-is using the OS alert sound facility, which is not really meant for
-precise timing, so you may hear some glitches and hiccups. Nevertheless,
-I hope this has illustrated how generators allows control to be
-_interleaved_ among different sequential processes.
+It has to be said that R is not particularly built to be a multimedia
+environment, plus the `audio` package will be using the OS alert sound
+facility, which is typically not built for precise timing, so you may
+hear some glitches and hiccups. Nevertheless, I hope this has
+illustrated how generators allows control to be _interleaved_ among
+different sequential processes.

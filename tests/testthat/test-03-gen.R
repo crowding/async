@@ -14,34 +14,32 @@ test_that("generator loop", {
   ii <- function(n) gen(for (i in 1:n) yield(i))
   i <- ii(10)
   for (j in 1:10) {
-    nextElem(i) %is% j
+    nextElemOr(i, stop("unexpected end")) %is% j
   }
-  expect_error(nextElem(i), "StopIteration")
+  expect_equal(nextElemOr(i, NULL), NULL)
 
   i <- ihasNext(ii(10))
   for (j in 1:10) {
     hasNext(i) %is% TRUE
-    nextElem(i) %is% j
+    nextElemOr(i, NULL) %is% j
   }
   hasNext(i) %is% FALSE
-  expect_error(nextElem(i), "StopIteration")
-
+  nextElemOr(i, NULL) %is% NULL
 })
 
 test_that("further nextElems will error with stopIteration", {
 
   g <- gen(yield(1))
-  nextElem(g) %is% 1
-  expect_error(nextElem(g), "StopIteration")
-  expect_error(nextElem(g), "StopIteration")
+  iterators::nextElem(g) %is% 1
+  expect_error(iterators::nextElem(g), "StopIteration")
+  expect_error(iterators::nextElem(g), "StopIteration")
   g <- gen({
     yield(1)
     stop("foo")
   })
-  nextElem(g) %is% 1
-  expect_error(nextElem(g), "foo")
-  expect_error(nextElem(g), "StopIteration")
-
+  nextElemOr(g, NULL) %is% 1
+  expect_error(nextElemOr(g, NULL), "foo")
+  nextElemOr(g, NULL) %is% NULL
 })
 
 test_that("a generator", {
@@ -50,14 +48,14 @@ test_that("a generator", {
 })
 
 test_that("for loop over an iterator", {
-  x <- gen(for (i in icount()) {yield(i)})
+  x <- gen(for (i in iseq(1)) {yield(i)})
 
   as.numeric(as.list(ilimit(x, 10))) %is% 1:10
 
   j <- gen(for(i in 1:10) if (i %% 7 == 0) stop("oops") else yield(i))
   x <- 0
   g <- gen(for(i in j) if (FALSE) yield(NULL) else x <<- x + 1)
-  expect_error(nextElem(g), "oops")
+  expect_error(nextElemOr(g, NULL), "oops")
 })
 
 test_that("yieldFrom", {
@@ -75,7 +73,6 @@ test_that("yieldFrom", {
 
   as.list(gchain(list(a, b))) %is% list("foo", "bar", "baz", 1, 2, 3)
   b <- iseq(1, 3)
-  as.list(ichain(list(a, b))) %is% list("foo", "bar", "baz", 1, 2, 3)
 
 })
 
@@ -121,12 +118,12 @@ test_that("generators create local scope", {
 })
 
 test_that("generators reject recursion", {
-  g <- gen(yield(nextElem(g)))
-  expect_error(nextElem(g), "running")
+  g <- gen(yield(nextElemOr(g, NULL)))
+  expect_error(nextElemOr(g, NULL), "running")
 
-  f <- gen(repeat yield(nextElem(g)))
-  g <- gen(repeat yield(nextElem(f)))
-  expect_error(nextElem(g), "running")
+  f <- gen(repeat yield(nextElemOr(g, break)))
+  g <- gen(repeat yield(nextElemOr(f, break)))
+  expect_error(nextElemOr(g, NULL), "running")
 })
 
 test_that("generator format", {
@@ -141,15 +138,15 @@ test_that("generator format", {
   expect_output(print(g), "(stopped:.*oops|finished)")
 
   g <- gen(yield(utils::capture.output(print(g))))
-  expect_output(cat(nextElem(g)), "running")
+  expect_output(cat(nextElemOr(g, NULL)), "running")
 })
 
 test_that("last statement is forced", {
   hello <- NULL
   g <- gen({yield("one"); yield("two"); hello <<- "three"})
-  nextElem(g) %is% "one"
-  nextElem(g) %is% "two"
-  expect_error(nextElem(g), "StopIteration")
+  nextElemOr(g, NULL) %is% "one"
+  nextElemOr(g, NULL) %is% "two"
+  expect_equal(nextElemOr(g, NULL), NULL)
   expect_equal(hello, "three")
 })
 
@@ -157,13 +154,13 @@ test_that("can optionally split pipes", {
   expect_error(gen(repeat x <- yield(x)[x]), "split_pipes")
   x <- c(2, 4, 1, 3)
   g <- gen(repeat x <- yield(x)[x], split_pipes=TRUE)
-  nextElem(g) %is% c(2, 4, 1, 3)
-  nextElem(g) %is% c(4, 3, 2, 1)
-  nextElem(g) %is% c(1, 2, 3, 4)
+  nextElemOr(g, NULL) %is% c(2, 4, 1, 3)
+  nextElemOr(g, NULL) %is% c(4, 3, 2, 1)
+  nextElemOr(g, NULL) %is% c(1, 2, 3, 4)
 })
 
 test_that("Dummy", {
-  expect_error(yield(5), "outside")
+  expect_error( yield(5), "outside")
   expect_error( gen(await(yield(5))), "await" )
 })
 
@@ -171,7 +168,7 @@ test_that("tracing", {
   g <- gen({{j <- 0; i <- 0}; for (i in 1:10) yield(j <- j + i)},
            trace=with_prefix("triangle"))
   expect_output(
-    nextElem(g),
+    nextElemOr(g, NULL),
     "triangle: R: + i <- 0.*triangle: R: j <- j \\+ i.*triangle: generator: yield.*")
 })
 
@@ -244,4 +241,43 @@ test_that("generator works wnen async package not attached", {
   # this should really be in the next test though
   l <- as.numeric(as.list((g)))
   l %is% c(1, 2, 3, 5, 6, 7, 9, 10)
+})
+
+if(FALSE) {
+  test_that("generator functions", {
+
+    f <- gen(function(x) {for (i in 1:x) yield(i)})
+    expect_true(is.function(f))
+    expect_equal(formals(x), alist(x=))
+
+    g <- f(5)
+    expect_true(is(g, "generator"))
+    sum(as.numeric(as.list(g))) %is% 15
+
+    g1 <- f(6)
+    g2 <- f(7)
+    g3 <- f(8)
+    sum(as.numeric(as.list(g1))) %is% 21
+    sum(as.numeric(as.list(g3))) %is% 36
+    sum(as.numeric(as.list(g2))) %is% 28
+
+  })
+}
+
+test_that("nextElem followed by call", {
+  #this turned out to have been nextElemOr_cps not forcing its "cont"
+  #(it was trusting the "or" constructor do do so, but "break" ignores its
+  #cont()
+
+  a <- iteror(1:20)
+  #g <- drop_one_after(a, 5)
+  g <- gen(
+    repeat {
+      for (i in 1:5) yield(nextElemOr(a, break))
+      nextElemOr(a, break) #drop
+      list("") # print a seperator after every skip
+    }
+  )
+  length(as.list(g)) %is% 17
+
 })

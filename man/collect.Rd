@@ -2,9 +2,12 @@
 % Please edit documentation in R/collect.R
 \name{collect}
 \alias{collect}
+\alias{collector}
 \title{Execute a function and collect a set of values by callback.}
 \usage{
 collect(fn, type = list())
+
+collector(fn, type = list())
 }
 \arguments{
 \item{fn}{A function, which should accept a single argument, here
@@ -24,6 +27,13 @@ callback of the form \code{function (val, name=NULL).} I like to call it
 \code{emit}.  While \code{fn} is running, it can call \code{emit(x)} any number of
 times.  After \code{fn} returns, all the values passed to \code{emit} are
 returned in a vector, with optional names.
+
+\code{collector()} works similarly but does not gather
+values when your inner function returns. Instead, it provides
+your inner function with two callbacks, one to add a value and
+the second to extract the value; so you can use that callback to
+extract values at a later time. \code{collector} is used in the
+implementation of \link{gather}.
 }
 \examples{
 
@@ -32,7 +42,7 @@ cumsum <- function(vec) {
   total <- 0
   collect(type=0, function(emit) {
     for (i in vec) total <- emit(total+i)
-  }
+  })
 }
 }
 \author{

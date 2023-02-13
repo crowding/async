@@ -112,7 +112,6 @@ nullish <- function(x) length(x)==0
 #                 data is TRUE
 # * `nodeContexts`: hash by node ID, data is context ID
 # * `orig`: the original call to async/gen
-#' @export
 walk <- function(gen, forGraph=FALSE) {
   nodes <- getStartSet(gen)
   # override the apparent global names e.g. for "entry" and "return"
@@ -122,7 +121,7 @@ walk <- function(gen, forGraph=FALSE) {
   nodeOrder <- names(nodes)
   nodes <- list2env(nodes, parent=emptyenv())
   orig <- getOrig(gen)
-  iter <- icount()
+  iter <- iseq()
   nodeProperties <- new.env(parent=emptyenv())
   reverseEdges <- new.env(parent=emptyenv())
   nodeEdgeProperties <- new.env(parent=emptyenv())

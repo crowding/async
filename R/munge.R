@@ -126,7 +126,7 @@ munge <- function(# the async/generator to munge
                    varTranslations, callTranslations)
       }
     }
-    if (destructive) {
+    if (options$destructive) {
       trace_("Removing exits:\n")
       for (nodeName in sort(names(graph$contextNodes[[contextName]]))) {
         for (exit in sort(names(graph$nodeEdgeProperties[[nodeName]]))) {
@@ -153,7 +153,7 @@ move_value.quotation <- function(graph, contextName, varName, dest.env, newName,
   # _without_ modifying their environment.
   dest.env[[newName]] <-
     graph$contexts[[contextName]][[varName]]
-  if(destructive)
+  if(options$destructive)
     rm(list=varName, envir=graph$contexts[[contextName]])
 }
 
@@ -161,7 +161,7 @@ move_value.function <- function(graph, contextName, varName, dest.env, newName,
                                 varTranslations, callTranslations) {
   written <- varName %in% graph$contextProperties[[contextName]]$store
   value <- get(varName, graph$contexts[[contextName]])
-  if (destructive)
+  if (options$destructive)
     rm(list=varName, envir=graph$contexts[[contextName]])
   isNonce <- is.null(body(value))
   if (isNonce) {
@@ -219,7 +219,7 @@ move_value.default <- function(graph, contextName, varName, dest.env, newName,
     trace_(paste0("   Constant: `", varName, "` -> `", newName, "`\n"))
   }
   value <- get(varName, graph$contexts[[contextName]])
-  if(destructive)
+  if(options$destructive)
     rm(list=varName, envir=graph$contexts[[contextName]])
   dest.env[[newName]] <- value
 }

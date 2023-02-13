@@ -6,10 +6,10 @@
 mostly used in package development or unit testing.}
 \usage{
 asyncOpts(
-  verbose = get("verbose", parent.env(environment())),
-  compileLevel = get("compileLevel", parent.env(environment())),
-  paranoid = get("paranoid", parent.env(environment())),
-  destructive = get("destructive", parent.env(environment()))
+  verbose = options$verbose,
+  compileLevel = options$compileLevel,
+  paranoid = options$paranoid,
+  destructive = options$destructive
 )
 }
 \arguments{

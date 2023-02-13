@@ -226,7 +226,7 @@ traceBinding <- function(name, value,
         value <<- new
         tryCatch(
         {
-          if(verbose) trace_(paste0(prefix, ": ", name, " <- ", as.character(new), "\n"))
+          if(options$verbose) trace_(paste0(prefix, ": ", name, " <- ", as.character(new), "\n"))
         },
           error=function(err) {print(err); browser()}
         )

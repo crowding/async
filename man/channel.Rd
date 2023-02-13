@@ -3,11 +3,11 @@
 \name{channel}
 \alias{channel}
 \alias{is.channel}
-\title{Create an object representing a sequence of future values.}
+\title{An object representing a sequence of future values.}
 \usage{
 channel(impl, max_queue = 500L, max_awaiting = 500L, wakeup = function() NULL)
 
-is.channel(x, ...)
+is.channel(x)
 }
 \arguments{
 \item{impl}{A user-provided function; it will receive three
@@ -25,6 +25,8 @@ there are this many outstanding requests, for values, calling
 \item{wakeup}{You may optionally provide a callback function here.
 It will be called when the queue is empty and there is at least
 one listener/outstanding promise.}
+
+\item{x}{an object.}
 }
 \value{
 a channel object, supporting methods "nextThen" and "nextElem"
@@ -32,33 +34,33 @@ a channel object, supporting methods "nextThen" and "nextElem"
 \code{is.channel(x)} returns TRUE if its argument is a channel object.
 }
 \description{
-A \code{channel} is an object with an interface that represents
-a sequence of values yet to be determined. It is something like a
-combination of a \link{promise} and an \link{iteror}.
+A \code{channel} is an object that represents a sequence of values yet
+to be determined. It is something like a combination of a \link{promise}
+and an \link{iteror}.
 }
 \details{
-It may be used to represent and work with data coming in over a
-connection, data values being logged over time, a queue of incoming
-requests, and things of that nature.
+The channel interface could be used to represent and work with data
+coming in over a connection, data values being logged over time, a
+queue of incoming requests, and things of that nature.
 
-The friendly way to create a channel and use them in asynchronous
-programming is to use a \link{stream} coroutine. Inside of \code{stream()},
-use \code{await} to wait on promises, \code{awaitNext} to wait on other
-streams and \code{yield(val)} to yield values. To signal end of iteration
+The friendly way to create a channel and use it in asynchronous
+programming is to use a \link{stream} coroutine. Inside of \code{stream()}
+call \link{await} to wait on promises, \link{awaitNext} to wait on other
+streams and \link{yield} to yield values. To signal end of iteration
 use \code{return()} (which will discard its value) and to signal an
 error use \code{stop()}.
 
 The friendly way to consume values from a channel is to use
-\verb{[awaitNext(ch)]} within an \code{async} or \code{stream} construct.
+awaitNext within an \code{async} or \code{stream} coroutine.
 
 The low-level interface to request values from a channel is to call
-\code{nextThen(ch, onNext=, onError=, onClose=)}, providing callback
+\link{nextThen}\verb{(ch, onNext=, onError=, onClose=)]}, providing callback
 functions for at least \code{onNext(val)}. Those callbacks will be
 appended to an internal queue, and will be called as soon as data
 is available, in the order that requests were received.
 
-You can also treat a channel as an iterator over promises, calling
-\code{nextElem(pri)} to return a \link{promise} representing the next
+You can also treat a channel as an \link{iteror} over promises, calling
+\code{nextElemOr(pri)} to return a \link{promise} representing the next
 available value. Each promise created this way will be resolved in
 the order that data come in. Note that this way there is no special
 signal for end of iteration; a promise will reject with
@@ -67,17 +69,17 @@ the sigil value \code{"StopIteration"} to signal end of iteration.
 Be careful with the iterator-over-promises interface though: if you
 call \code{as.list.iteror(pr)} you may get stuck in an infinite loop, as
 \code{as.list} keeps calling \code{nextElem} and receives more promises to
-represent values that exist only hypothetically. This is the main
+represent values that exist only hypothetically. This is one
 reason for the \code{max_listeners} limit.
 
-The low-level interface to create a channel object is to call
+The low-level interface to \emph{create} a channel object is to call
 \code{channel(function(emit, reject, cancel) {...})}, providing your own
 function in its argument; your function will receive those three
-methods as arguments. Then use whatever means to arrange to call
-\code{emit(val)} some time in the future as data comes in. When you are
-done emitting values, call the \code{close()} callback. To report an
-error use the \code{reject(err)} callback. The next requestor will
-receive the error. If there is more than one listener, other
+callback methods as arguments. Then use whatever means to arrange
+to call \code{emit(val)} some time in the future as data comes in. When
+you are done emitting values, call the \code{close()} callback. To
+report an error use the callback \code{reject(err)} The next requestor
+will receive the error. If there is more than one listener, other
 queued listeners will get a \code{close} signal.
 }
 \author{

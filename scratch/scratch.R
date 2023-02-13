@@ -209,3 +209,32 @@ st <- stream(for (i in 1:10) {await(delay(1)); print(i); yield(i)}, compileLevel
 
 x <- iteror(iterators::iter(c(3,2,1,2), recycle=TRUE))
 nextElem(x)
+
+for (i in 1:48) cat(nextElemOr(g))
+
+iseq(to=90) |> drop_one_after(48, "") |> as.list()
+
+
+
+a <- iteror(1:20)
+#g <- drop_one_after(a, 5)
+g <- gen(
+    repeat {
+      for (i in 1:5) yield(nextElemOr(a, break))
+      nextElemOr(a, break) #drop
+      list("") # print a seperator after every skip
+    }
+  )
+take(g, 5)
+
+nextElemOr(g)
+
+
+
+drawGraph(g)
+
+
+#|> as.list()
+
+
+

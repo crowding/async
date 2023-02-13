@@ -11,7 +11,7 @@ gen(
   ...,
   split_pipes = FALSE,
   trace = trace_,
-  compileLevel = get("compileLevel", parent.env(environment()))
+  compileLevel = options$compileLevel
 )
 
 yield(expr)
@@ -48,7 +48,7 @@ When written inside a generator expression, \code{yield(expr)} causes the
 generator to return the given value, then pause until the next value is
 requested.
 
-When running in a generator expression, \code{yieldFrom(it)}, given
+When running in a generator expression, \verb{yieldFrom(it))}, given
 a list or \link{iteror} in its argument, will yield successive values from that
 iteror until it is exhausted, then continue.
 }
@@ -76,7 +76,7 @@ generator and compute their mean:
 \if{html}{\out{<div class="sourceCode r">}}\preformatted{rwalk |> itertools2::take(100) |> as.numeric() |> mean()
 }\if{html}{\out{</div>}}
 
-When \code{nextElem(rwalk)} is called, the generator executes its
+When \code{nextElemOr(rwalk, ...)} is called, the generator executes its
 "inside" expression until it reaches a call to \verb{yield().} THe
 generator 'pauses', preserving its execution state, and \code{nextElem}
 then returns what was passed to \code{yield}. The next time

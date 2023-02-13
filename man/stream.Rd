@@ -10,7 +10,7 @@ stream(
   split_pipes = TRUE,
   lazy = TRUE,
   trace = trace_,
-  compileLevel = get("compileLevel", parent.env(environment())),
+  compileLevel = options$compileLevel,
   debugR = FALSE,
   debugInternal = FALSE
 )
@@ -25,22 +25,21 @@ operators and other calls.}
 \item{split_pipes}{See description under \link{async}; defaults to
 \code{TRUE}.}
 
-\item{lazy}{If true, pause at start and after yield() if there are no
-listeners.}
+\item{lazy}{If TRUE, start paused, and pause after \code{yield()} (see above.)}
 
 \item{trace}{An optional tracing function.}
 
 \item{compileLevel}{Compilation level.}
 
-\item{debugR}{Set TRUE to single-step debug at R level.  call.}
+\item{debugR}{Set TRUE to single-step debug at R level. Use \code{\link[=debugAsync]{debugAsync()}}
+to enable or disable debugging on a stream after it has been created.}
 
 \item{debugInternal}{Set TRUE to single-step debug at coroutine
-implementation level. Use \code{\link[=debugAsync]{debugAsync()}} to enable or disable
-debugging on a stream after it has been created.}
+implementation level.}
 }
 \value{
 An object with (at least) classes "stream", "channel",
-"coroutine", "iteror".
+"coroutine", "iteror", "iter".
 }
 \description{
 (Experimental as of async 0.4.) \code{stream(...)} constructs a \link{channel}
@@ -84,10 +83,10 @@ count_to <- function(n, interval=1) {
   })
 }
 
-accumulate <- function(in) { force(in)
+accumulate <- function(st) { force(st)
   stream({
     sum <- 0;
-    for (i in in) {sum <- sum + i; yield(sum)}
+    for (i in st) {sum <- sum + i; yield(sum)}
   })
 }
 

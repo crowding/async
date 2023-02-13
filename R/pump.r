@@ -51,7 +51,7 @@ make_pump <- function(expr, ...,
   list(expr, stp, rtn, trace, targetEnv)
   nonce <- (function() NULL)
 
-  if(verbose) traceBinding("action", NULL)
+  if(options$verbose) traceBinding("action", NULL)
   action <- "pause" # stopped, pause
   pumpCont <- nonce
   value <- nonce
@@ -65,77 +65,75 @@ make_pump <- function(expr, ...,
     x
   }, localName="setDebug", globalName="setDebug")
 
-  getCont %<g-% structure(function() {
+  globalNamed(getCont <- function() {
     # For display, return a string describing the current state.
     g <- attr(pumpCont, "globalName")
     if (is.null(g)) {
       paste0(get0(".contextName", environment(pumpCont), ifnotfound="???"),
              "__", attr(pumpCont, "localName"))
     } else g
-  }, localName="getCont", globalName="getCont")
+  })
 
-  pause_ %<-% function(cont) {
+  named(pause_ <- function(cont) {
     trace("pump: pause (awaiting)\n")
     pumpCont <<- cont
     action <<- "pause"
-  }
+  })
 
-  pause_val_ %<-% function(cont, val) {
+  named(pause_val_ <- function(cont, val) {
     trace("pump: pause (yielding)\n")
     pumpCont <<- cont
     value <<- val
     action <<- "pause_val"
-  }
+  })
 
-  bounce_ %<-% function(cont) {
+  named(bounce_ <- function(cont) {
     trace("pump: bounce\n")
     pumpCont <<- cont
     action <<- "continue"
-  }
+  })
 
-  bounce_val_ %<-% function(cont, val) {
+  named(bounce_val_ <- function(cont, val) {
     force(val)
     trace("pump: bounce with value\n")
     value <<- val
     pumpCont <<- cont
     action <<- "continue_val"
-  }
+  })
 
-  evl_ %<-% function(cont, val) {
+  named(evl_ <- function(cont, val) {
     if(debugR)
       val <- eval(substitute({browser(); x}, list(x=val)), targetEnv)
     else
       val <- eval(val, targetEnv)
     cont(val)
-  }
+  })
 
-  sto_ %<-% function(cont, where, val) {
+  named(sto_ <- function(cont, where, val) {
     targetEnv[[where]] <- val
     cont()
-  }
+  })
 
-  stop_ %<-% function(val) {
+  named(stop_ <- function(val) {
     trace(paste0("pump: stop: ", conditionMessage(val), "\n"))
     value <<- val
     after_exit <<- "stop"
     bounce_(doExits)
-    #action <<- "exit"
-    #pumpCont <<- function() doExits()
-  }
+  })
 
-  return_ %<-% function(val) {
+  named(return_ <- function(val) {
     trace("pump: return\n")
     force(val)
     value <<- val
     after_exit <<- "return"
     doExits()
-  }
+  })
 
   exit_list <- list()
-  if(verbose) traceBinding("after_exit", NULL)
+  if(options$verbose) traceBinding("after_exit", NULL)
   after_exit <- "xxx"
 
-  addExit %<-% function(cont, handle, add, after) {
+  named(addExit <- function(cont, handle, add, after) {
     if (add) {
       if (after) {
         exit_list <<- c(exit_list, list(handle))
@@ -146,26 +144,26 @@ make_pump <- function(expr, ...,
       exit_list <<- list(handle)
     }
     cont(invisible(NULL))
-  }
+  })
 
   using_onexit <- FALSE
   exit_ctors <- list()
 
-  registerExit %<-% function(exit) {
+  named(registerExit <- function(exit) {
     using_onexit <<- TRUE
     handle <- length(exit_ctors) + 1
     name <- paste0("exit_", as.character(handle))
     # hold off on calling their constructors
     exit_ctors <<- c(exit_ctors, structure(list(exit), names=name))
     handle
-  }
+  })
 
   winding_stack <- list()
   current_winding <- NULL
 
   # this handler needs special handling in walk() because it takes TWO
   # functions and both need to be treated as nodes.
-  windup_ %<-% function(cont, winding) {
+  named(windup_ <- function(cont, winding) {
     list(cont, winding)
     trace("pump: Adding to windup list\n")
     outerWinding <- current_winding
@@ -178,17 +176,17 @@ make_pump <- function(expr, ...,
     current_winding <<- g
     pumpCont <<- cont
     action <<- "rewind"
-  }
+  })
 
-  unwind_ %<-% function(cont) {
+  named(unwind_ <- function(cont) {
     trace("pump: removing from windup list\n")
     current_winding <<- winding_stack[[1]]
     winding_stack[[1]] <<- NULL
     pumpCont <<- cont
     action <<- "rewind"
-  }
+  })
 
-  afterExit %<-% function() {
+  named(afterExit <- function() {
     trace("pump: afterExit\n")
     switch(after_exit,
            "return" = {action <<- "return"; rtn(value)},
@@ -200,7 +198,7 @@ make_pump <- function(expr, ...,
            {
              stp(paste0("Unexpected after-exit action: ", action))
            })
-  }
+  })
 
   # Our argument "expr" is a context constructor
   # that takes some branch targets ("our "ret" and "stp" etc) and
@@ -215,10 +213,10 @@ make_pump <- function(expr, ...,
   pumpCont <- entry
 
   if (!using_onexit) {
-    doExits %<-% function() action <<- "exit"
+    named(doExits <- function() action <<- "exit")
   } else {
 
-    doExits %<-% function() {
+    named(doExits <- function() {
       if (length(exit_list) > 0) {
         trace("pump: running on.exit handlers\n")
         first_exit <- exit_list[[1]]
@@ -228,7 +226,7 @@ make_pump <- function(expr, ...,
         trace("pump: no more on.exit handlers\n")
         action <<- "exit"
       }
-    }
+    })
 
     #And now initialize the exits, pointing them back at doExits
     exit_fns <- vector("list", length(exit_ctors))
@@ -247,10 +245,10 @@ make_pump <- function(expr, ...,
       assign(name, exit_fns[[i]])
     }
 
-    takeExit %<-% eval(bquote(
+    named(takeExit <- eval(bquote(
       splice=TRUE, function(val)
         switch(val, ..( lapply(names(exit_ctors),
-                               \(x) call("bounce_", as.name(x)))))))
+                               \(x) call("bounce_", as.name(x))))))))
 
   }
 
@@ -261,7 +259,7 @@ make_pump <- function(expr, ...,
   # that establishes a context,
   # and returning from f(cont), unwinds that context.
   if(catch) {
-    base_winding %<g-% function(cont) {
+    globalNamed(base_winding <- function(cont) {
       trace("pump: base tryCatch\n")
       tryCatch({tmp <- cont(); return(tmp)}, error=function(err){
         trace(paste0("pump: caught error: ",
@@ -275,12 +273,12 @@ make_pump <- function(expr, ...,
         value <<- err
         pumpCont <<- function() doExits()
       }, finally=trace("pump: base tryCatch exits\n"))
-    }
+    })
   } else if (!using_onexit) {
-    base_winding %<g-% function(cont) cont()
+    globalNamed(base_winding <- function(cont) cont())
   } else {
     trace("pump: base on.exit\n")
-    base_winding %<g-% function(cont) {
+    globalNamed(base_winding <- function(cont) {
       on.exit({
         trace(paste0("pump: base on.exit with action ", action, "\n"))
         if (!action %in%
@@ -321,17 +319,17 @@ make_pump <- function(expr, ...,
         }
       })
       cont()
-    }
+    })
   }
 
   current_winding <- base_winding
 
-  doWindup %<g-% function(cont) {
+  globalNamed(doWindup <- function(cont) {
     tmp <- current_winding
     tmp(cont)
-  }
+  })
 
-  pump %<g-% function() {
+  globalNamed(pump <- function() {
     trace("pump: run\n")
     doWindup(runPump)
     while(action == "rewind") {
@@ -340,12 +338,12 @@ make_pump <- function(expr, ...,
     if (action == "exit") {
       afterExit()
     }
-  }
+  })
 
   exit_ctors <- NULL
   exit_fns <- NULL
 
-  runPump %<g-% function() {
+  globalNamed(runPump <- function() {
     if (debugInternal) debugonce(pumpCont)
     switch(action,
            rewind=,
@@ -368,7 +366,7 @@ make_pump <- function(expr, ...,
              break
              )
     value
-  }
+  })
 
   pump
 }
@@ -387,15 +385,15 @@ on.exit_cps <- function(.contextName,
     add_p <- NULL
     after_p <- NULL
 
-    gotAfter %<-% function(val) {
+    named(gotAfter <- function(val) {
       after_p <<- val
       addExit(cont, handle, add_p, after_p)
-    }
+    })
     getAfter <- after(gotAfter, ..., registerExit=registerExit, addExit=addExit)
-    gotAdd %<-% function(val) {
+    named(gotAdd <- function(val) {
       add_p <<- val
       getAfter()
-    }
+    })
     getAdd <- add(gotAdd, ..., registerExit=registerExit, addExit=addExit)
   }
 }

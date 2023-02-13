@@ -41,10 +41,10 @@
 #'   })
 #' }
 #'
-#' accumulate <- function(in) { force(in)
+#' accumulate <- function(st) { force(st)
 #'   stream({
 #'     sum <- 0;
-#'     for (i in in) {sum <- sum + i; yield(sum)}
+#'     for (i in st) {sum <- sum + i; yield(sum)}
 #'   })
 #' }
 #'
@@ -54,19 +54,18 @@
 #' @param ... Undocumented.
 #' @param split_pipes See description under [async]; defaults to
 #'   `TRUE`.
-#' @param lazy If true, pause at start and after yield() if there are no
-#'   listeners.
+#' @param lazy If TRUE, start paused, and pause after `yield()` (see above.)
 #' @param trace An optional tracing function.
 #' @param compileLevel Compilation level.
-#' @param debugR Set TRUE to single-step debug at R level.  call.
+#' @param debugR Set TRUE to single-step debug at R level. Use [debugAsync()]
+#'   to enable or disable debugging on a stream after it has been created.
 #' @param debugInternal Set TRUE to single-step debug at coroutine
-#'   implementation level. Use [debugAsync()] to enable or disable
-#'   debugging on a stream after it has been created.
+#'   implementation level.
 #' @return An object with (at least) classes "stream", "channel",
-#'   "coroutine", "iteror".
+#'   "coroutine", "iteror", "iter".
 #' @author Peter Meilstrup
 stream <- function(expr, ..., split_pipes=TRUE, lazy=TRUE, trace=trace_,
-                   compileLevel=get("compileLevel", parent.env(environment())),
+                   compileLevel=options$compileLevel,
                    debugR=FALSE, debugInternal=FALSE) {
   envir <- arg_env(expr)
   expr <- arg(expr)
@@ -91,7 +90,7 @@ make_stream <- function(expr, orig=expr, ...,
   .contextName <- "stream"
 
   nonce <- (function() function() NULL)()
-  if (verbose) traceBinding("state", "xxx")
+  if (options$verbose) traceBinding("state", "xxx")
   state <- "xxx" #print method uses this
   awaiting <- nonce
   yielded <- nonce
@@ -105,25 +104,25 @@ make_stream <- function(expr, orig=expr, ...,
   pause_val <- NULL
   pause <- NULL
 
-  getState %<g-% function() state
+  globalNamed(getState <- function() state)
 
-  return_ %<-% function(val) {
+  named(return_ <- function(val) {
     trace("stream: return\n")
     state <<- "resolved"
     value <<- val
     close_() # avoid gathering this as a tailcall
     val
-  }
+  })
 
-  stop_ %<-% function(val) {
+  named(stop_ <- function(val) {
     trace("stream: reject\n")
     err <<- val
     state <<- "rejected"
     reject_(val)
     val
-  }
+  })
 
-  yield_ %<-% function(cont, val) {
+  named(yield_ <- function(cont, val) {
     yielded <<- val
     state <<- "yielding"
     emit_(val)
@@ -136,10 +135,13 @@ make_stream <- function(expr, orig=expr, ...,
       state <<- "yielded"
       pause_val(cont, val)
     }
-  }
+  })
 
-  eval(await_handlers) # await_ and awaitNext_; see async.r
-  #defines "awaiting" and makes updates to "state"
+  # await_ and awaitNext_; see async.r
+  # defines var "awaiting" and makes updates to "state"
+  await_ <- NULL
+  awaitNext_ <- NULL
+  eval(await_handlers)
 
   pump <- make_pump(expr, ...,
                     rtn=return_, stp=stop_, await=await_,
@@ -151,19 +153,19 @@ make_stream <- function(expr, orig=expr, ...,
   pause_val <- environment(pump)$pause_val_
   pause <- environment(pump)$pause_
 
-  wakeup %<g-% function(x) {
+  globalNamed(wakeup <- function(x) {
     trace("stream: wakeup\n")
     switch(state,
            "yielding" = {state <<- "woken"},
            "yielded" = {state <<- "running"; pump()}
            )
-  }
+  })
 
-  replace %<-% function(emit, reject, close) {
+  named(replace <- function(emit, reject, close) {
     emit_ <<- emit
     reject_ <<- reject
     close_ <<- close
-  }
+  })
 
   ch <- add_class(channel(replace, wakeup=wakeup), "stream", "coroutine")
 
@@ -193,14 +195,16 @@ reconstitute.stream <- function(orig, munged) {
   st
 }
 
-
 #' @exportS3Method
 getNode.stream <- function(x, ...) {
   environment(x$state$pump)$getCont()
 }
 
+#' @rdname format
+#' @return `getState(s)` on a [stream] might return "running", "awaiting", "yielding",
+#' "yielded", "resolved" or "rejected".
 #' @exportS3Method
-getState.stream <- function(x) x$state$getState()
+getState.stream <- function(x, ...) x$state$getState()
 #' @exportS3Method
 getOrig.stream <- function(x, ...) x$orig
 #' @exportS3Method
@@ -252,38 +256,38 @@ awaitNext_cps <- function(.contextName,
     value <- NULL
     awaiting <- FALSE
 
-    gotError %<-% function(val) {
+    named(gotError <- function(val) {
       state <<- "xxx"
       if (is.function(val)) {
-        val <- val(result)
+        val <- val(value)
       }
       cont(val)
-    }
+    })
 
     if (is_missing(error)
         || is_R(error) && missing_(R_expr(error))) {
-      error %<-% function(val) stp(result)
+      named(error <- function(val) stp(val))
     } else {
       error <- error(gotError, ...,
                        awaitNext=awaitNext, stp=stp, trace=trace)
     }
     if (is_missing(or)
         || is_R(error) && missing_(R_expr(error))) {
-      or %<-% function() stp("StopIteration")
+      named(or <- function() stp("StopIteration"))
     } else {
       or <- or(cont, ...,
                awaitNext=awaitNext, stp=stp, trace=trace)
     }
 
-    then %<-% function() {
+    named(then <- function() {
       trace("awaitNext: resolve\n")
       switch(state,
              "success" = {state <<- "xxx"; cont(value)},
              "error" = {state <<- "xxx"; error(value)},
              "closed" = {state <<- "xxx"; or()},
              stp(paste0("awaitNext: unexpected state ", state)))
-    }
-    await_ %<-% function(val) {
+    })
+    named(await_ <- function(val) {
       trace("awaitNext: got channel\n")
       state <<- "xxx"
       value <<- NULL
@@ -292,7 +296,7 @@ awaitNext_cps <- function(.contextName,
                 function(val) {state <<- "success"; value <<- val; awaiting <<- FALSE},
                 function(err) {state <<- "error"; value <<- err; awaiting <<- FALSE},
                 function() {state <<- "closed"; value <<- NULL; awaiting <<- FALSE})
-    }
+    })
     strm <- strm(await_, ..., await=await,
                  awaitNext=awaitNext, stp=stp, trace=trace)
   }

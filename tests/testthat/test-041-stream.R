@@ -75,9 +75,9 @@ test_that("channel", {
 
   wakeups <- 0
   mc <- mock_channel(wakeup = function(x) wakeups <<- wakeups + 1)
-  p1 <- nextElem(mc)
+  p1 <- nextElemOr(mc, NULL)
   wakeups %is% 1
-  p2 <- nextElem(mc)
+  p2 <- nextElemOr(mc, NULL)
   wakeups %is% 2
 
   expect_resolves_with(p1, "a", mc$emit("a"))
@@ -203,8 +203,8 @@ test_that("stream: can await and yield", {
     yield(x)
   })
 
-  p3 <- nextElem(st)
-  p4 <- nextElem(st)
+  p3 <- nextElemOr(st, NULL)
+  p4 <- nextElemOr(st, NULL)
   p1$resolve(10)
   expect_resolves_with(p3, 10, NULL)
   expect_resolves_with(p4, 25, p2$resolve(15))
@@ -226,12 +226,12 @@ test_that("lazy vs eager streams", {
     }
   })
   running %is% FALSE
-  pr <- nextElem(lazy)
+  pr <- nextElemOr(lazy, NULL)
   wait_for_it()
   running %is% TRUE
   expect_resolves_with(pr, 24, ch2$emit(12))
   ct2 %is% 0
-  pr <- nextElem(lazy)
+  pr <- nextElemOr(lazy, NULL)
   wait_for_it()
   ct2 %is% 1
   ch2$emit(18)
@@ -259,17 +259,17 @@ test_that("lazy vs eager streams", {
   })
 
   running %is% TRUE
-  pr <- nextElem(eager)
+  pr <- nextElemOr(eager, NULL)
   wait_for_it()
   expect_resolves_with(pr, 24, ch1$emit(12))
   ct1 %is% 1
-  pr <- nextElem(eager)
+  pr <- nextElemOr(eager, NULL)
   wait_for_it()
   ct1 %is% 1
   ch1$emit(18)
   wait_for_it()
   ct1 %is% 2
-  expect_resolves_with(pr, 36, NULL)
+  expect_resolves_with(pr, 36)
   ct1 %is% 2
   expect_emits(eager, 10, ch1$emit(5))
   ct1 %is% 3
@@ -281,7 +281,7 @@ test_that("lazy vs eager streams", {
 
 test_that("collecting channel", {
   st <- stream(for (i in 1:10) yield(i))
-  expect_resolves_with(collect.channel(st), as.list(1:10))
+  expect_resolves_with(gather(st), as.list(1:10))
 })
 
 test_that("combining channels", {

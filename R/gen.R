@@ -26,7 +26,7 @@
 #' ```r
 #' rwalk |> itertools2::take(100) |> as.numeric() |> mean()
 #' ```
-#' When `nextElem(rwalk)` is called, the generator executes its
+#' When `nextElemOr(rwalk, ...)` is called, the generator executes its
 #' "inside" expression until it reaches a call to `yield().` THe
 #' generator 'pauses', preserving its execution state, and `nextElem`
 #' then returns what was passed to `yield`. The next time
@@ -68,7 +68,7 @@
 #' -1 (name munging only).
 #' @export
 gen <- function(expr, ..., split_pipes=FALSE, trace=trace_,
-                compileLevel=get("compileLevel", parent.env(environment()))) {
+                compileLevel=options$compileLevel) {
   envir <- arg_env(expr)
   expr <- arg(expr)
   .contextName <- "wrapper"
@@ -101,11 +101,11 @@ yield_cps <- function(.contextName, expr) {
     if (missing_(arg(yield))) stop("yield used but this is not a generator")
     if (!missing(registerYield)) registerYield()
     list(cont, yield, trace)
-    `yield_` %<-% function(val) {
+    named(yield_ <- function(val) {
       force(val)
       trace("yield\n")
       yield(cont, val)
-    }
+    })
     expr(yield_, ..., yield=yield, registerYield=registerYield, trace=trace)
   }
 }
@@ -114,7 +114,7 @@ yield_cps <- function(.contextName, expr) {
 #' @rdname gen
 #' @description
 #'
-#' When running in a generator expression, `yieldFrom(it)`, given
+#' When running in a generator expression, `yieldFrom(it))`, given
 #' a list or [iteror] in its argument, will yield successive values from that
 #' iteror until it is exhausted, then continue.
 #'
@@ -135,7 +135,7 @@ yieldFrom_cps <- function(.contextName, it) {
     list(cont, yield, trace, maybe(registerYield))
     if (!is_missing(registerYield)) registerYield()
 
-    yieldFrom_ %<-% function(val) {
+    named(yieldFrom_ <- function(val) {
       stopping <- FALSE
       trace("yieldFrom: next\n")
       val <- nextElemOr(iter, stopping <- TRUE)
@@ -145,14 +145,14 @@ yieldFrom_cps <- function(.contextName, it) {
       } else {
         yield(yieldFrom_, val) #FIXME: under a "run" this winds up the stack
       }
-    }
+    })
 
     iter <- NULL
-    iter_ %<-% function(val) {
+    named(iter_ <- function(val) {
       iter <<- iteror(val)
       trace("yieldFrom: got iteror")
       yieldFrom_(NULL)
-    }
+    })
 
     it(iter_, ..., yield=yield, trace=trace, registerYield=registerYield)
   }
@@ -169,30 +169,30 @@ make_generator <- function(expr, orig=arg(expr), ..., trace=trace_) {
   err <- nonce
   state <- "yielded"
 
-  getState %<-% function() state
+  named(getState <- function() state)
 
-  return_ %<-% function(val) {
+  named(return_ <- function(val) {
     force(val)
     trace("generator: return\n")
     state <<- "finished"
-  }
+  })
 
-  stop_ %<-% function(val) {
+  named(stop_ <- function(val) {
     trace("generator: stop\n")
     err <<- val
     state <<- "stopped"
     stop(val)
     NULL #so the above does not look like a tailcall
-  }
+  })
 
-  yield_ %<-% function(cont, val) {
+  named(yield_ <- function(cont, val) {
     trace("generator: yield\n")
     state <<- "yielded"
     yielded <<- val
     pause_val(cont, val)
-  }
+  })
 
-  nextElemOr_ %<g-% function(or, ...) {
+  globalNamed(nextElemOr_ <- function(or, ...) {
     trace("generator: nextElemOr\n")
     val <- switch(state,
                   "stopped" =,
@@ -228,7 +228,7 @@ make_generator <- function(expr, orig=arg(expr), ..., trace=trace_) {
                   },
                   stop("Generator in an unknown state"))
     val
-  }
+  })
 
   pump <- make_pump(expr, ..., trace=trace, catch=FALSE,
                     stp=stop_, yield=yield_, rtn=return_)
@@ -241,8 +241,9 @@ make_generator <- function(expr, orig=arg(expr), ..., trace=trace_) {
 #' @exportS3Method
 getCurrent.generator <- function(x)
   environment(getPump(x))$cont
+
 #' @exportS3Method
-getOrig.generator <- function(x) {
+getOrig.generator <- function(x, ...) {
   expr(get("orig", envir=environment(x$nextElemOr)))
 }
 
@@ -261,59 +262,22 @@ reconstitute.generator <- function(orig, munged) {
   new
 }
 
+#' @rdname format
+#' @return For a [generator](gen) `g`, `getState(g)` might return "yielded",
+#' "running" (if nextElem is _currently_ being called), "stopped" (for
+#' generators that have stopped with an error) or "finished" (for
+#' generators that have finished normally.)
 #' @exportS3Method
 getState.generator <- function(x, ...) {
   environment(x$nextElemOr)$getState()
 }
 
 #' @exportS3Method
-getPump.generator <- function(x) get("pump", environment(x$nextElemOr))
-
-#' @exportS3Method
-#' @rdname format
-getNode.generator <- function(x, ...) {
-  environment(getPump(x))$getCont()
+getPump.generator <- function(x) {
+  get("pump", environment(x$nextElemOr))
 }
 
-#' Query / display coroutine properties and state.
-#' `format.generator` displays the original code given
-#'   to construct the generator, its bound environment, whether it is running
-#'   or finished, and a label indicating it last known state.
-#'
-#' `getState.generator` retreives the current state of a
-#' generator. This might be "yielded", "running" (if nextElem is
-#' _currently_ being called), "stopped" (for generators that have
-#' stopped with an error) or "finished" (for generators that have
-#' finished normally.)
-#'
-#' `getState.async` might return "running", "awaiting", "resolved" or
-#' "rejected".
-#'
-#' `getState.stream` might return "running", "awaiting", "yielding",
-#' "yielded", "resolved" or "rejected".
-#'
-#' `getNode` returns a string identifier indicating where a
-#' coroutine's execution was last paused. The string is like an
-#' adsress pointing to a spot in the orginal expression's parse tree;
-#' a string like `.{1.<-2.await__then` can be read like
-#' "in the first argument of `{`, in the second argument of `<-`, in a
-#' call to await(), at internal node `then`."
-#'
-#' `getOrig` returns the original expression given to the generator
-#' constructor.
 #' @exportS3Method
-#' @rdname format
-format.generator <- function(x, ...) {
-  envir <- environment(x$nextElemOr)
-  code <- getOrig(x)
-  a <- deparse(call("gen", code), backtick=TRUE)
-  b <- format(envir, ...)
-  state <- getState(x)
-  cont <- getNode(x)
-  c <- paste0(c("<generator [",
-                state, " at `", cont, "`",
-                if (state=="stopped")
-                  c(": ", capture.output(print(envir$err))),
-                "]>"), collapse="")
-  c(a, b, c)
+getNode.generator <- function(x, ...) {
+  environment(getPump(x))$getCont()
 }

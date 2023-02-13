@@ -2,12 +2,84 @@
 % Please edit documentation in R/iteror.R
 \name{iteror}
 \alias{iteror}
-\title{An efficient and succinct iteration protocol}
+\alias{iteror.function}
+\alias{iteror.default}
+\alias{nextElemOr}
+\title{An efficient and compact iteration protocol.}
 \usage{
-iteror(it, ...)
+iteror(obj, ...)
+
+\method{iteror}{`function`}(obj, ..., catch, sigil)
+
+\method{iteror}{default}(obj, ..., recycle = FALSE)
+
+nextElemOr(obj, or, ...)
+}
+\arguments{
+\item{obj}{An \link{iteror}}
+
+\item{...}{extra parameters specific to class methods.}
+
+\item{catch}{If \code{obj} is a function without an \code{or} argument, specify
+e.g. \code{catch="StopIteration"} to interpret errors with that
+message as end of iteration.}
+
+\item{sigil}{If \code{obj} is a function without an \code{or} argument, specify
+which value to watch for end of iteration. Stop will be signaled
+if the function result is \code{\link[=identical]{identical()}} to \code{sigil}.}
+
+\item{recycle}{If \code{obj} is a vector, and \code{recycle} is TRUE, the
+iterator will re-cycle the elements of \code{obj} without stopping.}
+
+\item{or}{If the iteror has reached its end, an argument that
+will be forced and returned.}
+}
+\value{
+\code{iteror(obj)} returns an object of class \code{c('iteror', 'iter')}.
+
+\code{nextElemOr} returns the next element in the iteror, or
+else forces and returns its \code{or} argument.
 }
 \description{
-The "iterators" package uses stop("StopIteration") and tryCatch to
-signal end of iteration, but tryCatch has a not-insiginificant
-amount of overhead. In the context of a generator, when you are in a
+To create an iteror, call the constructor \code{iteror} providing either
+a vector or a function as argument. The returned object will
+support the method \code{nextElemOr(obj, or)} to extract successive
+values.
+}
+\details{
+The main method for "iteror" is "nextElemOr" rather than
+"nextElem". Instead of using exceptions, "nextElemOr" uses a lazily
+evaluated "or" argument to signal the end of iteration.  The "or"
+argument will only be forced when end of iteration is reached; this
+means the consumer can provide an action like "break", "next" or
+"return" to take at the the end of iteration. Summing over an
+iteror this way looks like:
+
+\if{html}{\out{<div class="sourceCode">}}\preformatted{sum <- 0
+it <- iteror(in)
+repeat \{
+  val <- nextElemOr(iter, break)
+  sum <- sum + val;
+\}
+}\if{html}{\out{</div>}}
+
+Another way to use the "or" argument is to give it a sigil value;
+that is, a special value that will be interpreted as end of
+iteration.  If the result of calling \code{nextElemOr} is \code{identical()}
+to the sigil value you provided, then you know the iterator has
+ended. In R it is commonplace to use \code{NULL} or \code{NA}, in the role of
+a sigil, but that only works until you have an iterator that needs
+to yield NULL. A safer alternative is to use a one-shot sigil
+value; the result of \code{new.env()} will work, as it returns a value
+that by construction is not \link{identical} to any other object in
+the R session. This pattern looks like:
+
+\if{html}{\out{<div class="sourceCode">}}\preformatted{sum <- 0
+stopped <- new.env()
+repeat \{
+  val <- nextElemOr(iter, stopped)
+  if (identical(val, stopped)) break
+  sum <- sum + val
+\}
+}\if{html}{\out{</div>}}
 }

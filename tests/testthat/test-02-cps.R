@@ -246,7 +246,7 @@ test_that("for", {
 
 test_that("for over iterator", {
   x <- 0
-  pump(for_cps("", R("", i), R("", icount(10)), R("", x <- x + i)),
+  pump(for_cps("", R("", i), R("", iseq(1,10)), R("", x <- x + i)),
        targetEnv=environment())
   x %is% 55
 })
