@@ -17,6 +17,8 @@ test_that("pasting together names", {
 
 })
 
+if (!dir.exists("graphs")) dir.create("graphs")
+
 filename <- function(name) paste0("graphs/", name, "_",
                                   as.character(asyncOpts()$compileLevel))
 
@@ -473,4 +475,3 @@ test_that("stream with on.exit", {
                           handlers=TRUE, vars=TRUE, envs=TRUE))
 
 })
-
