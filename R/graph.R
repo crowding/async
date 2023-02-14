@@ -288,6 +288,7 @@ drawGraph <- function(obj,
                       handlers=TRUE,
                       dot=unless(Sys.which("dot"), function(x)x!="",{
                         message("Graphviz was not found; writing DOT file only");
+                        ""
                       }),
                       filename=paste0(basename, ".", type),
                       dotfile=if (type=="dot")

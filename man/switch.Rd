@@ -16,7 +16,7 @@ package is more strict than the one in base R. In a coroutine,
 \code{switch} will always either take one of the given branches or throw
 an error, whereas base R \code{switch} will silently return NULL if no
 branch matches switch argument. Otherwise, the same conventions
-apply as \url{base::switch} (e.g. empty switch branches fall through;
+apply as \code{\link[base:switch]{base::switch()}} (e.g. empty switch branches fall through;
 a character switch may have one unnamed argument as a default.)
 }
 \details{

@@ -15,6 +15,7 @@ drawGraph(
   dot = unless(Sys.which("dot"), function(x) x != "", {
     
     message("Graphviz was not found; writing DOT file only")
+     ""
  }),
   filename = paste0(basename, ".", type),
   dotfile = if (type == "dot") filename else paste0(basename, ".dot")
