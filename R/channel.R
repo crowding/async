@@ -324,6 +324,7 @@ subscribe.channel <- function(x, onNext, onError, onClose, ...) {
 #' @param ... Each argument should be a [promise] or a [channel].
 #' @return a [channel] object.
 #' @author Peter Meilstrup
+#' @export
 combine <- function(...) {
   args <- list(...)
   channel(\(emit, reject, close) {

@@ -32,8 +32,8 @@ returned in a vector, with optional names.
 values when your inner function returns. Instead, it provides
 your inner function with two callbacks, one to add a value and
 the second to extract the value; so you can use that callback to
-extract values at a later time. \code{collector} is used in the
-implementation of \link{gather}.
+extract values at a later time. For an example of \code{collector}
+usage see the definition of \link{gather}.
 }
 \examples{
 
@@ -43,6 +43,11 @@ cumsum <- function(vec) {
   collect(type=0, function(emit) {
     for (i in vec) total <- emit(total+i)
   })
+}
+
+# we could implement `iterors::as.list.iteror` thus:
+as.list.iteror <- function(it) {
+  collect(\(yield) repeat yield(nextElemOr(it, break)))
 }
 }
 \author{

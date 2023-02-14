@@ -56,6 +56,10 @@
 #' `suppressWarnings(await(x))` will be rewritten as `{.tmp <-
 #' await(x); suppressWarnings(x)}`, which would defeat the purpose.
 #'
+#' If `async` is given a function expression, like `async(function(...)
+#' ...)`, it will return an "async function" i.e. a function that
+#' constructs an async.
+#'
 #' @param expr An expression, to be executed asynchronously.
 #' @param trace Enable verbose logging by passing a function to
 #'   `trace`, like `async(trace=cat, {...})`. `trace` should take a
@@ -83,14 +87,23 @@
 #' @export
 async <- function(expr, ..., split_pipes=TRUE, trace=trace_,
                   compileLevel=options$compileLevel) {
+  expr_ <- arg(expr)
+  expr <- NULL
+  if (identical(expr(expr_)[[1]], quote(`function`))) {
+    defn <- coroutine_function(expr_,
+                               quote(async::async),
+                               ...,
+                               split_pipes=split_pipes,
+                               compileLevel=compileLevel)
+    return(value(defn))
+  }
+  list(trace, split_pipes, compileLevel)
   .contextName <- "wrapper"
-  expr <- arg(expr)
-  force(trace)
-  envir <- env(expr)
-  translated_ <- cps_translate(expr, async_endpoints, split_pipes=split_pipes)
-  args <- c(translated_, orig=forced_quo(nseval::expr(expr)), trace=quo(trace), dots(...))
+  envir <- env(expr_)
+  translated_ <- cps_translate(expr_, async_endpoints, split_pipes=split_pipes)
+  args <- c(translated_, orig=forced_quo(expr(expr_)), trace=quo(trace), dots(...))
   set_dots(environment(), args)
-  make_async(..., targetEnv=new.env(parent=env(expr)), compileLevel=compileLevel)
+  make_async(..., callingEnv=env(expr_), compileLevel=compileLevel)
 }
 
 #' @export
@@ -130,8 +143,12 @@ await_cps <- function(.contextName, prom) { force(prom)
 }
 
 #' @import promises
-make_async <- function(expr, orig=expr, ...,
-                       compileLevel=0, trace=trace_, targetEnv,
+make_async <- function(expr, orig = expr, ...,
+                       compileLevel = 0,
+                       trace = trace_,
+                       local = TRUE,
+                       callingEnv,
+                       targetEnv = if (local) new.env(parent=callingEnv) else callingEnv,
                        debugR, debugInternal) {
   list(orig, expr, ..., trace)
   .contextName <- "async"
@@ -139,7 +156,6 @@ make_async <- function(expr, orig=expr, ...,
 
   nonce <- (function() function() NULL)()
   state <- "pending" #print method uses this
-  awaiting <- nonce
   value <- nonce
   resolve_ <- NULL
   reject_ <- NULL
@@ -276,7 +292,7 @@ getOrig.async <- function(x, ...) x$orig
 
 #' @exportS3Method
 #' @rdname format
-#' @return `getState(a)` on an [async] might return "running", "awaiting", "resolved" or
+#' @return `getState(a)` on an [async] might return "pending", "resolved" or
 #' "rejected".
 getState.async <- function(x, ...) x$state$getState()
 

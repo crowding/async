@@ -72,23 +72,28 @@ values until it needs to \code{await} something.
 not start executing until a call to \code{nextElemOr} and pause
 immediately after \code{yield}, while \link{async} blocks are eager,
 starting at construction and running until they hit an \code{await}.)
+
+Like its coroutine counterparts, if \code{stream} is given a function
+expression, like \code{stream(function(...)  ...)}, it will return a
+"stream function" i.e. a function that constructs a stream object.
 }
 \examples{
 
 # emit values _no more than_ once per second
-count_to <- function(n, interval=1) {
-  list(n, interval) #force
-  stream({
-    for (i in 1:n) {await(delay(interval)); yield(i)}
-  })
-}
+count_to <- stream(function(n, interval=1) {
+  for (i in 1:n) {
+    await(delay(interval))
+    yield(i)
+  }
+})
 
-accumulate <- function(st) { force(st)
-  stream({
-    sum <- 0;
-    for (i in st) {sum <- sum + i; yield(sum)}
-  })
-}
+accumulate <- stream(function(st, sum=0) {
+  for (i in st) {sum <- sum + i; yield(sum)}
+})
+
+print_each <- async(function(st) for (i in st) print(i))
+
+count_to(10) |> accumulate() |> print_each()
 
 }
 \author{

@@ -48,11 +48,11 @@ For a \href{gen}{generator} \code{g}, \code{getState(g)} might return "yielded",
 generators that have stopped with an error) or "finished" (for
 generators that have finished normally.)
 
-\code{getState(a)} on an \link{async} might return "running", "awaiting", "resolved" or
+\code{getState(a)} on an \link{async} might return "pending", "resolved" or
 "rejected".
 
-\code{getState(s)} on a \link{stream} might return "running", "awaiting", "yielding",
-"yielded", "resolved" or "rejected".
+\code{getState(s)} on a \link{stream} might return "resolved",
+"rejected", "running", "woken", "yielding", or "yielded".
 }
 \description{
 A coroutine's \code{format} method displays its pre-compiled source

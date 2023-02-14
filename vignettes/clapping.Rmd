@@ -210,13 +210,12 @@ concise generator syntax.
 
 ```{R}
 gapply <- gen(function(it, f, ...) for (x in it) yield(f(x, ...)) )
-gsink <- run(function(it) for (i in it) NULL)
+gsink <- function(it) run(for (i in it) NULL)
 ```
 
-Here `run` is like `gen` but it runs immediately, collecting all
-values, rather than making an iteror.  In this case, since `run` is
-called with a function expression, `gsink` is a function that when
-called will consume all items from the iterator `it`.
+Here [run]() is like `gen` but it runs immediately, collecting all
+values, rather than constructing an iteror. So `gsink` is a function
+that when called will consume all items from the iterator `it`.
 
 ## Phasing and combining
 

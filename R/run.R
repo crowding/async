@@ -21,7 +21,12 @@
 #' performance.
 #'
 #' @examples
-#' run(type=0,for (i in iseq(2, Inf, by=5)) if (i %% 37 == 0) break else yield(i))
+#' run(type=0, {
+#'   for (i in iseq(2, Inf, by=5)) {
+#'     if (i %% 37 == 0) break
+#'     else yield(i)
+#'   }
+#' })
 #'
 #' @param expr A generator expression, same as you would write in
 #'   [gen]().
@@ -39,10 +44,20 @@
 #' @export
 run <- function(expr, type=list(), ..., split_pipes=FALSE, trace=trace_,
                 debugR=FALSE, debugInternal=FALSE) {
+  expr_ <- arg(expr);
+  expr <- NULL
+  if (identical(expr(expr_)[[1]], quote(`function`))) {
+    defn <- coroutine_function(expr_,
+                               quote(async::run),
+                               ...,
+                               type=type,
+                               split_pipes=split_pipes,
+                               debugR=debugR,
+                               debugInternal=debugInternal)
+    return(value(defn))
+  }
   .contextName <- "run"
-  expr <- arg(expr)
-  envir <- env(expr)
-  nseval:::set_arg(expr, cps_translate(expr,
+  nseval:::set_arg(expr, cps_translate(expr_,
                                        endpoints=gen_endpoints,
                                        split_pipes=split_pipes))
   state <- "running"
@@ -53,7 +68,7 @@ run <- function(expr, type=list(), ..., split_pipes=FALSE, trace=trace_,
   stop_ <- function(err) {result <<- err; state <<- "stopped"}
   y <- function(val, name=NULL) stop("Yield was not registered")
   yield <- function(cont, val) {val <- y(val); cont(val)}
-  pump <- make_pump(expr, ..., targetEnv=envir, registerYield=registerYield_,
+  pump <- make_pump(expr, ..., targetEnv=env(expr_), registerYield=registerYield_,
                     rtn=return_, stp=stop_, yield=yield, catch=FALSE)
   environment(pump)$setDebug(R=debugR, internal=debugInternal)
 

@@ -1,4 +1,3 @@
-#` @export
 #' Create an asynchronous iterator by writing sequential code.
 #'
 #' (Experimental as of async 0.4.) `stream(...)` constructs a [channel]
@@ -31,22 +30,27 @@
 #' immediately after `yield`, while [async] blocks are eager,
 #' starting at construction and running until they hit an `await`.)
 #'
+#' Like its coroutine counterparts, if `stream` is given a function
+#' expression, like `stream(function(...)  ...)`, it will return a
+#' "stream function" i.e. a function that constructs a stream object.
+#'
 #' @examples
 #'
 #' # emit values _no more than_ once per second
-#' count_to <- function(n, interval=1) {
-#'   list(n, interval) #force
-#'   stream({
-#'     for (i in 1:n) {await(delay(interval)); yield(i)}
-#'   })
-#' }
+#' count_to <- stream(function(n, interval=1) {
+#'   for (i in 1:n) {
+#'     await(delay(interval))
+#'     yield(i)
+#'   }
+#' })
 #'
-#' accumulate <- function(st) { force(st)
-#'   stream({
-#'     sum <- 0;
-#'     for (i in st) {sum <- sum + i; yield(sum)}
-#'   })
-#' }
+#' accumulate <- stream(function(st, sum=0) {
+#'   for (i in st) {sum <- sum + i; yield(sum)}
+#' })
+#'
+#' print_each <- async(function(st) for (i in st) print(i))
+#'
+#' count_to(10) |> accumulate() |> print_each()
 #'
 #' @param expr A coroutine expression, using some combination of
 #'   `yield`, `await`, `awaitNext`, `yieldFrom`, standard control flow
@@ -64,35 +68,47 @@
 #' @return An object with (at least) classes "stream", "channel",
 #'   "coroutine", "iteror", "iter".
 #' @author Peter Meilstrup
+#' @export
 stream <- function(expr, ..., split_pipes=TRUE, lazy=TRUE, trace=trace_,
                    compileLevel=options$compileLevel,
                    debugR=FALSE, debugInternal=FALSE) {
-  envir <- arg_env(expr)
-  expr <- arg(expr)
+  expr_ <- arg(expr)
+  expr <- NULL
+  if (identical(expr(expr_)[[1]], quote(`function`))) {
+    defn <- coroutine_function(expr_,
+                               quote(async::stream),
+                               ...,
+                               split_pipes=split_pipes,
+                               lazy=lazy,
+                               compileLevel=compileLevel,
+                               debugR=debugR,
+                               debugInternal=debugInternal)
+    return(value(defn))
+  }
+  list(split_pipes, lazy, trace, compileLevel, debugR, debugInternal)
   .contextName <- "wrapper"
-  args_ <- c(cps_translate(expr,
+  args_ <- c(cps_translate(expr_,
                            endpoints=stream_endpoints,
                            split_pipes=split_pipes),
-             orig=forced_quo(expr),
+             orig=forced_quo(expr_),
              trace=arg(trace),
              dots(...))
   set_dots(environment(), args_)
   strm <- make_stream(..., lazy=lazy,
                       compileLevel=compileLevel,
-                      targetEnv=new.env(parent=envir))
+                      callingEnv=env(expr_))
   debugAsync(strm, R=debugR, internal=debugInternal)
   strm
 }
 
 make_stream <- function(expr, orig=expr, ...,
-                        trace=trace_, targetEnv, compileLevel, lazy) {
-  list(orig, expr, ..., trace, targetEnv, compileLevel, lazy)
+                        trace=trace_, callingEnv, compileLevel, lazy, local=TRUE) {
+  list(orig, expr, ..., trace, callingEnv, compileLevel, lazy)
   .contextName <- "stream"
-
+  targetEnv <- if (local) new.env(parent=callingEnv) else callingEnv
   nonce <- (function() function() NULL)()
   if (options$verbose) traceBinding("state", "xxx")
   state <- "xxx" #print method uses this
-  awaiting <- nonce
   yielded <- nonce
   value <- nonce
   err <- nonce
@@ -201,8 +217,8 @@ getNode.stream <- function(x, ...) {
 }
 
 #' @rdname format
-#' @return `getState(s)` on a [stream] might return "running", "awaiting", "yielding",
-#' "yielded", "resolved" or "rejected".
+#' @return `getState(s)` on a [stream] might return "resolved",
+#'   "rejected", "running", "woken", "yielding", or "yielded".
 #' @exportS3Method
 getState.stream <- function(x, ...) x$state$getState()
 #' @exportS3Method

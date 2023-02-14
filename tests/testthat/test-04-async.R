@@ -318,3 +318,16 @@ test_that("awaiting value that doesn't exist", {
   expect_match(as.character(result), "not found")
 
 })
+
+test_that("async function", {
+
+  f <- async(function(x) await(x) + 5)
+
+  a <- mock_promise()
+  b <- mock_promise()
+  fa <- f(a)
+  fb <- f(b)
+  expect_resolves_with(fa, 8, a$resolve(3))
+  expect_resolves_with(fb, 10, b$resolve(5))
+
+})

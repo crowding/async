@@ -40,7 +40,21 @@ Version 0.3 of `async` contains a number of new features, usability and performa
 * Under the hood, the implementation has been refactored heavily in order to enable compilation; the package now includes the back half of a compiler. To create a compiled generator you can write `gen({...}, compileLevel=-1)`; this will take a bit of CPU time but shouldn't change the functionality. (Making it faster will be the job of the front half.)
 
 * A side benefit of compilation work is that coroutines can draw a picture of their graph structure,  `drawGraph(myGen)` collects a coroutine's structure and writes a Graphviz DOT file (which by default would be named `myGen.dot` in the current directory.)  If the Graphviz `dot` command is visible on your `$PATH` it will then be run to render a PDF file.
-  
+
+* There is now a syntax for "generator functions" (as well as async functions, and stream functions). If the argument is a function expression, like:
+
+```
+    g <- gen(function(x, y) for (i in x:y) yield(i))
+```
+
+This will be nearly equivalent to putting `gen` in the function body, like:
+
+```
+    g <- function(x, y) {force(x); force(y); gen(for (i in x:y) yield(i))}
+```
+
+Really, it just saves you from remembering to `force` your arguments.
+
 # async 0.2.2
 
   * Re-generate documentation for R-devel

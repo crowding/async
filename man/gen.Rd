@@ -73,20 +73,30 @@ generator behaves like an iterator over an indefinite
 collection. So we can collect the first 100 values from the above
 generator and compute their mean:
 
-\if{html}{\out{<div class="sourceCode r">}}\preformatted{rwalk |> itertools2::take(100) |> as.numeric() |> mean()
+\if{html}{\out{<div class="sourceCode">}}\preformatted{rwalk |> itertools2::take(100) |> as.numeric() |> mean()
 }\if{html}{\out{</div>}}
 
 When \code{nextElemOr(rwalk, ...)} is called, the generator executes its
-"inside" expression until it reaches a call to \verb{yield().} THe
-generator 'pauses', preserving its execution state, and \code{nextElem}
-then returns what was passed to \code{yield}. The next time
-\code{nextElem(rwalk)} is called, the generator resumes executing its
-inside expression starting after the \code{yield()}.
+"inside" expression, in a local environment, until it reaches a
+call to \verb{yield().} THe generator 'pauses', preserving its execution
+state, and \code{nextElem} then returns what was passed to \code{yield}. The
+next time \code{nextElem(rwalk)} is called, the generator resumes
+executing its inside expression starting after the \code{yield()}.
 
-The generator expression is evaluated in a local environment.
+If you call \code{gen} with a function expression, as in:
 
-Generators are \emph{not} based on forking or parallel OS processes; they
-run in the same R process where \code{nextElem} is called.
+\if{html}{\out{<div class="sourceCode">}}\preformatted{gseq <- gen(function(x) for (i in 1:x) yield(i))
+}\if{html}{\out{</div>}}
+
+then instead of returning a single generator it will return a
+\emph{generator function} (i.e. a function that constructs and returns a
+generator.) The above is morally equivalent to:
+
+\if{html}{\out{<div class="sourceCode">}}\preformatted{gseq <- function(x) \{force(x); gen(for (i in 1:x) yield(i))\}
+}\if{html}{\out{</div>}}
+
+so the generator function syntax just saves you writing the \link{force}
+call.
 
 A generator expression can use any R functions, but a call to
 \code{yield} may only appear in the arguments of a "pausable" function.

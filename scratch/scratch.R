@@ -237,4 +237,22 @@ drawGraph(g)
 #|> as.list()
 
 
+walk <- stream({
+  for (i in 1:10)
+    for (step in c("left", "right")) {
+      yield(step)
+      await(delay(0.5))
+    }
+})
 
+chewGum <- stream(for (i in 1:12) {
+  yield("chew")
+  await(delay(0.8))
+})
+
+printEach <- async(function(st) {
+  for (each in st) {cat(each, ",", sep="")}
+  cat("\n")
+})
+
+all <- combine(walk, chewGum) |> printEach()

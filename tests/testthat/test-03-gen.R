@@ -217,6 +217,13 @@ test_that("run", {
 
 })
 
+test_that("run-function", {
+
+  colon <- run(function(from, to) for(i in iseq(from, to)) yield(i), type=0)
+  colon(5, 10) %is% 5:10
+
+})
+
 test_that("generator works wnen async package not attached", {
 
   if ("package:async" %in% search()) {

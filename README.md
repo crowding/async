@@ -9,18 +9,20 @@ vignette: >
 
 # The `async` package: Generators, async/await, and asynchronous streams for R
 
-This is an R package implementing *generators*, *async* blocks, and *streams*; (which are collectively known as "coroutines.")
+This is an R package implementing *generators*, *async* blocks, and *streams*; (collectively known as "coroutines.")
 
 [![](https://www.r-pkg.org/badges/version/async?color=purple)](https://cran.r-project.org/package=async)[![check-standard](https://github.com/crowding/async/actions/workflows/check-standard.yaml/badge.svg)](https://github.com/crowding/async/actions/workflows/check-standard.yaml)
 [![test-coverage](https://github.com/crowding/async/actions/workflows/test-coverage.yaml/badge.svg)](https://github.com/crowding/async/actions/workflows/test-coverage.yaml)
 
 # New features in version 0.3
 
-* Single step through a coroutine using `debugAsync(obj, R=TRUE)` to inspect at R level, or `debugAsync(obj, internal=TRUE`
-* `switch` supports `goto()` to transfer to a different branch
-* Coroutines now support `on.exit`
-* Experimental implementation of `channel` interface and `stream()` coroutine.
-* Coroutines are printed with a label indicating where in their code they are paused
+* Coroutines now support single step debugging. Use `debugAsync(obj, R=TRUE)` to pause before each call at R level. You can also use `debugAsync(obj, internal=TRUE)` to step through at the coroutine implementation level.
+* Coroutines are printed with a label indicating where in their code they are paused.
+* `switch` supports `goto()` to transfer to a different branch.
+* Coroutines now support `on.exit()`.
+* There is now syntax for generator functions: `gen(function(x, y) ...)` returns a function that constructs generators.
+* `run(...)` will execute a generator expression immediately and collect the results in a list.
+* There is now an experimental `stream` coroutine backed by a `channel` object (asynchronous iterator).
 
 For more details see [NEWS.md]().
 
@@ -34,8 +36,8 @@ where it left off and runs until the next `yield`.
 [iterators]: https://CRAN.R-project.org/package=iterators
 
 From the "outside" a generator implements the `iteror` interface.  You
-extract each yielded value with `nextElemOr(g, ...)`, and you can use
-generators anywhere you can use an iterator. The `iteror` class is
+extract each yielded value with `nextElemOr(g, or)`, and you can use
+generators anywhere you can use an iteror. The `iteror` class is
 cross compatible with the [iterators]() package.
 
 ### Example: Collatz sequence
@@ -53,16 +55,14 @@ eventually reach the loop 1, 4, 2, 1, 4, 2, .... The following
 generator produces the Collatz sequence, starting from `x`, and
 terminating when (or if?) the sequence reaches 1.
 
-```R
-collatz <- function(x) { force(x)
-  async::gen({
+```r
+collatz <- async::gen(function(x) {
+  yield(x)
+  while (x > 1) {
+    x <- if (x %% 2 == 0) x / 2L else 3L * x + 1
     yield(x)
-    while (x > 1) {
-      x <- if (x %% 2 == 0) x / 2L else 3L * x + 1
-      yield(x)
-    }
-  })
-}
+  }
+})
 ```
 
 The call to `gen` produces a generator. You can get values one at a
@@ -71,15 +71,15 @@ time with `nextElemOr()`.
 ```r
 ctz <- collatz(12)
 ctz <- collatz(12)
-nextElemOr(ctz)
+nextElemOr(ctz, NA)
 # [1] 12
-nextElemOr(ctz)
+nextElemOr(ctz, NA)
 # [1] 6
-nextElemOr(ctz)
+nextElemOr(ctz, NA)
 # [1] 3
-nextElemOr(ctz)
+nextElemOr(ctz, NA)
 # [1] 10
-nextElemOr(ctz)
+nextElemOr(ctz, NA)
 # [1] 5
 ```
 
@@ -126,7 +126,8 @@ Ring a bell 5 times at 10 second intervals (subject to R being idle):
 ```r
 async({
   for (i in 1:5) {
-    await(delay(10))   #delay() uses later::later()
+    #delay() uses later::later()
+    await(delay(10))
     cat("Beep", i, "\n")
     beepr::beep(2)
   }
@@ -142,7 +143,7 @@ async/await.](https://github.com/crowding/cranwhales-await).
 #### Background processing
 
 `async` can also work with `future` objects to run computations in parallel.
-Download, parse, and summarize a dataset in background processes:
+Download, parse, and summarize a dataset in background processes like this:
 
 ```r
 library(future)
@@ -175,4 +176,35 @@ async({
     xlab("Time") +
     ylab("Sales")
 })
+```
+
+## Streams
+
+New in version 0.3 are asynchronous streams and channels. A channel is
+an interface for asynchronous iteration; `stream()` lets you do things
+with channels by writing code with `await` and `yield`. Here is an
+example of channels being used to walk and chew gum concurrently:
+
+```
+walk <- stream({
+  for (i in 1:10)
+    for (step in c("left", "right")) {
+      yield(step)
+      await(delay(0.5))
+    }
+})
+
+chewGum <- stream(for (i in 1:12) {
+  yield("chew")
+  await(delay(0.8))
+})
+
+printEach <- async(function(st) {
+  for (each in st) {cat(each, ", ", sep="")}
+  cat("\n")
+})
+
+all <- combine(walk, chewGum) |> printEach()
+
+#left, chew, right, chew, left, right, chew, left, chew, right, left, chew, right, chew, left, right, chew, left, right, chew, left, chew, right, left, chew, right, chew, left, right, chew, left, right, 
 ```

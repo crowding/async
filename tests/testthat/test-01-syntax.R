@@ -28,17 +28,17 @@ ancestors <- function(env) c(
 test_that("basic translations", {
   # For the sake of this test, then,
   # make sure these functions are visible:
-  expect_warning(cps_translate(quo(x), local=FALSE) %is% quo(async:::R(".R",x)), "keywords")
-  cps_translate(quo(break), local=FALSE) %is% quo(break_cps(".break"))
-  expect_warning(cps_translate(quo(`break`), local=FALSE) %is% quo(async:::R(".R", `break`)), "keywords")
+  expect_warning(cps_translate(quo(x)) %is% quo(async:::R(".R",x)), "keywords")
+  cps_translate(quo(break)) %is% quo(break_cps(".break"))
+  expect_warning(cps_translate(quo(`break`)) %is% quo(async:::R(".R", `break`)), "keywords")
   bonk_cps <- function()function() NULL
-  cps_translate(quo(bonk()), endpoints=c("bonk"), local=FALSE) %is% quo(bonk_cps(".bonk"))
-  cps_translate(quo(next), local=FALSE) %is% quo(next_cps(".next"))
+  cps_translate(quo(bonk()), endpoints=c("bonk")) %is% quo(bonk_cps(".bonk"))
+  cps_translate(quo(next)) %is% quo(next_cps(".next"))
   expect_error(cps_translate(quo(break())), "break")
-  expect_warning(cps_translate(quo(2+2), local=FALSE) %is% quo(async:::R(".R",2+2)), "keywords")
+  expect_warning(cps_translate(quo(2+2)) %is% quo(async:::R(".R",2+2)), "keywords")
   expect_error(cps_translate(quo(list(`break`(4)))), "pausable")
   cps_translate(endpoints="yield",
-                quo(if(TRUE) yield(2+2) else yield(4)), local=FALSE) %is%
+                quo(if(TRUE) yield(2+2) else yield(4))) %is%
     quo(if_cps(".if",
                async:::R(".if1.R", TRUE),
                yield_cps(".if2.yield",
@@ -52,16 +52,16 @@ test_that("basic translations", {
 test_that("Namespace qualification", {
 
   cps_translate(quo(repeat async::yield(4)), gen_endpoints) %is%
-    quo((function() repeat_cps(".repeat",
-                               async:::yield_cps(".repeat.yield",
-                                                 async:::R(".repeat.yield.R", 4))))())
+    quo(repeat_cps(".repeat",
+                   async:::yield_cps(".repeat.yield",
+                                     async:::R(".repeat.yield.R", 4))))
 
   cps_translate(quo(base::`repeat`(async::yield(4))), gen_endpoints) %is%
-    quo((function() async:::repeat_cps(".repeat", async:::yield_cps(".repeat.yield",
-    async:::R(".repeat.yield.R", 4))))())
+    quo(async:::repeat_cps(".repeat", async:::yield_cps(".repeat.yield",
+    async:::R(".repeat.yield.R", 4))))
 
   cps_translate(quo({nseval::yield(1); base::yield(1); async::yield(1)}),
-                gen_endpoints, local=FALSE) %is%
+                gen_endpoints) %is%
     quo(`{_cps`(".{",
                 async:::R(".{1.R", nseval::yield(1)),
                 async:::yield_cps(".{2.yield", async:::R(".{2.yield.R", 1)),
@@ -69,7 +69,7 @@ test_that("Namespace qualification", {
 
   expect_equal(
     expr(cps_translate(quo(for (i in 1:10) {yield(i); base::`break`()}),
-                       gen_endpoints, local=FALSE)),
+                       gen_endpoints)),
     quote(for_cps(".for",
                   async:::R(".for1.R", i),
                   async:::R(".for2.R", 1:10),
@@ -79,7 +79,7 @@ test_that("Namespace qualification", {
                           async:::break_cps(".for3.{2.break")))))
 
   cps_translate(quo(async::`if`(2 %% 5 == 0, yield(TRUE), yield(FALSE))),
-                gen_endpoints, local=FALSE) %is%
+                gen_endpoints) %is%
     quo(async:::if_cps(".if",
                        async:::R(".if1.R", 2%%5 == 0),
                        yield_cps(".if2.yield",
@@ -91,7 +91,7 @@ test_that("Namespace qualification", {
 test_that("leave functions and nested generators alone", {
 
   cps_translate(quo(for (i in gen(for (j in 1:10) yield(j))) yield(i)),
-                endpoints = gen_endpoints, local=FALSE) %is%
+                endpoints = gen_endpoints) %is%
     quo(for_cps(".for",
                 async:::R(".for1.R", i),
                 async:::R(".for2.R", gen(for (j in 1:10) yield(j))),
@@ -130,7 +130,7 @@ test_that("Translating expressions", {
 
   expect_equal(expr(
     cps_translate(
-      xin, endpoints=c(base_endpoints, "yield"), local=FALSE)),
+      xin, endpoints=c(base_endpoints, "yield"))),
     xout)
 
 })
@@ -142,12 +142,12 @@ test_that("splitting pipes", {
   expect_identical(
     expr(cps_translate(quo( await(x)+2 )
                 , endpoints=async_endpoints, split_pipes=TRUE)),
-    quote((function() `{_cps`(
+    quote(`{_cps`(
       ".{",
       `<-_cps`(".{1.<-",
                async:::R(".{1.<-.R", ..async.tmp),
                await_cps(".+1.await", async:::R(".+1.await.R", x))),
-      async:::R(".{2.R", ..async.tmp + 2)))())
+      async:::R(".{2.R", ..async.tmp + 2)))
    ## No longer identical due to subtle naming differences
    ## ,  cps_translate(quo( {..async.tmp <- await(x); ..async.tmp + 2} ),
    ##                endpoints=async_endpoints,
@@ -167,7 +167,7 @@ test_that("Nested split pipes", {
     expr(cps_translate(quo(
       sort(await(open(with(await(directory), find_record(idCol)))))
     ), endpoints=async_endpoints, split_pipes=TRUE)),
-    quote((function() `{_cps`(
+    quote(`{_cps`(
       ".{",
       `<-_cps`(".{1.<-",
                async:::R(".{1.<-.R", ..async.tmp),
@@ -183,7 +183,7 @@ test_that("Nested split pipes", {
                                          directory))),
                    async:::R(".sort.await.{2.R",
                              open(with(..async.tmp, find_record(idCol))))))),
-      async:::R(".{2.R", sort(..async.tmp))))())
+      async:::R(".{2.R", sort(..async.tmp))))
     ## cps_translate(quo({
     ##   ..async.tmp <- await({
     ##     ..async.tmp <- await(directory);
@@ -231,7 +231,7 @@ test_that("Split pipe vs namespaces", {
 
   x <- quo( await(x)+2 , baseenv() )
   t <- expr(async:::cps_translate(x, endpoints=async_endpoints,
-                                  split_pipes=TRUE, local=FALSE))
+                                  split_pipes=TRUE))
   expect_equal(t, quote(
     async:::`{_cps`(
       ".{",
@@ -252,11 +252,11 @@ test_that("Call in call head", {
             yield_cps = async:::yield_cps),
   {
     cps_translate(quo( yield((yield)(5))),
-                  endpoints=gen_endpoints, local=FALSE) %is%
+                  endpoints=gen_endpoints) %is%
       quo( yield_cps(".yield", async:::R(".yield.R", (yield)(5))) )
     expect_error(
       cps_translate(quo( (yield)(yield(5))),
-                    endpoints=gen_endpoints, local=FALSE),
+                    endpoints=gen_endpoints),
       "pausable")
 
     # do we want to allow (await(getCallback()))(moreArgs) via pipe splitting?
@@ -270,13 +270,13 @@ test_that("Call in call head", {
 })
 
 test_that("weird calls", {
-  expect_error(expr(cps_translate(quo( 10(return(5))), local=FALSE)),
+  expect_error(expr(cps_translate(quo( 10(return(5))))),
                "pausable")
-  expect_error(expr(cps_translate(quo( NULL(return(5))), local=FALSE)),
+  expect_error(expr(cps_translate(quo( NULL(return(5))))),
                "pausable")
 
   notafunction <- "not a function"
-  expect_error(expr(cps_translate(quo( notafunction(return(5))), local=FALSE)),
+  expect_error(expr(cps_translate(quo( notafunction(return(5))))),
                "found")
 })
 

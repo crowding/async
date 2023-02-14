@@ -15,7 +15,7 @@ base_blocks <- c("gen", "function", "async", "stream", "run", "quote",
 
 # Translate R syntax tree into tree of constructor calls
 cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks,
-                          local=TRUE, split_pipes=FALSE, path="") {
+                          split_pipes=FALSE, path="") {
   # The continuation constructors will be arranged in the same syntax
   # tree as the source expression, just about. The trick here is to redirect
   # the `for`, `while`, `if` onto their CPS counterparts.
@@ -248,10 +248,6 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks,
   if (! out$cps) {
     warning("no keywords (", paste(endpoints, collapse=", "), ") used?")
     out <- promote_arg(out, path)
-  }
-  if(local) {
-    #FIXME: this adds a spurious source reference?
-    out$expr <- substitute((function() x)(), list(x=out$expr))
   }
   quo_(out$expr, target_env)
 }

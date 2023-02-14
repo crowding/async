@@ -310,7 +310,7 @@ test_that("Makes fully qualified names when async package not attached", {
     }
   }, globalenv())
 
-  target <- quote((function()
+  target <- quote(
     async:::`{_cps`(
       ".{",
       async:::R(".{1.R", max <- 10),
@@ -332,7 +332,6 @@ test_that("Makes fully qualified names when async package not attached", {
           async:::yield_cps(
             ".{4.repeat.{4.yield",
             async:::R(".{4.repeat.{4.yield.R", i))))))
-  ())
 
   xout <- async:::cps_translate(xin, endpoints=c("yield", "next", "break"))
 

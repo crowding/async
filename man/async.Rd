@@ -108,6 +108,9 @@ This works only so long as \code{await} appears in calls that evaluate
 their leftmost arguments normally. \code{split_pipes} can backfire if
 the outer call has other side effects; for instance
 \code{suppressWarnings(await(x))} will be rewritten as \code{{.tmp <- await(x); suppressWarnings(x)}}, which would defeat the purpose.
+
+If \code{async} is given a function expression, like \code{async(function(...) ...)}, it will return an "async function" i.e. a function that
+constructs an async.
 }
 \examples{
 myAsync <- async(for (i in 1:4) {

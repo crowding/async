@@ -204,6 +204,7 @@ test_that("stream: can await and yield", {
   })
 
   p3 <- nextElemOr(st, NULL)
+  debugAsync(st)
   p4 <- nextElemOr(st, NULL)
   p1$resolve(10)
   expect_resolves_with(p3, 10, NULL)
@@ -297,5 +298,27 @@ test_that("combining channels", {
   expect_emits(out, "baz", ch1$emit("baz"))
   expect_emits(out, "qux", pr2$resolve("qux"))
   expect_channel_closes(out, ch1$close())
+
+})
+
+test_that("stream function", {
+
+  f <- stream(function(s, add=0) {
+    for (elem in s) yield(elem+add)
+  })
+
+  a <- mock_channel()
+  b <- mock_channel()
+  fa <- f(a, 5)
+  fb <- f(b, 6)
+  ga <- gather(fa, 0)
+  gb <- gather(fb, 0)
+
+  a$emit(1)
+  b$emit(2)
+  a$emit(5)
+  b$emit(10)
+  expect_resolves_with(ga, c(6, 10), a$close())
+  expect_resolves_with(gb, c(8, 16), b$close())
 
 })
