@@ -234,3 +234,5 @@ traceBinding <- function(name, value,
       },
       envir)
 }
+
+on_cran <- function() !identical(Sys.getenv("NOT_CRAN"), "true")
