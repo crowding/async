@@ -236,3 +236,5 @@ traceBinding <- function(name, value,
 }
 
 on_cran <- function() !identical(Sys.getenv("NOT_CRAN"), "true")
+
+on_ci <- function() { isTRUE(as.logical(Sys.getenv("CI"))) }
