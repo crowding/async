@@ -129,8 +129,10 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks,
         promoted <- c(list(promoted_head),
                       mapply(promote_arg, SIMPLIFY=FALSE,
                              t_rest,
-                             paste0(path, ".", t_head$name,
-                                    if(length(t_rest) > 1) seq_along(t_rest))))
+                             paste0(recycle0=FALSE,
+                                    path, ".", t_head$name,
+                                    if(length(t_rest) > 1)
+                                      seq_along(t_rest) else "")))
         assert(all(as.logical(lapply(promoted, function(x) x$cps))),
                     msg=paste0("Could not make some arguments of",
                                " `", deparse(t_head$expr), "` pausable"))
