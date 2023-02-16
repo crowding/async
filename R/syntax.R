@@ -70,7 +70,7 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks,
     t_rest <- mapply(trans, expr[-1],
                      paste0(recycle0=FALSE,
                             path, ".", t_head$name,
-                            if(length(expr) > 2) seq_len(length(expr)-1) else ""),
+                            if(length(expr) != 2) seq_len(length(expr)-1) else ""),
                      SIMPLIFY=FALSE)
     t_rest_cps <- as.logical(lapply(t_rest, function(x) x$cps))
     any_cps <- any(t_head$cps, t_rest_cps)
@@ -131,7 +131,7 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks,
                              t_rest,
                              paste0(recycle0=FALSE,
                                     path, ".", t_head$name,
-                                    if(length(t_rest) > 1)
+                                    if(length(t_rest) != 1)
                                       seq_along(t_rest) else "")))
         assert(all(as.logical(lapply(promoted, function(x) x$cps))),
                     msg=paste0("Could not make some arguments of",

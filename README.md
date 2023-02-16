@@ -11,7 +11,7 @@ vignette: >
 
 This is an R package implementing *generators*, *async* blocks, and *streams*; (collectively known as "coroutines.")
 
-[![](https://www.r-pkg.org/badges/version/async?color=purple)](https://cran.r-project.org/package=async)[![check-standard](https://github.com/crowding/async/actions/workflows/check-standard.yaml/badge.svg)](https://github.com/crowding/async/actions/workflows/check-standard.yaml)
+[![cran-version](https://www.r-pkg.org/badges/version/async?color=purple)](https://cran.r-project.org/package=async)[![check-standard](https://github.com/crowding/async/actions/workflows/check-standard.yaml/badge.svg)](https://github.com/crowding/async/actions/workflows/check-standard.yaml)
 [![test-coverage](https://github.com/crowding/async/actions/workflows/test-coverage.yaml/badge.svg)](https://github.com/crowding/async/actions/workflows/test-coverage.yaml)
 
 # New features in version 0.3
@@ -187,7 +187,7 @@ an interface for asynchronous iteration; `stream()` lets you do things
 with channels by writing code with `await` and `yield`. Here is an
 example of channels being used to walk and chew gum concurrently:
 
-```
+```{R}
 walk <- stream({
   for (i in 1:10)
     for (step in c("left", "right")) {

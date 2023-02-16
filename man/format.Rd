@@ -43,7 +43,7 @@ constructor.
 
 \code{getEnv()} returns the coroutine's effective environment.
 
-For a \href{gen}{generator} \code{g}, \code{getState(g)} might return "yielded",
+For a \link[=gen]{generator} \code{g}, \code{getState(g)} might return "yielded",
 "running" (if nextElem is \emph{currently} being called), "stopped" (for
 generators that have stopped with an error) or "finished" (for
 generators that have finished normally.)
