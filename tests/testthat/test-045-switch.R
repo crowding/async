@@ -8,6 +8,7 @@ test_that("Switch numeric", {
                   yield("three"))
       yield(strrev(y))
     })
+#    debugAsync(g, internal=TRUE)
     paste0(nextElemOr(g, NA), "!", nextElemOr(g, NA))
   }
 
@@ -15,9 +16,10 @@ test_that("Switch numeric", {
   f(2.01) %is% "two!owt"
   f(3.99999) %is% "three!eerht"
   # Contra R's behavior, you must choose an option.
-  expect_error(f(0), "less")
-  expect_error(f(-1), "negative")
-  expect_error(f(0.99999), "less")
+  expect_error(f(0), "bounds")
+  expect_error(f(-1), "bounds")
+  expect_error(f(0.99999), "bounds")
+  expect_error(f(4), "bounds")
   expect_error(f("character"), "numeric")
 
 })

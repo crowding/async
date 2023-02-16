@@ -275,8 +275,10 @@ switch_cps <- function(.contextName, EXPR, ...) {
         trace("switch: numeric\n")
         if (!is.numeric(val))
           stp(simpleError(paste0("switch: expected numeric, got ", mode(val))))
+        else if (val < 1)
+          stp("switch: argument out of bounds")
         else {
-          branch <- branches[[as.numeric(val)]]
+          branch <- branches[[val]]
           if (is.null(branch))
             stp(simpleError(paste0("Switch: expected numeric, got ", mode(val))))
           else switch(branch, ..(lapply(seq_along(branches),
