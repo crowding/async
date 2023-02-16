@@ -40,7 +40,7 @@ where it left off and runs until the next `yield`.
 From the "outside" a generator implements the `iteror` interface.  You
 extract each yielded value with `nextElemOr(g, or)`, and you can use
 generators anywhere you can use an iteror. The `iteror` class is
-cross compatible with the [iterators](https://cran.r-project.org/web/packages/iterators/) package.
+cross compatible with the [iterators][] package.
 
 ### Example: Collatz sequence
 
@@ -52,7 +52,7 @@ each subsequent element is produced by applying the rule:
 
 [conjectured]: https://en.wikipedia.org/wiki/Collatz_conjecture
 An infinite sequence of numbers will continue form each staring point
-`x[1]`, but it is [conjectured]() that all sequences will
+`x[1]`, but it is [conjectured][] that all sequences will
 eventually reach the loop 1, 4, 2, 1, 4, 2, .... The following
 generator produces the Collatz sequence, starting from `x`, and
 terminating when (or if?) the sequence reaches 1.
@@ -140,7 +140,7 @@ async({
 
 [cranwhales]: https://github.com/crowding/cranwhales-await
 `async()` can be used in Shiny apps! For an example, here is a version
-of the ["Cranwhales" demo app using async/await.](cranwhales).
+of the ["Cranwhales" demo app using async/await.][cranwhales].
 
 #### Background processing
 
