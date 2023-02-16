@@ -6,23 +6,19 @@
 \usage{
 drawGraph(
   obj,
-  basename = as.character(unless(substitute(obj), is.name,
-    stop("Please specify a base filename"))),
+  basename = if (is.name(substitute(obj))) as.character(substitute(obj)) else
+    stop("Please specify basename"),
   type = "pdf",
   envs = TRUE,
   vars = TRUE,
   handlers = TRUE,
-  dot = unless(Sys.which("dot"), function(x) x != "", {
-    
-    message("Graphviz was not found; writing DOT file only")
-     ""
- }),
+  dot = find_dot(),
   filename = paste0(basename, ".", type),
   dotfile = if (type == "dot") filename else paste0(basename, ".dot")
 )
 }
 \arguments{
-\item{obj}{A \link[=gen]{generator} or \link{async} object.}
+\item{obj}{A \link[=gen]{generator}, \link{async} or \link{stream} object.}
 
 \item{basename}{The base file name. If \code{basename="X"} and \code{type="pdf"}
 you will end up with two files, \code{"X.dot"} and \code{"X.pdf"}.}
@@ -42,7 +38,7 @@ will be included on the graph, with edges indicating reads/stores.}
 connecting to their trampoline handlers, in addition to the dashed edges
 connecting to the next transition.}
 
-\item{dot}{Optional path the the \code{dot} executable.}
+\item{dot}{Optional path to the \code{dot} executable.}
 
 \item{filename}{Optionally specify the output picture file name.}
 

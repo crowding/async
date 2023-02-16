@@ -83,3 +83,4 @@ This is like a weird heisenbug, It crops up if i have paranoid=TRUE checks, but 
 ## static check for forcing all args
 
 I fixed a bug in break_cps where it wasn't forcing "cont" and this caused semicolons to be screwy. Seems like I could statically check that context constructors are forcing all the continuation args they use. Extend the static check for handler-passing to check for argument forcing...
+

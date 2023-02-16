@@ -38,7 +38,7 @@ trace_ <- function(x) if(options$verbose) cat(x)
 #' @param verbose if TRUE, coroutines will print an extremely chatty
 #'   play-by-play of what they are doing.
 #' @param compileLevel Default compile level for new generators. See
-#'   [gen]().
+#'   [gen].
 #' @param paranoid if TRUE, perform various time-consuming integrity
 #'   checks on the result of compilation. Meant to be enabled during
 #'   testing.

@@ -22,9 +22,11 @@ This is an R package implementing *generators*, *async* blocks, and *streams*; (
 * Coroutines now support `on.exit()`.
 * There is now syntax for generator functions: `gen(function(x, y) ...)` returns a function that constructs generators.
 * `run(...)` will execute a generator expression immediately and collect the results in a list.
-* There is now an experimental `stream` coroutine backed by a `channel` object (asynchronous iterator).
+* There is now an experimental `stream()` coroutine backed by a `channel` class (asynchronous iterator).
+* The underlying implementation has been reworked so that it more resembles the back half of a compiler. As evidence of this, you can draw a graph of a coroutine's control structures by calling `drawGraph(gen)` (this requires you have Graphviz `dot` command on your system.)
 
-For more details see [NEWS.md]().
+[news]: https://github.com/crowding/async/blob/main/NEWS.md
+For more details see [NEWS.md][news].
 
 ## Generators
 
@@ -38,7 +40,7 @@ where it left off and runs until the next `yield`.
 From the "outside" a generator implements the `iteror` interface.  You
 extract each yielded value with `nextElemOr(g, or)`, and you can use
 generators anywhere you can use an iteror. The `iteror` class is
-cross compatible with the [iterators]() package.
+cross compatible with the [iterators](https://cran.r-project.org/web/packages/iterators/) package.
 
 ### Example: Collatz sequence
 
@@ -136,9 +138,9 @@ async({
 
 #### Shiny apps
 
+[cranwhales]: https://github.com/crowding/cranwhales-await
 `async()` can be used in Shiny apps! For an example, here is a version
-of the ["Cranwhales" demo app using
-async/await.](https://github.com/crowding/cranwhales-await).
+of the ["Cranwhales" demo app using async/await.](cranwhales).
 
 #### Background processing
 

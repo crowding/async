@@ -37,23 +37,18 @@ Version 0.3 of `async` contains a number of new features, usability and performa
 
   To unpack the above, on creation the generator is paused at node `".for2.R__eval_"` i.e. the R expression in the second argument of `for`, which in this case is the expression `1:10`. After executing the first `yield`, the generator shows it is paused at `".for3.{1;__;"`, that is, at the "semicolon" following the first statement in the braces in the third argument of `for`; so the next thing the generator will execute is the subsequent `if` statement. After the next `yield`, the label `".for__again"` means that the generator's next action will be to return to the beginning of the `for` loop.
 
-* Under the hood, the implementation has been refactored heavily in order to enable compilation; the package now includes the back half of a compiler. To create a compiled generator you can write `gen({...}, compileLevel=-1)`; this will take a bit of CPU time but shouldn't change the functionality. (Making it faster will be the job of the front half.)
+* Under the hood, the implementation has been refactored heavily in order to enable compilation; the package now includes the back half of a compiler. To create a compiled generator you can write `gen({...}, compileLevel=-1)`; this will take a bit of CPU time but shouldn't change the functionality. (Or speed; making it faster will be the job of the front half.)
 
 * A side benefit of compilation work is that coroutines can draw a picture of their graph structure,  `drawGraph(myGen)` collects a coroutine's structure and writes a Graphviz DOT file (which by default would be named `myGen.dot` in the current directory.)  If the Graphviz `dot` command is visible on your `$PATH` it will then be run to render a PDF file.
 
-* There is now a syntax for "generator functions" (as well as async functions, and stream functions). If the argument is a function expression, like:
+* There is now a syntax for "generator functions" (as well as async functions, and stream functions). If the argument is a function expression, `gen` will construct a function that constructs a generator. So these two calls are nearly equivalent:
 
 ```
     g <- gen(function(x, y) for (i in x:y) yield(i))
+    g <- function(x, y) {force(list(x, y)); gen(for (i in x:y) yield(i))}
 ```
 
-This will be nearly equivalent to putting `gen` in the function body, like:
-
-```
-    g <- function(x, y) {force(x); force(y); gen(for (i in x:y) yield(i))}
-```
-
-Really, it just saves you from remembering to `force` your arguments.
+(so really it just saves you from remembering to `force` your arguments.)
 
 # async 0.2.2
 

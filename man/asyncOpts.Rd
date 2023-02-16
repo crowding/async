@@ -17,7 +17,7 @@ asyncOpts(
 play-by-play of what they are doing.}
 
 \item{compileLevel}{Default compile level for new generators. See
-\url{gen}.}
+\link{gen}.}
 
 \item{paranoid}{if TRUE, perform various time-consuming integrity
 checks on the result of compilation. Meant to be enabled during

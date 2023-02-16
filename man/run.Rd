@@ -16,9 +16,9 @@ run(
 }
 \arguments{
 \item{expr}{A generator expression, same as you would write in
-\url{gen}.}
+\link{gen}.}
 
-\item{type}{A value which will determine the output vector type (as
+\item{type}{A value whose mode will determine the output vector mode (as
 in \link{vapply}.)}
 
 \item{...}{Undocumented.}
@@ -60,6 +60,7 @@ need those features, using \link{collect} directly will have better
 performance.
 }
 \examples{
+
 run(type=0, {
   for (i in iseq(2, Inf, by=5)) {
     if (i \%\% 37 == 0) break

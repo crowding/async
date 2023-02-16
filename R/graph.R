@@ -259,7 +259,7 @@ make_dot <- function(nodeGraph,
 #' g <- Rgraphviz::agread("randomWalk.dot")
 #' Rgraphviz::plot(g)
 #' }
-#' @param obj A [generator][gen] or [async] object.
+#' @param obj A [generator][gen], [async] or [stream] object.
 #' @param type the output format. If "dot", we will just write a Graphviz
 #'   dot file. If another extension like "pdf" or "svg", will write a
 #'   DOT file and then attempt to invoke Graphviz `dot` (if it is
@@ -273,23 +273,20 @@ make_dot <- function(nodeGraph,
 #' @param handlers If `TRUE`, state nodes will have thin edges
 #'   connecting to their trampoline handlers, in addition to the dashed edges
 #'   connecting to the next transition.
-#' @param dot Optional path the the `dot` executable.
+#' @param dot Optional path to the `dot` executable.
 #' @param dotfile Optionally specify the output DOT file name.
 #' @param filename Optionally specify the output picture file name.
 #' @return The name of the file that was created.
 #' @export
 drawGraph <- function(obj,
-                      basename=as.character(
-                        unless(substitute(obj), is.name,
-                               stop("Please specify a base filename"))),
+                      basename=if (is.name(substitute(obj)))
+                        as.character(substitute(obj))
+                      else stop("Please specify basename"),
                       type="pdf",
                       envs=TRUE,
                       vars=TRUE,
                       handlers=TRUE,
-                      dot=unless(Sys.which("dot"), function(x)x!="",{
-                        if (!on_cran() && !on_ci()) message("Graphviz was not found; writing DOT file only")
-                        ""
-                      }),
+                      dot=find_dot(),
                       filename=paste0(basename, ".", type),
                       dotfile=if (type=="dot")
                         filename else paste0(basename, ".dot"))
@@ -305,11 +302,17 @@ drawGraph <- function(obj,
   }
 }
 
-unless <- function(x, filter, or) if(filter(x)) x else or
-
-makeGraph <- function(x, file="", sep="\n", ...) {
-  UseMethod("makeGraph")
+find_dot <- function() {
+  x <- Sys.which("dot")
+  if (x == "")
+    if (!on_cran() && !on_ci()) {
+      message("Graphviz was not found; writing DOT file only")
+      return("")
+    }
+  x
 }
+
+makeGraph <- function(x, file="", sep="\n", ...) UseMethod("makeGraph")
 
 #' @exportS3Method
 makeGraph.coroutine <- function(x, file="", sep="\n", ...) {

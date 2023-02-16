@@ -21,6 +21,7 @@
 #' performance.
 #'
 #' @examples
+#'
 #' run(type=0, {
 #'   for (i in iseq(2, Inf, by=5)) {
 #'     if (i %% 37 == 0) break
@@ -29,8 +30,8 @@
 #' })
 #'
 #' @param expr A generator expression, same as you would write in
-#'   [gen]().
-#' @param type A value which will determine the output vector type (as
+#'   [gen].
+#' @param type A value whose mode will determine the output vector mode (as
 #'   in [vapply].)
 #' @param ... Undocumented.
 #' @param split_pipes See [async]; defaults to FALSE.
