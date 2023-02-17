@@ -1,13 +1,11 @@
 ---
-title: "The `async` package: Generators and async/await for R"
+title: "The `async` package: Generators, async/await, and asynchronous streams for R"
 output: rmarkdown::html_vignette
 vignette: >
   %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteIndexEntry{The `async` package: Generators and async/await for R}
+  %\VignetteIndexEntry{The `async` package: Generators, async/await, and asynchronous streams for R}
   %\VignetteEncoding{UTF-8}
 ---
-
-# The `async` package: Generators, async/await, and asynchronous streams for R
 
 This is an R package implementing *generators*, *async* blocks, and *streams*; (collectively known as "coroutines.")
 
@@ -57,7 +55,7 @@ eventually reach the loop 1, 4, 2, 1, 4, 2, .... The following
 generator produces the Collatz sequence, starting from `x`, and
 terminating when (or if?) the sequence reaches 1.
 
-```r
+```{R}
 collatz <- async::gen(function(x) {
   yield(x)
   while (x > 1) {
@@ -70,34 +68,21 @@ collatz <- async::gen(function(x) {
 The call to `gen` produces a generator. You can get values one at a
 time with `nextOr()`.
 
-```r
+```{R}
 ctz <- collatz(12)
 ctz <- collatz(12)
 nextOr(ctz, NA)
-# [1] 12
 nextOr(ctz, NA)
-# [1] 6
 nextOr(ctz, NA)
-# [1] 3
 nextOr(ctz, NA)
-# [1] 10
 nextOr(ctz, NA)
-# [1] 5
 ```
 
 You can also use any other method that applies to an iterator, like `as.list`.
 
-```r
-collatz(27L) |> as.list |> as.numeric
-#   [1]   82   41  124   62   31   94   47  142   71  214  107  322  161  484  242
-#  [16]  121  364  182   91  274  137  412  206  103  310  155  466  233  700  350
-#  [31]  175  526  263  790  395 1186  593 1780  890  445 1336  668  334  167  502
-#  [46]  251  754  377 1132  566  283  850  425 1276  638  319  958  479 1438  719
-#  [61] 2158 1079 3238 1619 4858 2429 7288 3644 1822  911 2734 1367 4102 2051 6154
-#  [76] 3077 9232 4616 2308 1154  577 1732  866  433 1300  650  325  976  488  244
-#  [91]  122   61  184   92   46   23   70   35  106   53  160   80   40   20   10
-# [106]    5   16    8    4    2    1
-collatz(63728127L) |> as.list |> as.numeric
+```{R}
+collatz(27L) |> as.list() |> as.numeric()
+#try collatz(63728127L) |> as.list() |> as.numeric()...
 ```
 
 For more examples, see the ["Clapping Music" vignette.](https://crowding.github.io/async/articles/clapping.html)
@@ -125,7 +110,7 @@ assign tasks to be done in the event loop, when R is idle.
 
 Ring a bell 5 times at 10 second intervals (subject to R being idle):
 
-```r
+```{R, eval=FALSE}
 async({
   for (i in 1:5) {
     #delay() uses later::later()
@@ -147,7 +132,7 @@ of the ["Cranwhales" demo app using async/await.][cranwhales].
 `async` can also work with `future` objects to run computations in parallel.
 Download, parse, and summarize a dataset in background processes like this:
 
-```r
+```{R, eval=FALSE}
 library(future)
 library(dplyr)
 plan(multiprocess(workers=2))
@@ -167,7 +152,7 @@ dataset <- async({
     read.csv(dest) |>
     mutate(time = hms::trunc_hms(time, 60*60)) |>
     group_by(time) |>
-    summarize(sales=sum(amount)) |>
+    summarize(sales=sum(amount))
   }))
 })
 
@@ -207,6 +192,5 @@ printEach <- async(function(st) {
 })
 
 all <- combine(walk, chewGum) |> printEach()
-
-#left, chew, right, chew, left, right, chew, left, chew, right, left, chew, right, chew, left, right, chew, left, right, chew, left, chew, right, left, chew, right, chew, left, right, chew, left, right, 
+async:::wait_for_it()
 ```

@@ -1,0 +1,197 @@
+# Why another iteration protocol?
+
+The concept of an iterator is not "built in" to the R language, but is the sort of thing left to library authors to cover. As a result, there are not one but multiple implementations of the concept. Library authors understand the value of interoperability and standardization, but one thing leads to another and different library authors are working under different constraints.
+
+The `iterators` package for Rstats has been around for several years, and is used/extended by other packages like `foreach`, `itertools`, `itertools2` 
+
+The `async` package defines a class `iteror` which 
+
+In the first case, `iteror` objects are designed to interoperable with those from the venerable `iterators` package; you can hand an `iteror` to code expecting an `iterator` and vice versa. This essay attempts to explain the advantages of the new  `iteror` protocol.
+
+## How do you signal end of iteration?
+
+Different implementations of iterators all have in common that calling the `next` function should return the next value in the sequence. Where they differ is in what they do at the end of iteration, and how users detect the end of iteration. Three commonly seen approaches are boxing, out-of-band signaling, and sigil values.
+
+### Boxing
+
+In the boxed strategy, the `next` function does not return a bare value but wraps it in a container that indicates whether finding the next value was successful.
+
+In R, iterating using a boxed iterator might look this this. Suppose the iteration method `boxedNext(iter)` returns a list with two elements, the first `TRUE` or `FALSE` depending on if successful, the the second the item in question (or NULL if not successful.) With this type of iterator, a summing function would look like this:
+
+```{R}
+sum <- function(iter) {
+  total <- 0
+  repeat {
+    box <- boxedNext(iter)
+    if (box[[1]]) total <- total + box[[2]]
+    else return(total)
+  }
+}
+```
+
+This strategy works well with generically typed languages which have some syntactic sugar for automatically unboxing values (such as Rust's `?` operator.) In a language with a weaker type system like R, users tend to have the expectation that `next` should return the value directly without fussing further unwrapping, although the code above is compact enough.
+
+### Out-of-band signaling
+
+The `iterators` package, along with the `foreach` package, signals end of iteration by throwing an exception with the special message text `"StopIteration"`.
+
+For example, to sum all of the values in an iterator, one would write:
+
+```{R}
+sum <- function(iter) {
+  total <- 0
+  tryCatch(repeat {
+    total <- total + nextElem(iter)
+  },
+  error=\(err) {
+    if (conditionMessage(err) == "StopIteration")
+      total
+    else stop(err)
+  })
+}
+```
+
+One infelicity here is that you need to do work to distinguish a normal end-of-iteration from an error; the normal end of iteration shares a code pathway with other potential sources of error. The code is also a bit more verbose than the other alternatives.
+
+### Global Sigil values
+
+A third approach to signaling end of iteration is to use a sigil value. A sigil value is one arbitrary value designated to be "special" in a situation where other values stand for themselves. For example C language  [null terminated strings][null] use zero as a sigil to mark the end of a string. A `getNext` method in this style could return a symbol `._stopIteration_.` to signal the end of iteration. To sum over this style of iterator one might write:
+
+[null]: https://queue.acm.org/detail.cfm?id=2010365
+
+```{R}
+sum <- function(iter) {
+  repeat {
+    item <- getNext(iter)
+    if (identical(item, quote(._stopIteration_.))) break
+    total <- total + item
+  }
+}
+```
+
+One issue with the sigil value strategy is the possibility of the sigil colliding with a legitimate value. A C null terminated string may not contain an ASCII NUL character, or things break. R programmers are familiar with this kind of problem as it can come up with `NULL`. It ought to be perfectly normal to store NULL in a list, but if you write `myList[[i]] <- NULL`, what happens is the `i`'th element of the list is removed and the list is shortened, because `[[<-` interprets `NULL` as a sigil rather than as NULL itself value. In principle, an iterator should be able to emit a sequence of any values, _including_ the sigil value.
+
+Suppose, for instance, you were to iterate over all the symbols used in the above function, That iterator will need to be able to emit `._stopIteration_.`, because it appears directly in code. This is not just theoretical, the `async` package does in fact iterate over the symbols in its own code when it compiles coroutines.
+
+### 2-argument `nextElemOr`
+
+The `iteror` class used in the `async` package defines another way of signaling end of iteration, which I would argue is a bit more suited to the R language. The iteration method is `nextElemOr(obj, or)` which takes two arguments rather than one. If the iterator has a next value, `nextElemOr` returns that value; if not, `nextElemOr` evaluates and returns its second argument `or`.
+
+This calling convention allows different use patterns. You can make it throw exceptions or use sigil values, as illustrated below. 
+
+#### 2 argument `nextElemOr` using  a _local_ sigil
+
+One way to use `nextElemOr` is to specify a _local_ sigil value. This differs from the global sigil value strategy because there is no attempt to establish _one_ universal sigil value. Rather, you create a sigil value locally, on the fly, and you never have to write it down directly. A good choice for sigil value is `new.env()`, because environments compare by pointer identity; a newly constructed environment will be `identical()` to no other object in the R session.
+
+Using the local-sigil style to write `sum` might look like this.
+
+```{R}
+sum <- function(iter) {
+  sigil <- new.env()
+  repeat {
+    item <- nextElemOr(iter, or=sigil)
+    if (identical(item, sigil)) break
+    total <- total + item
+  }
+  total
+}
+```
+
+This avoids the chicken-and-egg problem with global sigil, of picking one weird value that you have to then avoid writing down. `new.env()` gives you a value that by construction exists nowhere else in the session. so it will be safe to use as a stop value.
+
+#### 2 argument `nextElemOr`: Control flow via lazy argument.
+
+However, this is not the only trick up `nextElemOr`'s sleeve. R lazily evaluates arguments; `nextElemOr.iterator(obj, or)` only evaluates its `or` argument if iteration stops. The expression written in `or` does not have to be a pure value; it can have side effects, or use control flow operators, and those will only take effect at end of iteration. Thus one can write something like `nextElemOr(iter, or=break)`; this will break out of the loop at the end of iteration. The code for summing over an iterator then becomes even tidier:
+
+```{R}
+sum <- function(iter) {
+  total <- 0
+  repeat {
+    total <- total + nextElemOr(iter, or=break)
+  }
+  total
+}
+```
+
+One can use `break`, `next`, `return`, `stop` inside the `or` argument. This capability can make code working with iterators noticeably more compact, while avoiding the question of sigil values.
+
+Some readers may be more used to languages where you cannot put `break` in a function argument or have qualms about mixing lazy evaluation with flow control operators, but the R interpreter handles this case correctly and performs well; there is undoubtedly quite a bit of R code in production that depends on this capability (whether deliberately or not).
+
+The two-argument iterator can also perfectly well masquerade as a single-argument exception-thrower, and work with code expecting that iteration style. the `nextElem` backfill method is simply:
+
+```{R}
+nextElem.iteror <- function(obj) nextElemOr(obj, or=stop("StopIteration"))
+```
+
+## Writing iterators
+
+The above examples show how to roll a 
+
+The example shown above for summing with `nextElem` has a `tryCatch` wrapped around the entire loop. It's good when you can do this, however, sometimes you cannot use a single tryCatch to iterate across several values. In particular, when you are making a higher order iterator (i.e. an iterator that uses other iterators as input,) you only get to process one item per call.
+
+Consider a simple higher-order iterator function, `concat(...)` combines a list of iterators given in its argument, in effect concatenating them, iterating through the first until it is exhausted, then the next, and so on. To compute the next element, it must check the first iterator, discard it if it has finished, and go to the next. In the "out-of-band-signaling" style we would write:
+
+```{R}
+chain.iterator <- function(...) {
+  iters <- lapply(list(...), iterators::iter)
+  iter(function() {
+    while (length(iters) > 0) {
+      tryCatch({
+        return( iters[[1]]() )
+      }, error=function(err) {
+      if (conditionMessage(err) == "StopIteration") {
+        iters[[1]] <<- NULL
+      } else stop(err)
+      })
+    }
+    stop("StopIteration")
+  })
+}
+```
+
+Here, we start up a tryCatch just to get and return one element from the first iterator, and if we catch an error, the `next` loop will start up another tryCatch. There is a separate call to `tryCatch` for each element processed.
+
+If we were to write `concat` using  `iteror`'s lazy-argument style instead it might look like this:
+
+```{R}
+chain.iteror <- function(...) {
+  iters <- lapply(list(...), iteror)
+  iteror(function(or) {
+    while(length(iters) > 0) {
+      return ( nextElemOr( iter[[1]], or={
+        iter[[1]] <<- NULL
+        next
+      }) )
+    }
+    or
+  })
+}
+```
+
+Here, if an iterator returns a value we can `return` it, otherwise we forget that iterator and jump to the `next` loop to try again. Note that when writing an `iteror` function we must keep the contract of only forcing `or` when reaching end of iteration.
+
+Besides being a bit more compact, there is a performance advantage: this version does not have to wind up a `tryCatch` on every element retrieved.  This can add up because `tryCatch` takes a not-insignificant amount of time. By the time you have chained several iterators together (and the `async` package definitely intends for you to chain things together, if that helps you work with your data,) you might be spending more time calling `tryCatch` than processing items.
+
+Of course the simplest way to write `concat` is to use a generator, which the _raison d'etre_ of this package after all.
+
+```{R}
+concat <- function(...) {
+  iters <- list(...)
+  gen( for (i in iters) yieldFrom(i) )
+}
+```
+
+Here you don't need to worry about how end of iteration is signaled because `gen` has that logic built into  `for` and `yieldFrom`. As of this writing the performance will be worse than for hand-rolled iterator functions, but work in progress on compiled generators will narrow that gap.
+
+## Performance
+
+To illustrate the impact of this change (as well as other changes in `iteror`) we can run a small benchmark, timing how long it takes to paste 10 iterators together into one and collect the results in a list.
+
+```{R}
+
+concat()
+
+rep(1:10)
+
+
+```
