@@ -2,8 +2,8 @@
 % Please edit documentation in R/async-package.R
 \docType{package}
 \name{async-package}
-\alias{async}
 \alias{async-package}
+\alias{_PACKAGE}
 \title{The async package.}
 \description{
 The \code{async} package allows you to write sequential-looking code

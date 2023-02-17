@@ -20,7 +20,7 @@ make_dot <- function(nodeGraph,
     label <- nodeGraph$nodeProperties[[nodeName]]$localName %||% nodeName
     short_label <- last(strsplit(label, "__")[[1]])
     is_handler <- "cont" %in% names(formals(nodeGraph$nodes[[nodeName]]))
-    c(if (is_R(nodeGraph[[nodeName]])) {
+    c(if (is_R(nodeGraph$nodes[[nodeName]])) {
       ex <- R_expr(nodeGraph$nodes[[nodeName]])
       c(label=paste0(deparse(ex),
                      collapse="\\l"),

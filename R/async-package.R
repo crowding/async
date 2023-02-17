@@ -36,9 +36,11 @@
 #' @import utils
 #' @author Peter Meilstrup
 #' @keywords internal
+#' @aliases async-package
+#' @name async-package
 "_PACKAGE"
 
-.onLoad <- function(libName, packageName) {
+.onLoad <- function(lib, pkg) {
   options(async.compileLevel=0,
           async.paranoid=FALSE,
           async.verbose=FALSE,
