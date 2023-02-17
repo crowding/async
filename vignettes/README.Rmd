@@ -12,7 +12,7 @@ This is an R package implementing *generators*, *async* blocks, and *streams*; (
 [![cran-version](https://www.r-pkg.org/badges/version/async?color=purple)](https://cran.r-project.org/package=async)[![check-standard](https://github.com/crowding/async/actions/workflows/check-standard.yaml/badge.svg)](https://github.com/crowding/async/actions/workflows/check-standard.yaml)
 [![test-coverage](https://github.com/crowding/async/actions/workflows/test-coverage.yaml/badge.svg)](https://github.com/crowding/async/actions/workflows/test-coverage.yaml)
 
-# New features in version 0.3
+## New features in version 0.3
 
 * Coroutines now support single step debugging. Use `debugAsync(obj, R=TRUE)` to pause before each call at R level. You can also use `debugAsync(obj, internal=TRUE)` to step through at the coroutine implementation level.
 * Coroutines are printed with a label indicating where in their code they are paused.
@@ -56,6 +56,7 @@ generator produces the Collatz sequence, starting from `x`, and
 terminating when (or if?) the sequence reaches 1.
 
 ```{R}
+library(async)
 collatz <- async::gen(function(x) {
   yield(x)
   while (x > 1) {

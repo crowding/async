@@ -1,4 +1,5 @@
 ## -----------------------------------------------------------------------------
+library(async)
 collatz <- async::gen(function(x) {
   yield(x)
   while (x > 1) {
