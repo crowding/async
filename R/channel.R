@@ -69,7 +69,7 @@ deque <- function(len=64) {
 
   structure(list(append=append,
                  prepend=prepend,
-                 nextElemOr=getFirst,
+                 nextOr=getFirst,
                  getFirst=getFirst,
                  getLast=getLast,
                  length=getLength),
@@ -104,7 +104,7 @@ deque <- function(len=64) {
 #' is available, in the order that requests were received.
 #'
 #' You can also treat a channel as an [iteror] over promises, calling
-#' `nextElemOr(pri)` to return a [promise] representing the next
+#' `nextOr(pri)` to return a [promise] representing the next
 #' available value. Each promise created this way will be resolved in
 #' the order that data come in. Note that this way there is no special
 #' signal for end of iteration; a promise will reject with
@@ -224,7 +224,7 @@ channel <- function(impl, max_queue=500L, max_awaiting=500L,
     send()
   }
 
-  nextElemOr <- function(or) {
+  nextOr <- function(or) {
     #subscribe and return a promise.
     promise(function(resolve, reject) {
       nextThen(resolve, reject, function() reject("StopIteration"))
@@ -232,7 +232,7 @@ channel <- function(impl, max_queue=500L, max_awaiting=500L,
   }
 
   impl(emit, reject, close)
-  structure(list(nextThen=nextThen, nextElemOr=nextElemOr,
+  structure(list(nextThen=nextThen, nextOr=nextOr,
                  formatChannel=formatChannel),
             class=c("channel", "funiteror", "iteror", "iter"))
 

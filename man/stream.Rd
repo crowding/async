@@ -10,7 +10,7 @@ stream(
   split_pipes = TRUE,
   lazy = TRUE,
   trace = trace_,
-  compileLevel = options$compileLevel,
+  compileLevel = getOption("async.compileLevel"),
   debugR = FALSE,
   debugInternal = FALSE
 )
@@ -69,7 +69,7 @@ immediately, not pausing on \code{yield}, possibly queuing up emitted
 values until it needs to \code{await} something.
 
 (For comparison, in this package, \link{gen} are lazy in that they do
-not start executing until a call to \code{nextElemOr} and pause
+not start executing until a call to \code{nextOr} and pause
 immediately after \code{yield}, while \link{async} blocks are eager,
 starting at construction and running until they hit an \code{await}.)
 

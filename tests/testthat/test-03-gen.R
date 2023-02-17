@@ -14,17 +14,17 @@ test_that("generator loop", {
   ii <- function(n) gen(for (i in 1:n) yield(i))
   i <- ii(10)
   for (j in 1:10) {
-    nextElemOr(i, stop("unexpected end")) %is% j
+    nextOr(i, stop("unexpected end")) %is% j
   }
-  expect_equal(nextElemOr(i, NULL), NULL)
+  expect_equal(nextOr(i, NULL), NULL)
 
   i <- ihasNext(ii(10))
   for (j in 1:10) {
     hasNext(i) %is% TRUE
-    nextElemOr(i, NULL) %is% j
+    nextOr(i, NULL) %is% j
   }
   hasNext(i) %is% FALSE
-  nextElemOr(i, NULL) %is% NULL
+  nextOr(i, NULL) %is% NULL
 })
 
 test_that("further nextElems will error with stopIteration", {
@@ -37,9 +37,9 @@ test_that("further nextElems will error with stopIteration", {
     yield(1)
     stop("foo")
   })
-  nextElemOr(g, NULL) %is% 1
-  expect_error(nextElemOr(g, NULL), "foo")
-  nextElemOr(g, NULL) %is% NULL
+  nextOr(g, NULL) %is% 1
+  expect_error(nextOr(g, NULL), "foo")
+  nextOr(g, NULL) %is% NULL
 })
 
 test_that("a generator", {
@@ -55,7 +55,7 @@ test_that("for loop over an iterator", {
   j <- gen(for(i in 1:10) if (i %% 7 == 0) stop("oops") else yield(i))
   x <- 0
   g <- gen(for(i in j) if (FALSE) yield(NULL) else x <<- x + 1)
-  expect_error(nextElemOr(g, NULL), "oops")
+  expect_error(nextOr(g, NULL), "oops")
 })
 
 test_that("yieldFrom", {
@@ -95,7 +95,7 @@ test_that("generator with split pipes", {
     repeat {
       sum <- 0
       for (i in 1:10) {
-        sum <- nextElemOr(x, {yield(sum); return()}) + sum
+        sum <- nextOr(x, {yield(sum); return()}) + sum
       }
       yield(sum)
     }
@@ -118,12 +118,12 @@ test_that("generators create local scope", {
 })
 
 test_that("generators reject recursion", {
-  g <- gen(yield(nextElemOr(g, NULL)))
-  expect_error(nextElemOr(g, NULL), "running")
+  g <- gen(yield(nextOr(g, NULL)))
+  expect_error(nextOr(g, NULL), "running")
 
-  f <- gen(repeat yield(nextElemOr(g, break)))
-  g <- gen(repeat yield(nextElemOr(f, break)))
-  expect_error(nextElemOr(g, NULL), "running")
+  f <- gen(repeat yield(nextOr(g, break)))
+  g <- gen(repeat yield(nextOr(f, break)))
+  expect_error(nextOr(g, NULL), "running")
 })
 
 test_that("generator format", {
@@ -138,15 +138,15 @@ test_that("generator format", {
   expect_output(print(g), "(stopped:.*oops|finished)")
 
   g <- gen(yield(utils::capture.output(print(g))))
-  expect_output(cat(nextElemOr(g, NULL)), "running")
+  expect_output(cat(nextOr(g, NULL)), "running")
 })
 
 test_that("last statement is forced", {
   hello <- NULL
   g <- gen({yield("one"); yield("two"); hello <<- "three"})
-  nextElemOr(g, NULL) %is% "one"
-  nextElemOr(g, NULL) %is% "two"
-  expect_equal(nextElemOr(g, NULL), NULL)
+  nextOr(g, NULL) %is% "one"
+  nextOr(g, NULL) %is% "two"
+  expect_equal(nextOr(g, NULL), NULL)
   expect_equal(hello, "three")
 })
 
@@ -154,9 +154,9 @@ test_that("can optionally split pipes", {
   expect_error(gen(repeat x <- yield(x)[x]), "split_pipes")
   x <- c(2, 4, 1, 3)
   g <- gen(repeat x <- yield(x)[x], split_pipes=TRUE)
-  nextElemOr(g, NULL) %is% c(2, 4, 1, 3)
-  nextElemOr(g, NULL) %is% c(4, 3, 2, 1)
-  nextElemOr(g, NULL) %is% c(1, 2, 3, 4)
+  nextOr(g, NULL) %is% c(2, 4, 1, 3)
+  nextOr(g, NULL) %is% c(4, 3, 2, 1)
+  nextOr(g, NULL) %is% c(1, 2, 3, 4)
 })
 
 test_that("Dummy", {
@@ -168,7 +168,7 @@ test_that("tracing", {
   g <- gen({{j <- 0; i <- 0}; for (i in 1:10) yield(j <- j + i)},
            trace=with_prefix("triangle"))
   expect_output(
-    nextElemOr(g, NULL),
+    nextOr(g, NULL),
     "triangle: R: + i <- 0.*triangle: R: j <- j \\+ i.*triangle: generator: yield.*")
 })
 
@@ -296,7 +296,7 @@ test_that("generator functions", {
   }
   x <- collect(type=0, \(yield) {
     for (it in iters) {
-      repeat yield(nextElemOr(it, break), " ")
+      repeat yield(nextOr(it, break), " ")
     }
   })
   sum(x) %is% 220
@@ -305,7 +305,7 @@ test_that("generator functions", {
 
 
 test_that("nextElem followed by call", {
-  #this turned out to have been nextElemOr_cps not forcing its "cont"
+  #this turned out to have been nextOr_cps not forcing its "cont"
   #(it was trusting the "or" constructor do do so, but "break" ignores its
   #cont()
 
@@ -313,8 +313,8 @@ test_that("nextElem followed by call", {
   #g <- drop_one_after(a, 5)
   g <- gen(
     repeat {
-      for (i in 1:5) yield(nextElemOr(a, break))
-      nextElemOr(a, break) #drop
+      for (i in 1:5) yield(nextOr(a, break))
+      nextOr(a, break) #drop
       list("") # print a seperator after every skip
     }
   )

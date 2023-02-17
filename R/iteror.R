@@ -2,11 +2,11 @@
 #'
 #' To create an iteror, call the constructor `iteror` providing either
 #' a vector or a function as argument. The returned object will
-#' support the method `nextElemOr(obj, or)` to extract successive
+#' support the method `nextOr(obj, or)` to extract successive
 #' values.
 #'
-#' The main method for "iteror" is "nextElemOr" rather than
-#' "nextElem". Instead of using exceptions, "nextElemOr" uses a lazily
+#' The main method for "iteror" is "nextOr" rather than
+#' "nextElem". Instead of using exceptions, "nextOr" uses a lazily
 #' evaluated "or" argument to signal the end of iteration.  The "or"
 #' argument will only be forced when end of iteration is reached; this
 #' means the consumer can provide an action like "break", "next" or
@@ -17,14 +17,14 @@
 #' sum <- 0
 #' it <- iteror(in)
 #' repeat {
-#'   val <- nextElemOr(iter, break)
+#'   val <- nextOr(iter, break)
 #'   sum <- sum + val;
 #' }
 #' ```
 #'
 #' Another way to use the "or" argument is to give it a sigil value;
 #' that is, a special value that will be interpreted as end of
-#' iteration.  If the result of calling `nextElemOr` is `identical()`
+#' iteration.  If the result of calling `nextOr` is `identical()`
 #' to the sigil value you provided, then you know the iterator has
 #' ended. In R it is commonplace to use `NULL` or `NA`, in the role of
 #' a sigil, but that only works until you have an iterator that needs
@@ -37,7 +37,7 @@
 #' sum <- 0
 #' stopped <- new.env()
 #' repeat {
-#'   val <- nextElemOr(iter, stopped)
+#'   val <- nextOr(iter, stopped)
 #'   if (identical(val, stopped)) break
 #'   sum <- sum + val
 #' }
@@ -96,7 +96,7 @@ iteror.function <- function(obj, ..., catch, sigil) {
       stop("iteror: must have 'or' argument or else specify 'catch' or 'sigil'")
     }
   }
-  structure(list(nextElemOr=fn), class=c("funiteror", "iteror", "iter"))
+  structure(list(nextOr=fn), class=c("funiteror", "iteror", "iter"))
 }
 
 
@@ -125,7 +125,7 @@ iteror.default <- function(obj, ..., recycle=FALSE) {
     }
     x$length <- n
     x$recycle <- recycle
-    x$state <- environment(x$nextElemOr)
+    x$state <- environment(x$nextOr)
     x
   }
 }
@@ -135,20 +135,20 @@ iteror.default <- function(obj, ..., recycle=FALSE) {
 #' @param obj An [iteror]
 #' @param or If the iteror has reached its end, an argument that
 #'   will be forced and returned.
-#' @return `nextElemOr` returns the next element in the iteror, or
+#' @return `nextOr` returns the next element in the iteror, or
 #'   else forces and returns its `or` argument.
-nextElemOr <- function(obj, or, ...) {
-  UseMethod("nextElemOr")
+nextOr <- function(obj, or, ...) {
+  UseMethod("nextOr")
 }
 
 #' @exportS3Method
-nextElemOr.funiteror <- function(obj, or, ...) {
-  obj$nextElemOr(or, ...)
+nextOr.funiteror <- function(obj, or, ...) {
+  obj$nextOr(or, ...)
 }
 
 #' @exportS3Method iterators::nextElem iteror
 nextElem.iteror <- function(obj, ...) {
-  nextElemOr(obj, stop("StopIteration"), ...)
+  nextOr(obj, stop("StopIteration"), ...)
 }
 
 #' @exportS3Method
@@ -160,7 +160,7 @@ format.iteror <- function(x, ...) {
 # An object created with `sigil()` with compare [`identical()`] to
 # itself and to no other object in the R session.
 # Sigil values are useful as the "or" argument to `awaitOr` or
-# `nextElemOr`;
+# `nextOr`;
 # @return a closure; calling the closure returns the name.
 sigil <- function(name=NULL) function()name
 
@@ -181,8 +181,8 @@ ihasNext.default <- function(obj) ihasNext(iteror(obj))
 `%then%` <- function(a, b) { force(a); force(b); a }
 
 #' @exportS3Method
-nextElemOr.iter <- function(obj, or, ...) {
-  # :( this means that if you use nextElemOr over a regular iter, you
+nextOr.iter <- function(obj, or, ...) {
+  # :( this means that if you use nextOr over a regular iter, you
   # are setting up and tearing down a tryCatch in each iteration...
   tryCatch(
     iterators::nextElem(obj),
@@ -199,7 +199,7 @@ ihasNext.iteror <- function(iter, ...) {
     switch(query,
            "next"={
              if (identical(last, noValue))
-               last <<- nextElemOr(iter, endIter)
+               last <<- nextOr(iter, endIter)
              if (identical(last, endIter))
                or
              else
@@ -207,7 +207,7 @@ ihasNext.iteror <- function(iter, ...) {
            },
            "has"={
              if (identical(last, noValue))
-               last <<- nextElemOr(iter, endIter)
+               last <<- nextOr(iter, endIter)
              !identical(last, endIter)
            },
            stop("unknown query: ", query)
@@ -221,7 +221,7 @@ nextElem.ihasNextOr <- function(obj, ...) {
 }
 
 #' @exportS3Method
-nextElemOr.ihasNextOr <- function(obj, or, ...) {
+nextOr.ihasNextOr <- function(obj, or, ...) {
   obj(or, query="next", ...)
 }
 
@@ -236,7 +236,7 @@ as.list.iteror <- function(x, n=as.integer(2^31-1), ...) {
   a <- vector('list', length=size)
   i <- 0
   repeat {
-    item <- nextElemOr(x, break)
+    item <- nextOr(x, break)
     i <- i + 1
     if (i >= size) {
       size <- min(2 * size, n)
@@ -261,7 +261,7 @@ ilimit <- function(it, n) {
   iteror(function(or, ...) {
     if (i >= n) or else {
       i <<- i + 1L
-      nextElemOr(it, or)
+      nextOr(it, or)
     }
   })
 }

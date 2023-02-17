@@ -11,7 +11,7 @@ gen(
   ...,
   split_pipes = FALSE,
   trace = trace_,
-  compileLevel = options$compileLevel
+  compileLevel = getOption("async.compileLevel")
 )
 
 yield(expr)
@@ -76,7 +76,7 @@ generator and compute their mean:
 \if{html}{\out{<div class="sourceCode">}}\preformatted{rwalk |> itertools2::take(100) |> as.numeric() |> mean()
 }\if{html}{\out{</div>}}
 
-When \code{nextElemOr(rwalk, ...)} is called, the generator executes its
+When \code{nextOr(rwalk, ...)} is called, the generator executes its
 "inside" expression, in a local environment, until it reaches a
 call to \verb{yield().} THe generator 'pauses', preserving its execution
 state, and \code{nextElem} then returns what was passed to \code{yield}. The

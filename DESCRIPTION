@@ -38,7 +38,7 @@ Suggests:
     profvis,
     covr
 Collate:
-  'async-description.R'
+  'async-package.R'
   'util.R'
   'iteror.R'
   'cps.R'

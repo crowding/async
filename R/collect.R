@@ -106,7 +106,7 @@ tree_filter <- function(tree, filter) {
 #'
 #' # we could implement `iterors::as.list.iteror` thus:
 #' as.list.iteror <- function(it) {
-#'   collect(\(yield) repeat yield(nextElemOr(it, break)))
+#'   collect(\(yield) repeat yield(nextOr(it, break)))
 #' }
 collect <- function(fn, type=list()) {
   collector(function(yield, extract) {fn(yield); extract(TRUE)}, type)

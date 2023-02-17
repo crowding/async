@@ -88,7 +88,7 @@ debugAsync.coroutine <- function(x, R=current$R, internal=current$internal) {
 #' @exportS3Method
 compile.coroutine <- function(x, level) {
    if (abs(level) >= 1) {
-    if (options$paranoid) graph <- walk(x)
+    if (getOption("async.paranoid")) graph <- walk(x)
     munged <- munge( x )
     if (abs(level) >= 3) {
       stop("TODO: Aggressive inlining")
@@ -99,7 +99,7 @@ compile.coroutine <- function(x, level) {
       stop("TODO: switch generation")
     } else {
       out <- reconstitute(x, munged)
-      if (options$paranoid) expect_properly_munged(graph, out)
+      if (getOption("async.paranoid")) expect_properly_munged(graph, out)
       out
     }
   } else x

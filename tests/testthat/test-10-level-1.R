@@ -1,7 +1,7 @@
 test_that("Compiler level -1 does munging", {
-  expect_equal(asyncOpts()$compileLevel, 0)
+  expect_equal(getOption("async.compileLevel"), 0)
   g <- gen(repeat yield(TRUE))
-  expect_false(exists("entry", environment(g$nextElemOr)))
+  expect_false(exists("entry", environment(g$nextOr)))
 
   p <- mock_promise()
   value <- NULL
@@ -12,11 +12,11 @@ test_that("Compiler level -1 does munging", {
   wait_for_it()
   expect_equal(value, 101)
 
-  asyncOpts(compileLevel=-1, verbose=FALSE, paranoid=TRUE)
-  expect_equal(asyncOpts()$compileLevel, -1)
+  options(async.compileLevel=-1, async.verbose=FALSE, async.paranoid=TRUE)
+  expect_equal(getOption("async.compileLevel"), -1)
 
   gc <- gen(repeat yield(TRUE))
-  expect_true(exists("entry", environment(gc$nextElemOr)))
+  expect_true(exists("entry", environment(gc$nextOr)))
 
   p <- mock_promise()
   value <- NULL

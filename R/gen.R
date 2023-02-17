@@ -25,7 +25,7 @@
 #'
 #'     rwalk |> itertools2::take(100) |> as.numeric() |> mean()
 #'
-#' When `nextElemOr(rwalk, ...)` is called, the generator executes its
+#' When `nextOr(rwalk, ...)` is called, the generator executes its
 #' "inside" expression, in a local environment, until it reaches a
 #' call to `yield().` THe generator 'pauses', preserving its execution
 #' state, and `nextElem` then returns what was passed to `yield`. The
@@ -75,7 +75,7 @@
 #' -1 (name munging only).
 #' @export
 gen <- function(expr, ..., split_pipes=FALSE, trace=trace_,
-                compileLevel=options$compileLevel) {
+                compileLevel=getOption("async.compileLevel")) {
   expr_ <- arg(expr); expr <- NULL
   if (identical(expr(expr_)[[1]], quote(`function`))) {
     defn <- coroutine_function(expr_,
@@ -116,7 +116,7 @@ yield_cps <- function(.contextName, expr) {
     if (missing_(arg(yield))) stop("yield used but this is not a generator")
     if (!missing(registerYield)) registerYield()
     list(cont, yield, trace)
-    named(yield_ <- function(val) {
+    node(yield_ <- function(val) {
       force(val)
       trace("yield\n")
       yield(cont, val)
@@ -150,10 +150,10 @@ yieldFrom_cps <- function(.contextName, it) {
     list(cont, yield, trace, maybe(registerYield))
     if (!is_missing(registerYield)) registerYield()
 
-    named(yieldFrom_ <- function(val) {
+    node(yieldFrom_ <- function(val) {
       stopping <- FALSE
       trace("yieldFrom: next\n")
-      val <- nextElemOr(iter, stopping <- TRUE)
+      val <- nextOr(iter, stopping <- TRUE)
       if (stopping) {
         trace("yieldFrom: stopping\n")
         cont(invisible(NULL))
@@ -163,7 +163,7 @@ yieldFrom_cps <- function(.contextName, it) {
     })
 
     iter <- NULL
-    named(iter_ <- function(val) {
+    node(iter_ <- function(val) {
       iter <<- iteror(val)
       trace("yieldFrom: got iteror")
       yieldFrom_(NULL)
@@ -186,15 +186,15 @@ make_generator <- function(expr, orig=arg(expr), ..., trace=trace_,
   err <- nonce
   state <- "yielded"
 
-  named(getState <- function() state)
+  node(getState <- function() state)
 
-  named(return_ <- function(val) {
+  node(return_ <- function(val) {
     force(val)
     trace("generator: return\n")
     state <<- "finished"
   })
 
-  named(stop_ <- function(val) {
+  node(stop_ <- function(val) {
     trace("generator: stop\n")
     err <<- val
     state <<- "stopped"
@@ -202,15 +202,15 @@ make_generator <- function(expr, orig=arg(expr), ..., trace=trace_,
     NULL #so the above does not look like a tailcall
   })
 
-  named(yield_ <- function(cont, val) {
+  node(yield_ <- function(cont, val) {
     trace("generator: yield\n")
     state <<- "yielded"
     yielded <<- val
     pause_val(cont, val)
   })
 
-  globalNamed(nextElemOr_ <- function(or, ...) {
-    trace("generator: nextElemOr\n")
+  globalNode(nextOr_ <- function(or, ...) {
+    trace("generator: nextOr\n")
     val <- switch(state,
                   "stopped" =,
                   "finished" = or,
@@ -252,7 +252,7 @@ make_generator <- function(expr, orig=arg(expr), ..., trace=trace_,
                     targetEnv=targetEnv)
   pause_val <- get("pause_val_", envir=environment(pump))
 
-  g <- add_class(iteror(nextElemOr_), "generator", "coroutine")
+  g <- add_class(iteror(nextOr_), "generator", "coroutine")
   g
 }
 
@@ -262,21 +262,21 @@ getCurrent.generator <- function(x)
 
 #' @exportS3Method
 getOrig.generator <- function(x, ...) {
-  expr(get("orig", envir=environment(x$nextElemOr)))
+  expr(get("orig", envir=environment(x$nextOr)))
 }
 
 #' @exportS3Method
 getStartSet.generator <- function(x) {
   c(NextMethod(x), list(
-    nextElemOr_=  x$nextElemOr,
+    nextOr_=  x$nextOr,
     #doWindup = environment(getPump(x))$doWindup),
-    getState = environment(x$nextElemOr)$getState))
+    getState = environment(x$nextOr)$getState))
 }
 
 #' @exportS3Method
 reconstitute.generator <- function(orig, munged) {
-  environment(munged$nextElemOr_)$orig <- environment(orig$nextElemOr)$orig
-  new <- add_class(iteror(munged$nextElemOr_), "generator", "coroutine")
+  environment(munged$nextOr_)$orig <- environment(orig$nextOr)$orig
+  new <- add_class(iteror(munged$nextOr_), "generator", "coroutine")
   new
 }
 
@@ -287,12 +287,12 @@ reconstitute.generator <- function(orig, munged) {
 #' generators that have finished normally.)
 #' @exportS3Method
 getState.generator <- function(x, ...) {
-  environment(x$nextElemOr)$getState()
+  environment(x$nextOr)$getState()
 }
 
 #' @exportS3Method
 getPump.generator <- function(x) {
-  get("pump", environment(x$nextElemOr))
+  get("pump", environment(x$nextOr))
 }
 
 #' @exportS3Method

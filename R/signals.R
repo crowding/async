@@ -4,7 +4,7 @@ return_cps <- function(.contextName, x) {
   return_ <- function(cont, ..., rtn, trace=trace_) {
     list(cont, rtn, trace)
     if (missing_(arg(x))) {
-      named(return_ <- function() rtn(NULL))
+      node(return_ <- function() rtn(NULL))
       # this is our "rtn" callback not base::return
     } else {
       x(rtn, ..., rtn=rtn, trace=trace)
@@ -42,7 +42,7 @@ catch_cps_ <- function(.contextName, expr, error) {
          trace)
     # Remember, flow of the handlers goes from bottom to top
     result <- NULL
-    named(gotErrHandler <- function(val) {
+    node(gotErrHandler <- function(val) {
       if (is.function(val)) {
         trace("catch: calling error handler\n")
         val <- val(result)
@@ -52,44 +52,44 @@ catch_cps_ <- function(.contextName, expr, error) {
     getErrHandler <- error(gotErrHandler, ..., stp=stp, brk=brk,
                            nxt=nxt, windup=windup, unwind=unwind,
                            rtn=rtn, trace=trace)
-    named(do_return <- function() {
+    node(do_return <- function() {
       rtn(list(result, result <<- NULL)[[1]])
     })
-    named(do_continue <- function() {
+    node(do_continue <- function() {
       cont(list(result, result <<- NULL)[[1]])
     })
-    named(continue <- function(val) {
+    node(continue <- function(val) {
       trace("catch: continue\n")
       result <<- val
       unwind(do_continue)
     })
-    named(return_ <- function(val) {
+    node(return_ <- function(val) {
       trace("catch: return\n")
       result <<- val
       unwind(do_return)
     })
-    named(stop_ <- function(val) {
+    node(stop_ <- function(val) {
       trace("catch: stop\n")
       result <<- val
       unwind(getErrHandler)
     })
     if(!is_missing(brk)) {
-      named(brk_ <- function() {
+      node(brk_ <- function() {
         trace("catch: break\n")
         unwind(brk)
       })
     } else brk_ <- missing_value()
     if(!is_missing(nxt)) {
-      named(nxt_ <- function() {
+      node(nxt_ <- function() {
         trace("catch: next\n")
         unwind(nxt)
       })
     } else nxt_ <- missing_value()
     if (!is_missing(goto)) {
-      named(doGoto <- function() {
+      node(doGoto <- function() {
         goto(result)
       })
-      named(goto_ <- function(val) {
+      node(goto_ <- function(val) {
         trace("catch: goto\n")
         result <<- val
         unwind(doGoto)
@@ -99,7 +99,7 @@ catch_cps_ <- function(.contextName, expr, error) {
                     stp=stop_, brk=brk_, nxt=nxt_, goto=goto_,
                     windup=windup, unwind=unwind,
                     rtn=return_, trace=trace)
-    named(do_windup <- function(cont, ...) {
+    node(do_windup <- function(cont, ...) {
       list(cont, ...)
       trace("catch: windup\n")
       on.exit({trace("catch: unwind\n"); NULL})
@@ -108,7 +108,7 @@ catch_cps_ <- function(.contextName, expr, error) {
         stop_(e) # a tailcall in a lambda, "counts" as a tailcall from do_windup
       })
     })
-    named(try_ <- function() {
+    node(try_ <- function() {
       result <<- NULL
       trace("catch: begin\n")
       windup(do_expr, do_windup)
@@ -128,7 +128,7 @@ finally_cps_ <- function(.contextName, expr, finally) {
 
     #this bquoting stuff is to keep the compiler from following
     #nonexistent path to brk/nxt/etc.
-    named(continue <- eval(bquote(splice=TRUE, function(val) {
+    node(continue <- eval(bquote(splice=TRUE, function(val) {
       force(val)
       trace(paste0("finally: continue??? with ", after, "\n"))
       # {{ }} prevents covr tracing
@@ -153,24 +153,24 @@ finally_cps_ <- function(.contextName, expr, finally) {
     })))
     # if there is an uncaught saved error, then a jump out of
     # the finally block, throw the saved error instead of jumping.
-    named(finally_return <- function(val) {
+    node(finally_return <- function(val) {
       trace("finally: return in finally block\n")
       if (after=="stop") stp(result) else rtn(val)
     })
     if(!is_missing(brk)) {
-      named(finally_brk <- function() {
+      node(finally_brk <- function() {
         trace("finally: break in finally block\n")
         if (after=="failure") stp(result) else brk()
       })
     } else finally_brk <- missing_value()
     if(!is_missing(nxt)) {
-      named(finally_nxt <- function() {
+      node(finally_nxt <- function() {
         trace("finally: next in finally block\n")
         if (after=="failure") stp(result) else nxt()
       })
     } else finally_nxt_ <- missing_value()
     if(!is_missing(goto)) {
-      named(finally_goto <- function(val) {
+      node(finally_goto <- function(val) {
         trace("finally: goto in finally block")
         if (after=="failure") stp(result) else goto(val)
       })
@@ -180,40 +180,40 @@ finally_cps_ <- function(.contextName, expr, finally) {
                           goto=finally_goto,
                           windup=windup, unwind=unwind, rtn=finally_return,
                           trace=trace)
-    named(finally_then <- function(val) {
+    node(finally_then <- function(val) {
       result <<- val
       after <<- "success"
       trace("finally: success\n")
       unwind(do_finally) # val should be saved, discard it
     })
-    named(stop_ <- function(err) {
+    node(stop_ <- function(err) {
       trace("finally: stop\n")
       result <<- err
       after <<- "stop"
       unwind(do_finally)
     })
-    named(return_ <- function(val) {
+    node(return_ <- function(val) {
       trace("finally: return\n")
       result <<- val
       after <<- "return"
       unwind(do_finally)
     })
     if (!is_missing(brk)) {
-      named(brk_ <- function() {
+      node(brk_ <- function() {
         trace("finally: break\n")
         after <<- "break"
         unwind(do_finally)
       })
     } else brk_ <- missing_value()
     if(!is_missing(nxt)) {
-      named(nxt_ <- function() {
+      node(nxt_ <- function() {
         trace("finally: next\n")
         after <<- "next"
         unwind(do_finally)
       })
      } else nxt_ <- missing_value()
     if(!is_missing(goto)) {
-      named(goto_ <- function(val) {
+      node(goto_ <- function(val) {
         result <<- val
         after <<- "goto"
         unwind(do_finally)
@@ -222,7 +222,7 @@ finally_cps_ <- function(.contextName, expr, finally) {
     do_expr <- expr(finally_then, ..., stp=stop_, brk=brk_, nxt=nxt_, goto=goto_,
                     windup=windup, unwind=unwind, rtn=return_,
                     trace=trace)
-    named(do_windup <- function(cont) {
+    node(do_windup <- function(cont) {
       list(cont)
       trace("finally: windup\n")
       on.exit({trace("finally: unwind\n"); NULL})
@@ -231,7 +231,7 @@ finally_cps_ <- function(.contextName, expr, finally) {
         stop_(err)
       })
     })
-    named(try_ <- function() {
+    node(try_ <- function() {
       after <<- NULL
       result <<- NULL
       trace("finally: begin\n")
@@ -253,38 +253,38 @@ try_cps <- function(.contextName, expr,
     outfile_ <- NULL
     silent_ <- NULL
 
-    named(stop_ <- function(err) {
+    node(stop_ <- function(err) {
       trace("try: stop\n")
       result <<- err
       unwind(try_handler)
     })
-    named(do_continue <- function() {
+    node(do_continue <- function() {
       cont(list(result, result <<- NULL)[[1]])
     })
-    named(do_return <- function() {
+    node(do_return <- function() {
       return(list(result, result <<- NULL)[[1]])
     })
-    named(return_ <- function(val) {
+    node(return_ <- function(val) {
       trace("try: return\n")
       result <<- val
       unwind(do_return)
     })
-    named(continue <- function(val) {
+    node(continue <- function(val) {
       force(val) #need to to prevent us lazily
       #propagating an error past the unwind
       trace("try: success\n")
       result <<- val
       unwind(do_continue)
     })
-    named(brk_ <- function() {
+    node(brk_ <- function() {
       trace("try: break\n")
       unwind(brk)
     })
-    named(nxt_ <- function() {
+    node(nxt_ <- function() {
       trace("try: next\n")
       unwind(nxt)
     })
-    named(try_handler <- function() {
+    node(try_handler <- function() {
       # (copied from base::try) {{{
       trace("try: handler\n")
       call <- conditionCall(result)
@@ -315,7 +315,7 @@ try_cps <- function(.contextName, expr,
     do_expr <- expr(continue, ...,
                     stp=stop_, brk=brk_, nxt=nxt_,
                     windup=windup, unwind=unwind, rtn=return_, trace=trace)
-    named(do_windup <- function(cont) {
+    node(do_windup <- function(cont) {
       list(cont)
       trace("try: windup\n")
       on.exit({trace("try: unwind\n"); NULL})
@@ -325,15 +325,15 @@ try_cps <- function(.contextName, expr,
       })
       NULL
     })
-    named(try_ <- function() {
+    node(try_ <- function() {
       result <<- NULL
       trace("try: begin\n")
       windup(do_expr, do_windup)
     })
-    named(gotSilent <- function(val) {silent_ <<- val; try_()})
+    node(gotSilent <- function(val) {silent_ <<- val; try_()})
     getSilent <- silent(gotSilent, ..., stp=stop_, brk=brk_, nxt=nxt_,
                     windup=windup, unwind=unwind, rtn=return_, trace=trace)
-    named(gotOutfile <- function(val) {outfile_ <<- val; getSilent()})
+    node(gotOutfile <- function(val) {outfile_ <<- val; getSilent()})
     getOutfile <- outfile(gotOutfile, ..., stp=stop_, brk=brk_, nxt=nxt_,
                     windup=windup, unwind=unwind, rtn=return_, trace=trace)
     getOutfile

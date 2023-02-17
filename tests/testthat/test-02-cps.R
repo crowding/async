@@ -366,4 +366,3 @@ test_that("coroutine function transform", {
   })
 
 })
-

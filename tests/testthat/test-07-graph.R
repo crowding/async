@@ -20,7 +20,7 @@ test_that("pasting together names", {
 if (!dir.exists("graphs")) dir.create("graphs")
 
 filename <- function(name) paste0("graphs/", name, "_",
-                                  as.character(asyncOpts()$compileLevel))
+                                  as.character(getOption("async.compileLevel")))
 
 test_that("function inspection with all_names", {
 
@@ -271,14 +271,14 @@ test_that("tryCatch", {
 
 })
 
-test_that("nextElemOr", {
+test_that("nextOr", {
 
   x <- iseq(1, 55)
   incomplete <- gen(split_pipes=TRUE, {
     repeat {
       sum <- 0
       for (i in 1:10) {
-        sum <- nextElemOr(x, {yield(sum); return()}) + sum
+        sum <- nextOr(x, {yield(sum); return()}) + sum
       }
       yield(sum)
     }

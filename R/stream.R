@@ -26,7 +26,7 @@
 #' values until it needs to `await` something.
 #'
 #' (For comparison, in this package, [gen] are lazy in that they do
-#' not start executing until a call to `nextElemOr` and pause
+#' not start executing until a call to `nextOr` and pause
 #' immediately after `yield`, while [async] blocks are eager,
 #' starting at construction and running until they hit an `await`.)
 #'
@@ -70,7 +70,7 @@
 #' @author Peter Meilstrup
 #' @export
 stream <- function(expr, ..., split_pipes=TRUE, lazy=TRUE, trace=trace_,
-                   compileLevel=options$compileLevel,
+                   compileLevel=getOption("async.compileLevel"),
                    debugR=FALSE, debugInternal=FALSE) {
   expr_ <- arg(expr)
   expr <- NULL
@@ -107,7 +107,7 @@ make_stream <- function(expr, orig=expr, ...,
   .contextName <- "stream"
   targetEnv <- if (local) new.env(parent=callingEnv) else callingEnv
   nonce <- (function() function() NULL)()
-  if (options$verbose) traceBinding("state", "xxx")
+  if (getOption("async.verbose")) traceBinding("state", "xxx")
   state <- "xxx" #print method uses this
   yielded <- nonce
   value <- nonce
@@ -120,9 +120,9 @@ make_stream <- function(expr, orig=expr, ...,
   pause_val <- NULL
   pause <- NULL
 
-  globalNamed(getState <- function() state)
+  globalNode(getState <- function() state)
 
-  named(return_ <- function(val) {
+  node(return_ <- function(val) {
     trace("stream: return\n")
     state <<- "resolved"
     value <<- val
@@ -130,7 +130,7 @@ make_stream <- function(expr, orig=expr, ...,
     val
   })
 
-  named(stop_ <- function(val) {
+  node(stop_ <- function(val) {
     trace("stream: reject\n")
     err <<- val
     state <<- "rejected"
@@ -138,7 +138,7 @@ make_stream <- function(expr, orig=expr, ...,
     val
   })
 
-  named(yield_ <- function(cont, val) {
+  node(yield_ <- function(cont, val) {
     yielded <<- val
     state <<- "yielding"
     emit_(val)
@@ -169,7 +169,7 @@ make_stream <- function(expr, orig=expr, ...,
   pause_val <- environment(pump)$pause_val_
   pause <- environment(pump)$pause_
 
-  globalNamed(wakeup <- function(x) {
+  globalNode(wakeup <- function(x) {
     trace("stream: wakeup\n")
     switch(state,
            "yielding" = {state <<- "woken"},
@@ -177,7 +177,7 @@ make_stream <- function(expr, orig=expr, ...,
            )
   })
 
-  named(replace <- function(emit, reject, close) {
+  node(replace <- function(emit, reject, close) {
     emit_ <<- emit
     reject_ <<- reject
     close_ <<- close
@@ -272,7 +272,7 @@ awaitNext_cps <- function(.contextName,
     value <- NULL
     awaiting <- FALSE
 
-    named(gotError <- function(val) {
+    node(gotError <- function(val) {
       state <<- "xxx"
       if (is.function(val)) {
         val <- val(value)
@@ -282,20 +282,20 @@ awaitNext_cps <- function(.contextName,
 
     if (is_missing(error)
         || is_R(error) && missing_(R_expr(error))) {
-      named(error <- function(val) stp(val))
+      node(error <- function(val) stp(val))
     } else {
       error <- error(gotError, ...,
                        awaitNext=awaitNext, stp=stp, trace=trace)
     }
     if (is_missing(or)
         || is_R(error) && missing_(R_expr(error))) {
-      named(or <- function() stp("StopIteration"))
+      node(or <- function() stp("StopIteration"))
     } else {
       or <- or(cont, ...,
                awaitNext=awaitNext, stp=stp, trace=trace)
     }
 
-    named(then <- function() {
+    node(then <- function() {
       trace("awaitNext: resolve\n")
       switch(state,
              "success" = {state <<- "xxx"; cont(value)},
@@ -303,7 +303,7 @@ awaitNext_cps <- function(.contextName,
              "closed" = {state <<- "xxx"; or()},
              stp(paste0("awaitNext: unexpected state ", state)))
     })
-    named(await_ <- function(val) {
+    node(await_ <- function(val) {
       trace("awaitNext: got channel\n")
       state <<- "xxx"
       value <<- NULL

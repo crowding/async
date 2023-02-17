@@ -76,20 +76,20 @@ The code inside `gen(...)` does not run, yet. The call to `gen`
 constructs an [iteror][]. Iteror is an implementation of iterators
 defined in the async package; its objects are cross compatible with
 the established `iterators` package but can have somewhat better
-performance. The main method for an iteror is `nextElemOr(x, or)`
+performance. The main method for an iteror is `nextOr(x, or)`
 where the second argument specifies what to do to signal the end
 of iteration. So we can get out our pattern like this:
 
 ```{R}
 for (i in 1:24) {
-  cat(nextElemOr(pattern, break))
+  cat(nextOr(pattern, break))
 }
 cat("\n")
 ```
 
-When `nextElemOr()` is called on a generator, the generator runs its
+When `nextOr()` is called on a generator, the generator runs its
 code only up to where `yield` is called. The generator returns this
-value, and saves its state, pausing until the next call to `nextElemOr()`.
+value, and saves its state, pausing until the next call to `nextOr()`.
 
 We'll have to create a few copies of this kind of generator, so we can reuse it
 by making a function. You can wrap `gen` around a function
@@ -154,7 +154,7 @@ iplay <- function(g, samples, bpm) {
   interval <- 60 / bpm
   target <- Sys.time()
     repeat {
-      x <- nextElemOr(g, break)
+      x <- nextOr(g, break)
       target <- target + interval
       while({now <- Sys.time(); Sys.time() - now > 0.15})
         Sys.sleep(target - now - 0.15)
@@ -180,7 +180,7 @@ gen_pattern() |> ilimit(36) |> iplay(claps, 360)
 The object constructed by `gen` has class `iteror`. Iterors are an
 iteration construct included in this package. Iterors are cross
 compatible with iterators from the `iterators` package and its
-`nextElem` method, but using their preferred method `nextElemOr` can
+`nextElem` method, but using their preferred method `nextOr` can
 lead to better performance and more compact code.
 
 We can work with generators using iteror methods. Here are two methods
@@ -191,17 +191,17 @@ and throws away all elements from an iteror.
 ```{R}
 iapply <- function(it, f, ...) { list(it, f, ...)
   iteror(function(or) {
-    f(nextElemOr(it, return(or)), ...)
+    f(nextOr(it, return(or)), ...)
   })
 }
 
 isink <- function(it, then=invisible(NULL)) {
-  repeat nextElemOr(it, break)
+  repeat nextOr(it, break)
   then
 }
 ```
 
-Note that the second argument to `nextElemOr` is only lazily evaluated
+Note that the second argument to `nextOr` is only lazily evaluated
 when the iterator terminates; this is what allows you to place control
 flow operators like `break`.
 
@@ -241,8 +241,8 @@ that does this "skip," by consuming a value without yielding it:
 ```{R}
 drop_one_after <- gen(function(g, n, sep=character(0)) {
   repeat {
-    for (i in 1:n) yield(nextElemOr(g, break))
-    nextElemOr(g, break) #drop
+    for (i in 1:n) yield(nextOr(g, break))
+    nextOr(g, break) #drop
     cat(sep) # print a seperator after every skip
   }
 })
@@ -273,8 +273,8 @@ clapping_music <- function(n=12, counts=c(3,2,1,2), sep=" ") {
   b <- gen_pattern(counts) |> drop_one_after(n*cell, sep)
   # add them together and limit the output
   gen(for (i in 1:(n*(cell+1)*cell)) {
-    x <- nextElemOr(a, break)
-    y <- nextElemOr(b, break)
+    x <- nextOr(a, break)
+    y <- nextOr(b, break)
     yield(x+y)
   })
 }

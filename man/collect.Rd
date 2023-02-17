@@ -47,7 +47,7 @@ cumsum <- function(vec) {
 
 # we could implement `iterors::as.list.iteror` thus:
 as.list.iteror <- function(it) {
-  collect(\(yield) repeat yield(nextElemOr(it, break)))
+  collect(\(yield) repeat yield(nextOr(it, break)))
 }
 }
 \author{

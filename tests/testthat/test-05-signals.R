@@ -9,8 +9,8 @@ test_that("simple try", {
     NULL()
     yield(x)
   })
-  nextElemOr(g, NULL) %is% 6
-  expect_error(nextElemOr(g, NULL), "non-function")
+  nextOr(g, NULL) %is% 6
+  expect_error(nextOr(g, NULL), "non-function")
 })
 
 test_that("yield inside of try", {
@@ -34,10 +34,10 @@ test_that("yield inside of try", {
     async:::R(".{3.R", stop("bar")), yield_cps(".{4.yield", async:::R(".{4.yield.R",
         8))))()
 
-  expect_equal(nextElemOr(g, NULL), 5)
-  expect_equal(nextElemOr(g, NULL), 7)
-  expect_error(nextElemOr(g, NULL), "bar")
-  expect_equal(nextElemOr(g, NULL), NULL)
+  expect_equal(nextOr(g, NULL), 5)
+  expect_equal(nextOr(g, NULL), 7)
+  expect_error(nextOr(g, NULL), "bar")
+  expect_equal(nextOr(g, NULL), NULL)
 
   g <- gen({
     tryCatch({
@@ -50,10 +50,10 @@ test_that("yield inside of try", {
     yield(8)
   })
 
-  expect_equal(nextElemOr(g, NULL), 5)
-  expect_equal(nextElemOr(g, NULL), 7)
-  expect_error(nextElemOr(g, NULL), "bar")
-  expect_equal(nextElemOr(g, NULL), NULL)
+  expect_equal(nextOr(g, NULL), 5)
+  expect_equal(nextOr(g, NULL), 7)
+  expect_error(nextOr(g, NULL), "bar")
+  expect_equal(nextOr(g, NULL), NULL)
 })
 
 test_that("nested tries", {
@@ -74,11 +74,11 @@ test_that("nested tries", {
     yield(8)
   })
 
-  expect_equal(nextElemOr(g, NULL), 5)
-  expect_equal(nextElemOr(g, NULL), 55)
-  expect_equal(nextElemOr(g, NULL), 7)
-  expect_error(nextElemOr(g, NULL), "bar")
-  expect_equal(nextElemOr(g, NULL), NULL)
+  expect_equal(nextOr(g, NULL), 5)
+  expect_equal(nextOr(g, NULL), 55)
+  expect_equal(nextOr(g, NULL), 7)
+  expect_error(nextOr(g, NULL), "bar")
+  expect_equal(nextOr(g, NULL), NULL)
 })
 
 test_that("return stops without throwing error", {
@@ -87,16 +87,16 @@ test_that("return stops without throwing error", {
       if (i == 2) return()
       yield(i)
     })
-  nextElemOr(g, NULL) %is% 1
-  expect_equal(nextElemOr(g, NULL), NULL)
+  nextOr(g, NULL) %is% 1
+  expect_equal(nextOr(g, NULL), NULL)
 })
 
 test_that("simple try-catch with yield in body", {
   g <- gen(tryCatch(yield(5)))
-  nextElemOr(g, NULL) %is% 5
+  nextOr(g, NULL) %is% 5
 
   g <- gen(tryCatch({stop("already"); yield(5)}))
-  expect_error(nextElemOr(g, NULL), "already")
+  expect_error(nextOr(g, NULL), "already")
 })
 
 test_that("try-finally", {
@@ -110,30 +110,30 @@ test_that("try-finally", {
     yield (3)
   })
 
-  nextElemOr(g, NULL) %is% 1
-  nextElemOr(g, NULL) %is% 2
-  expect_error(nextElemOr(g, NULL), "someError")
+  nextOr(g, NULL) %is% 1
+  nextOr(g, NULL) %is% 2
+  expect_error(nextOr(g, NULL), "someError")
 })
 
 test_that("try/finally, stop and return", {
 
   g <- gen(tryCatch({yield("Hello"); return(); yield("Goodbye")},
                     finally={yield("Hola"); stop("oops"); yield("Adios")}))
-  nextElemOr(g, NULL) %is% "Hello"
-  nextElemOr(g, NULL) %is% "Hola"
-  expect_error(nextElemOr(g, NULL), "oops")
+  nextOr(g, NULL) %is% "Hello"
+  nextOr(g, NULL) %is% "Hola"
+  expect_error(nextOr(g, NULL), "oops")
 
   g <- gen(tryCatch({yield("Hello"); stop("oops"); yield("Goodbye")},
                     finally={yield("Hola"); return(); yield("Adios")}))
-  nextElemOr(g, NULL) %is% "Hello"
-  nextElemOr(g, NULL) %is% "Hola"
-  expect_error(nextElemOr(g, NULL), "oops")
+  nextOr(g, NULL) %is% "Hello"
+  nextOr(g, NULL) %is% "Hola"
+  expect_error(nextOr(g, NULL), "oops")
 
   g <- gen(tryCatch({yield("Hello"); return(); yield("Goodbye")},
                     finally={yield("Hola"); return(); yield("Adios")}))
-  nextElemOr(g, NULL) %is% "Hello"
-  nextElemOr(g, NULL) %is% "Hola"
-  expect_equal(nextElemOr(g, NULL), NULL)
+  nextOr(g, NULL) %is% "Hello"
+  nextOr(g, NULL) %is% "Hola"
+  expect_equal(nextOr(g, NULL), NULL)
 })
 
 test_that("try-catch with error", {
@@ -152,9 +152,9 @@ test_that("try-catch with error", {
     yield(3)
   })
 
-  nextElemOr(g, NULL) %is% 1
-  nextElemOr(g, NULL) %is% 2
-  nextElemOr(g, NULL) %is% 3
+  nextOr(g, NULL) %is% 1
+  nextOr(g, NULL) %is% 2
+  nextOr(g, NULL) %is% 3
   caught %is% TRUE
 })
 
@@ -172,10 +172,10 @@ test_that("try-catch yield in error", {
     )
   })
 
-  nextElemOr(g, NULL) %is% "one"
-  nextElemOr(g, NULL) %is% "two"
-  nextElemOr(g, NULL) %is% "three"
-  expect_equal(nextElemOr(g, NULL), NULL)
+  nextOr(g, NULL) %is% "one"
+  nextOr(g, NULL) %is% "two"
+  nextOr(g, NULL) %is% "three"
+  expect_equal(nextOr(g, NULL), NULL)
 })
 
 test_that("try-catch error in catch", {
@@ -186,8 +186,8 @@ test_that("try-catch error in catch", {
       stop("first")
     }, error=function(e) stop("second"))
   })
-  nextElemOr(g, NULL) %is% "one"
-  expect_error(nextElemOr(g, NULL), "second")
+  nextOr(g, NULL) %is% "one"
+  expect_error(nextOr(g, NULL), "second")
   expect_match(format(g), all=FALSE, "second")
 
   g <- gen({
@@ -199,9 +199,9 @@ test_that("try-catch error in catch", {
       stop("second")
     })
   })
-  nextElemOr(g, NULL) %is% "one"
-  nextElemOr(g, NULL) %is% "two"
-  expect_error(nextElemOr(g, NULL), "second")
+  nextOr(g, NULL) %is% "one"
+  nextOr(g, NULL) %is% "two"
+  expect_error(nextOr(g, NULL), "second")
   expect_match(format(g), all=FALSE, "second")
 
   g <- gen({
@@ -221,11 +221,11 @@ test_that("try-catch error in catch", {
     })
   })
 
-  nextElemOr(g, NULL) %is% "one"
-  nextElemOr(g, NULL) %is% "two"
-  nextElemOr(g, NULL) %is% "three"
-  nextElemOr(g, NULL) %is% "second"
-  expect_equal(nextElemOr(g, NULL), NULL)
+  nextOr(g, NULL) %is% "one"
+  nextOr(g, NULL) %is% "two"
+  nextOr(g, NULL) %is% "three"
+  nextOr(g, NULL) %is% "second"
+  expect_equal(nextOr(g, NULL), NULL)
 })
 
 
@@ -239,10 +239,10 @@ test_that("Catch internal errors", {
              error=yield("done"))
     yield("tada!")
   })
-  nextElemOr(g, NULL) %is% FALSE
-  nextElemOr(g, NULL) %is% NULL
-  nextElemOr(g, NULL) %is% "done"
-  nextElemOr(g, NULL) %is% "tada!"
+  nextOr(g, NULL) %is% FALSE
+  nextOr(g, NULL) %is% NULL
+  nextOr(g, NULL) %is% "done"
+  nextOr(g, NULL) %is% "tada!"
 })
 
 test_that("try-catch-finally", {
@@ -260,11 +260,11 @@ test_that("try-catch-finally", {
     )
   })
 
-  nextElemOr(g, NULL) %is% "one"
-  nextElemOr(g, NULL) %is% "two"
-  nextElemOr(g, NULL) %is% "three"
-  nextElemOr(g, NULL) %is% "two"
-  expect_equal(nextElemOr(g, NULL), NULL)
+  nextOr(g, NULL) %is% "one"
+  nextOr(g, NULL) %is% "two"
+  nextOr(g, NULL) %is% "three"
+  nextOr(g, NULL) %is% "two"
+  expect_equal(nextOr(g, NULL), NULL)
 
   g <- gen({
     tryCatch({
@@ -278,10 +278,10 @@ test_that("try-catch-finally", {
     })
   })
 
-  nextElemOr(g, NULL) %is% "one"
-  nextElemOr(g, NULL) %is% "two"
-  nextElemOr(g, NULL) %is% "three"
-  expect_error(nextElemOr(g, NULL), "oops")
+  nextOr(g, NULL) %is% "one"
+  nextOr(g, NULL) %is% "two"
+  nextOr(g, NULL) %is% "three"
+  expect_error(nextOr(g, NULL), "oops")
 })
 
 test_that("try-catch-finally and break, next, return", {
@@ -299,11 +299,11 @@ test_that("try-catch-finally and break, next, return", {
     }
     yield("four")
   })
-  nextElemOr(g, NULL) %is% "one"
-  nextElemOr(g, NULL) %is% "two"
-  nextElemOr(g, NULL) %is% "three"
-  nextElemOr(g, NULL) %is% "four"
-  nextElemOr(g, NULL) %is% NULL
+  nextOr(g, NULL) %is% "one"
+  nextOr(g, NULL) %is% "two"
+  nextOr(g, NULL) %is% "three"
+  nextOr(g, NULL) %is% "four"
+  nextOr(g, NULL) %is% NULL
 
   g <- gen({
     repeat {
@@ -318,10 +318,10 @@ test_that("try-catch-finally and break, next, return", {
     yield("three")
   })
 
-  nextElemOr(g, NULL) %is% "one"
-  nextElemOr(g, NULL) %is% "two"
-  nextElemOr(g, NULL) %is% "three"
-  nextElemOr(g, NULL) %is% NULL
+  nextOr(g, NULL) %is% "one"
+  nextOr(g, NULL) %is% "two"
+  nextOr(g, NULL) %is% "three"
+  nextOr(g, NULL) %is% NULL
 
   g <- gen({
     repeat {
@@ -336,10 +336,10 @@ test_that("try-catch-finally and break, next, return", {
     yield("three")
   })
 
-  nextElemOr(g, NULL) %is% "one"
-  nextElemOr(g, NULL) %is% "two"
-  nextElemOr(g, NULL) %is% "one"
-  nextElemOr(g, NULL) %is% "two"
+  nextOr(g, NULL) %is% "one"
+  nextOr(g, NULL) %is% "two"
+  nextOr(g, NULL) %is% "one"
+  nextOr(g, NULL) %is% "two"
 
   g <- gen({
     repeat {
@@ -353,9 +353,9 @@ test_that("try-catch-finally and break, next, return", {
     yield("three")
   })
 
-  nextElemOr(g, NULL) %is% "one"
-  nextElemOr(g, NULL) %is% "two"
-  nextElemOr(g, NULL) %is% NULL
+  nextOr(g, NULL) %is% "one"
+  nextOr(g, NULL) %is% "two"
+  nextOr(g, NULL) %is% NULL
   expect_output(print(g), "finished")
 })
 
@@ -380,12 +380,12 @@ test_that("Nested try-catch-finally", {
     })
   })
 
-  nextElemOr(g, NULL) %is% "body 1"
-  nextElemOr(g, NULL) %is% "body 2"
-  nextElemOr(g, NULL) %is% "error 2"
-  nextElemOr(g, NULL) %is% "finally 2" # this how R does it...
-  nextElemOr(g, NULL) %is% "error 1"
-  nextElemOr(g, NULL) %is% "finally 1"
+  nextOr(g, NULL) %is% "body 1"
+  nextOr(g, NULL) %is% "body 2"
+  nextOr(g, NULL) %is% "error 2"
+  nextOr(g, NULL) %is% "finally 2" # this how R does it...
+  nextOr(g, NULL) %is% "error 1"
+  nextOr(g, NULL) %is% "finally 1"
 
   # though there's an argument for asyncs to "fail fast," i.e.
   # error2 -> error1 -> REJECT -> finally2 -> finally1

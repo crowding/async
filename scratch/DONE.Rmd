@@ -1,9 +1,9 @@
 ### test failure: can print a name-munged generator
 
-Generator's print method is not finding the "state" variable that nextElemOr uses,
-because it was munged to 'nextElemOr|state'.
+Generator's print method is not finding the "state" variable that nextOr uses,
+because it was munged to 'nextOr|state'.
 
-Is `nextElemOr` part of the munging? really? I guess I think/thought it and `pump` would have to be namespace-munged.
+Is `nextOr` part of the munging? really? I guess I think/thought it and `pump` would have to be namespace-munged.
 
 Okay, I think the answer is to add a "getState" function to the start set. The start set is really "nodes that we have to carry over (whether they're in the graph of not) and have consistent names." 
 
@@ -154,9 +154,9 @@ lapply(as.list(graph$contextNodes[["stop_|"]]), \ (node)as.list(graph$nodeProper
 So let's ignore utils that also show up as state pointers..?
 It's still picking up `stop` as a util though. Why? It's a reference to base "stop". I think that's correct.
 
-## Name munging is inappropriately munging `base::stop` to ``` base::`nextElemOr|stop` ```
+## Name munging is inappropriately munging `base::stop` to ``` base::`nextOr|stop` ```
 
-` object 'nextElemOr|stop' not found` in runPump. But, there is such a function?? Oh, `get_function()` shows me the context: ``` base::`nextElemOr|stop` ```
+` object 'nextOr|stop' not found` in runPump. But, there is such a function?? Oh, `get_function()` shows me the context: ``` base::`nextOr|stop` ```
 
 because translate() needs to ignore arguments to "::" or ":::", d'oh! I need something more sophisticated than substitute. So i pulled the trick from vadr to translate using an environment...
 
@@ -171,7 +171,7 @@ the stack traces a little better.
 ## call to `pumpCont` is not being translated
 
     > g <- async:::compile(gen(for (i in 1:10) yield(i)), level=-1)
-    > nextElemOr(g, "or")
+    > nextOr(g, "or")
     Error in pumpCont(..., envir = <environment>) : 
       could not find function "pumpCont"
 
@@ -190,20 +190,20 @@ Which was incorrect.
 With tracing on:
 
     > gc <- async:::compile(gen(for (i in 1:10) yield(i)), level=-1)
-    > nextElemOr(g, "or")
+    > nextOr(g, "or")
 
     R: i
     yield
     generator: yield
     pump: set unpause
     pump: pause
-    Error in obj$nextElemOr(or, ...) : Generator finished unexpectedly
+    Error in obj$nextOr(or, ...) : Generator finished unexpectedly
 
 Do this to debug the next node:
 
-    > debug(environment(g$nextElemOr)$`stop_|pumpCont`)
+    > debug(environment(g$nextOr)$`stop_|pumpCont`)
 
-    ls(environment(environment(gc$nextElemOr)$`stop_|pumpCont`))
+    ls(environment(environment(gc$nextOr)$`stop_|pumpCont`))
     
 (delete pages of fussing about this var not being translated or that one not being covered in `walk`, etc.)
 
@@ -245,7 +245,7 @@ I did this with symlinks... is there a better way? Doing source or test-file ins
 
 `i` returns a function, somehow. It's returning the iterator, not invoking it. It didn't recognize?
 
-    debug(environment(x$nextElemOr)$`_1.do_.body.1.yield`)
+    debug(environment(x$nextOr)$`_1.do_.body.1.yield`)
     
 Ah, because the new environment is not enclosed in `async`, `method` is not finding methods I haven't exported. So `for_cps` calls `iteror` which was going to `iteror.default`, because I hadn't `@`exported `iteror.iteror <- identity`.
 
@@ -353,7 +353,7 @@ Okay I think that went easier than I was expecting.
 
 ### does generator need to catch?
 
-I know I need to fix the next things. It has been pretty difficult with the big tryCatch wrapped around everything, to get a stack trace. Do we even need a tryCatch around nextElemOr? I turned off the "base winding" for generators (but not for asyncs), and no tests failed. Nwo my stack traces are a bit healthier.
+I know I need to fix the next things. It has been pretty difficult with the big tryCatch wrapped around everything, to get a stack trace. Do we even need a tryCatch around nextOr? I turned off the "base winding" for generators (but not for asyncs), and no tests failed. Nwo my stack traces are a bit healthier.
 
 ## tryCatch is screwing something up
 
@@ -376,7 +376,7 @@ Okay when I try to walk this graph I get fucky things? What's this whole do_expr
 Okay it's "finished unexpectedly" after pause. Which means it didn't set the state after getting to pause.
 
     > > expect_equal(nextElem(g), 7)
-    generator: nextElemOr
+    generator: nextOr
     pump: run
     catch: windup
     R: stop("foo")
@@ -385,12 +385,12 @@ Okay it's "finished unexpectedly" after pause. Which means it didn't set the sta
     pump: removing from windup list
     catch: unwind
     pump: pause ***********************************************
-    Error in obj$nextElemOr(or, ...) : Generator finished unexpectedly
+    Error in obj$nextOr(or, ...) : Generator finished unexpectedly
 
     whereas in non-compiled code it did:
 
     > > expect_equal(nextElem(g), 7)
-    generator: nextElemOr
+    generator: nextOr
     pump: run
     catch: windup
     R: stop("foo")
@@ -447,9 +447,9 @@ So it looks like munged `resolve#pump` goes to the old pump.
 
 Okay, when we are walking over a compiled "async" it thinks its "pump" is an external function and it copies it over. I changed it to `move_value` which at least checks fora  node pointer.
 
-Now, however, my generator is failing to find corresponding local names `stop_` in the munged graph. The compiled graph gives it a local name of "nextElemOr#stop." That's definitely not its local name. nextElemOr#stop should be translated to "stop" during munge?
+Now, however, my generator is failing to find corresponding local names `stop_` in the munged graph. The compiled graph gives it a local name of "nextOr#stop." That's definitely not its local name. nextOr#stop should be translated to "stop" during munge?
 
-So I think this is a consequence of not deduping. Two identical `stop_` functions are winding up transferred. Doing a direct move hid this -- nextElemOr#stop was a leaky pointer so it did not previously show up when scanning for a local name for "stop".
+So I think this is a consequence of not deduping. Two identical `stop_` functions are winding up transferred. Doing a direct move hid this -- nextOr#stop was a leaky pointer so it did not previously show up when scanning for a local name for "stop".
 
 Also, it was because I used "stop" instead of "base::stop" in one spot. So no need to dedupe yet,
 
@@ -460,7 +460,7 @@ Now there are just five tests left!
 ## Error in !silent_: invlid argument type.
 
     > > expect_equal(nextElem(g), 5)
-    generator: nextElemOr
+    generator: nextOr
     pump: run
     R: getOption("try.outFile", default = stderr())
     R: TRUE
@@ -474,7 +474,7 @@ Now there are just five tests left!
     catch: unwind
     pump: pause
     > nextElem(g)
-    generator: nextElemOr
+    generator: nextOr
     pump: run
     catch: windup
     R: stop("foo")

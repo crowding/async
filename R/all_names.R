@@ -72,7 +72,7 @@ visit_function <- function(fn, yield, nonTail=TRUE, forGraph=FALSE) {
       call= if (!val %in% locals) {
         if (exists(val, env, inherits=FALSE)) {
           if (!is.na(has_global_name(val))) {
-            #this happens in gen:nextElemOr when it calls "pump"
+            #this happens in gen:nextOr when it calls "pump"
             #don't treat as a utility function.
             yield(val, name="call")
           } else yield(val, name="util")

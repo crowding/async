@@ -41,11 +41,11 @@ test_that("on.exit in generator", {
     on.exit(closed <<- TRUE)
     yieldFrom(1:3)
   })
-  nextElemOr(g, NULL) %is% 1
-  nextElemOr(g, NULL) %is% 2
-  nextElemOr(g, NULL) %is% 3
+  nextOr(g, NULL) %is% 1
+  nextOr(g, NULL) %is% 2
+  nextOr(g, NULL) %is% 3
   expect_false(closed)
-  nextElemOr(g, "done") %is% "done"
+  nextOr(g, "done") %is% "done"
   expect_true(closed)
 
   closed <- FALSE
@@ -54,7 +54,7 @@ test_that("on.exit in generator", {
     expect_false(closed)
     yield(s0me+nons3nse)
   })
-  expect_error(nextElemOr(g, NULL), "s0me")
+  expect_error(nextOr(g, NULL), "s0me")
   expect_true(closed)
 
 })
@@ -130,15 +130,15 @@ test_that("extremely bananas: simultaneously errors and returns", {
     stop("stopping")
     yield(4)
   })
-  nextElemOr(g, NULL) %is% 1
-  nextElemOr(g, NULL) %is% 2
-  nextElemOr(g, NULL) %is% 3
+  nextOr(g, NULL) %is% 1
+  nextOr(g, NULL) %is% 2
+  nextOr(g, NULL) %is% 3
   x <- NULL
-  expect_error(x <- nextElemOr(g, NULL), "stopping")
+  expect_error(x <- nextOr(g, NULL), "stopping")
   # an error made its way to the top, and yet,
   x %is% "done!"
   # this kinda wrecks my mental model of R error handling tbh.
   # the fact that it _also_ works in a generator is bananas.
-  expect_error(nextElemOr(g, NULL), "swallow")
+  expect_error(nextOr(g, NULL), "swallow")
 
 })

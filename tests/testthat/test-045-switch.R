@@ -9,7 +9,7 @@ test_that("Switch numeric", {
       yield(strrev(y))
     })
 #    debugAsync(g, internal=TRUE)
-    paste0(nextElemOr(g, NA), "!", nextElemOr(g, NA))
+    paste0(nextOr(g, NA), "!", nextOr(g, NA))
   }
 
   f(1) %is% "one!eno"
@@ -33,7 +33,7 @@ test_that("Switch string", {
                   two=yield(2))
       yield(y + nchar(x))
     })
-    c(nextElemOr(g, NULL), nextElemOr(g, NULL))
+    c(nextOr(g, NULL), nextOr(g, NULL))
   }
 
   g("one") %is% c(1, 4)
@@ -54,7 +54,7 @@ test_that("Switch string with default", {
              yield(as.numeric(3)))
       yield(y + nchar(x))
     })
-    c(nextElemOr(g, NA), nextElemOr(g, NA))
+    c(nextOr(g, NA), nextOr(g, NA))
   }
 
   h("one") %is% c(1, 4)
@@ -81,7 +81,7 @@ test_that("switch string with fallthrough", {
                   yield(3))
       yield(x)
     })
-    paste0(as.character(nextElemOr(g, NA)), nextElemOr(g, NA))
+    paste0(as.character(nextOr(g, NA)), nextOr(g, NA))
   }
 
   h("one") %is% "1one"
@@ -91,7 +91,7 @@ test_that("switch string with fallthrough", {
 
   # again contra R
   g <- gen(yield(switch("y", x=yield(1), y=, z=)))
-  expect_error(nextElemOr(g, NULL), "missing")
+  expect_error(nextOr(g, NULL), "missing")
 })
 
 test_that("numeric switch with delimited goto()", {
@@ -103,7 +103,7 @@ test_that("numeric switch with delimited goto()", {
                     goto(5),
                     yield("four"),
                     goto(4)))
-    nextElemOr(g, NA)
+    nextOr(g, NA)
   }
 
   g(1) %is% "one"
@@ -126,7 +126,7 @@ test_that("character switch() with delimited goto()", {
              five=yield(5),
              yield("many"))
     })
-    nextElemOr(gg, NA)
+    nextOr(gg, NA)
   }
 
   g("one") %is% 1
@@ -173,10 +173,10 @@ test_that("Try-finally intercedes with goto", {
   })}
 
   g <- f("a")
-  nextElemOr(g, NULL) %is% "one"
-  nextElemOr(g, NULL) %is% "three"
-  nextElemOr(g, NULL) %is% "four"
-  nextElemOr(g, NULL) %is% NULL
+  nextOr(g, NULL) %is% "one"
+  nextOr(g, NULL) %is% "three"
+  nextOr(g, NULL) %is% "four"
+  nextOr(g, NULL) %is% NULL
 
 })
 
@@ -208,16 +208,16 @@ test_that( "goto from try/catch/finally unwinds the right amount", {
   })}
 
   g <- f("a")
-  nextElemOr(g, NULL) %is% "one"
-  nextElemOr(g, NULL) %is% "finally"
-  nextElemOr(g, NULL) %is% "handling outer"
-  nextElemOr(g, NULL) %is% NULL
+  nextOr(g, NULL) %is% "one"
+  nextOr(g, NULL) %is% "finally"
+  nextOr(g, NULL) %is% "handling outer"
+  nextOr(g, NULL) %is% NULL
 
   g <- f("aa")
-  nextElemOr(g) %is% "one"
-  nextElemOr(g) %is% "handling inner"
-  nextElemOr(g) %is% "finally"
-  nextElemOr(g) %is% "handling outer"
-  nextElemOr(g, NULL) %is% NULL
+  nextOr(g) %is% "one"
+  nextOr(g) %is% "handling inner"
+  nextOr(g) %is% "finally"
+  nextOr(g) %is% "handling outer"
+  nextOr(g, NULL) %is% NULL
 
 })

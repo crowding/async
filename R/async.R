@@ -86,7 +86,7 @@
 #'
 #' @export
 async <- function(expr, ..., split_pipes=TRUE, trace=trace_,
-                  compileLevel=options$compileLevel) {
+                  compileLevel=getOption("async.compileLevel")) {
   expr_ <- arg(expr)
   expr <- NULL
   if (identical(expr(expr_)[[1]], quote(`function`))) {
@@ -124,11 +124,11 @@ await_cps <- function(.contextName, prom) { force(prom)
     promis <- NULL
     success <- NULL
     value <- NULL
-    named(then <- function() {
+    node(then <- function() {
       trace("await: resolve\n")
       if(success) cont(value) else stp(value)
     })
-    named(await_ <- function(val) {
+    node(await_ <- function(val) {
       val <- promises::as.promise(val)
       promis <<- val
       trace("await: got promise\n")
@@ -160,9 +160,9 @@ make_async <- function(expr, orig = expr, ...,
   resolve_ <- NULL
   reject_ <- NULL
 
-  named(getState <- function() state)
+  node(getState <- function() state)
 
-  named(return_ <- function(val) {
+  node(return_ <- function(val) {
     trace("async: return (resolving)\n")
     state <<- "resolved"
     value <<- val
@@ -170,7 +170,7 @@ make_async <- function(expr, orig = expr, ...,
     val
   })
 
-  named(stop_ <- function(val) {
+  node(stop_ <- function(val) {
     trace("async: stop (rejecting)\n")
     value <<- val
     state <<- "rejected"
@@ -178,7 +178,7 @@ make_async <- function(expr, orig = expr, ...,
     val
   })
 
-  globalNamed(replace <- function(resolve, reject) {
+  globalNode(replace <- function(resolve, reject) {
     resolve_ <<- resolve
     reject_ <<- reject
   })
@@ -216,7 +216,7 @@ await_handlers <- quote({
   awaiting <- nonce
   await_state <- "xxx"
 
-  named(check_wake <- function()
+  node(check_wake <- function()
     switch(await_state,
            "awaiting"={
              trace("await: got callback while still running\n")
@@ -231,7 +231,7 @@ await_handlers <- quote({
            }
            ))
 
-  named(await_ <- function(cont, promise, success, failure) {
+  node(await_ <- function(cont, promise, success, failure) {
     list(promise, success, failure)
 
     succ <- function(val) {
@@ -255,7 +255,7 @@ await_handlers <- quote({
       bounce(cont) else pause(cont)
   })
 
-  named(awaitNext_ <- function(cont, strm, success, error, finish) {
+  node(awaitNext_ <- function(cont, strm, success, error, finish) {
     list(strm, success, error, finish)
     succ <- function(val) {
       trace("awaitNext: got value\n")

@@ -2,7 +2,7 @@
 
 The `async` package will implement a class called `asyncIter` which is a kind of combination of promises and iterators. An `asyncIter` is meant to be a useful abstraction for data that arrives intermittently -- requests on a network interface, data coming from logging sensors, result sets that arrive in pages, and so on.
 
-The programming interface for an `asyncIter` is a blend of both iterators and promises. Given an `asyncIter` representing a connection, calls to `nextElem(C)` or [`nextElemOr(C, or)`] will return a series of [`promise`] objects. As the asyncIterator produces values, the promise objects will be fulfilled in the order that they were produced. 
+The programming interface for an `asyncIter` is a blend of both iterators and promises. Given an `asyncIter` representing a connection, calls to `nextElem(C)` or [`nextOr(C, or)`] will return a series of [`promise`] objects. As the asyncIterator produces values, the promise objects will be fulfilled in the order that they were produced. 
 
 Note that even though async implements the iterator interface, if you were to do something like `as.list(conn)`, you would get an endless list of unfulfilled promises. (In practice, the `asyncIter` should complain about too many outstanding promises and throw an error.) To work with an async iterator, you generally should wait for a promise to fulfill before calling `nextElem()` again.
 

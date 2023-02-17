@@ -27,8 +27,8 @@ test_that("name munging generators", {
   expect_properly_munged(graph, gc)
 
   # Can we pull a next element?
-  nextElemOr(g)
-  nextElemOr(gc)
+  nextOr(g)
+  nextOr(gc)
 
   # finally, test function result
   expect_equal(as.list(g), as.list(gc))

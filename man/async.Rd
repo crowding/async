@@ -13,7 +13,7 @@ async(
   ...,
   split_pipes = TRUE,
   trace = trace_,
-  compileLevel = options$compileLevel
+  compileLevel = getOption("async.compileLevel")
 )
 
 await(prom)

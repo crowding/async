@@ -38,7 +38,7 @@ where it left off and runs until the next `yield`.
 [iterators]: https://CRAN.R-project.org/package=iterators
 
 From the "outside" a generator implements the `iteror` interface.  You
-extract each yielded value with `nextElemOr(g, or)`, and you can use
+extract each yielded value with `nextOr(g, or)`, and you can use
 generators anywhere you can use an iteror. The `iteror` class is
 cross compatible with the [iterators][] package.
 
@@ -68,20 +68,20 @@ collatz <- async::gen(function(x) {
 ```
 
 The call to `gen` produces a generator. You can get values one at a
-time with `nextElemOr()`.
+time with `nextOr()`.
 
 ```r
 ctz <- collatz(12)
 ctz <- collatz(12)
-nextElemOr(ctz, NA)
+nextOr(ctz, NA)
 # [1] 12
-nextElemOr(ctz, NA)
+nextOr(ctz, NA)
 # [1] 6
-nextElemOr(ctz, NA)
+nextOr(ctz, NA)
 # [1] 3
-nextElemOr(ctz, NA)
+nextOr(ctz, NA)
 # [1] 10
-nextElemOr(ctz, NA)
+nextOr(ctz, NA)
 # [1] 5
 ```
 

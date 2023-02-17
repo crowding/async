@@ -34,7 +34,7 @@ Why doesn't async run into this problem?
 
 Okay, the most reasonable course of action is to pass our yield callback into pump and stop wrapping. We still have to
 
-One side effect of this is now we are seeing "pump" as a utility call in nextElemOr?
+One side effect of this is now we are seeing "pump" as a utility call in nextOr?
  
  on.exit is leaking scope! I wind up back in doExits. Which call is leaking? Oh duh of course the `exit_fns` list is leaking. Well now on/exit works in compiled, but `expect_properly_munged` fails because graph walk is picking up a "gen_f_pump" for some reason.
  

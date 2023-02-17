@@ -4,7 +4,7 @@ The `async` package allows you to write code that executes incrementally, out of
 
 When an ordinary R function is called, control does not return until that function either produces a value, or finishes with an error. A `async({})` block, will run until it reaches an `await()` and pauses until the value is made available by some other action.
 
-However, this out of does not require any changes to R's execution model; coroutines are implemented in terms of base R, which has a single-threaded execution model. The object returned by `gen()` implement the `iteror` interface; it maintains some internal state, and calling `nextElemOr()` will update its internal state, computing the next value. In other words a generator is a kind of state machine sitting behind the `iteror` interface. An `async` is a very similar kind of state machine, just one that wears the`promise` interface instead of an `iteror`.
+However, this out of does not require any changes to R's execution model; coroutines are implemented in terms of base R, which has a single-threaded execution model. The object returned by `gen()` implement the `iteror` interface; it maintains some internal state, and calling `nextOr()` will update its internal state, computing the next value. In other words a generator is a kind of state machine sitting behind the `iteror` interface. An `async` is a very similar kind of state machine, just one that wears the`promise` interface instead of an `iteror`.
 
 The particular state transitions, and the internal state that is tracked, are constructed from the generator expression. In other words you could say that the `async` package implements a mini-language for describing state machines. The illusion that a coroutine works like a parallel stream of R code is due to this mini-language being constructed to function analogously to base R.
 
@@ -14,7 +14,7 @@ However, the language is _slightly_ different from base R
 
 The first thing to know about the coroutine mini-language is that a `yield()` or `await()` can only appear under the arguments of `pausable` functions.  The `async` package has built in pausable implementations of R's most commonly used control flow and error handling primitives; The function `async::pausables()` will return a list of all pausable functions it can see. this writing, the list is:
 
-``(``, ``{``, ``&&``, ``<-``, ``<<-``, ``||``, `await`, `break`, `for`, `if`, `next`, `nextElemOr`,  `on.exit`, `repeat`, `return`, `switch`, `try`, `tryCatch`, `while`, `yield`, and `yieldFrom`.
+``(``, ``{``, ``&&``, ``<-``, ``<<-``, ``||``, `await`, `break`, `for`, `if`, `next`, `nextOr`,  `on.exit`, `repeat`, `return`, `switch`, `try`, `tryCatch`, `while`, `yield`, and `yieldFrom`.
 
 While any R functions can be used in a coroutine expression, `yield` or `await` may only appear under the arguments of the above functions. Any R functions not in the above list can only  be called without pausing.
 
@@ -89,14 +89,14 @@ You can also write loops by using `switch()` with `goto()` as described below.
 
  `stop(err)` will abort the present branch, saving the error message. It then jumps to the enclosing `tryCatch()` handler, if there is one, or to the first `on.exit` error handler, if any have been registered. A `tryCatch(error=)` handler will catch the error, After executing all `finally` and `on.exit` handlers, the coroutine propagates the error. An `async` propagates the error to `promise`'s reject handler; likewise `stream` and `channel`.  A `gen` propagates errors as normal R errors raised to teh caller of `nextElem`.
 
- `return(val)` works through all `finally` and `on.exit` handlers before returning the given value. For an `async` the promise is resolved with that value. For a generator, the call to `nextElemOr` will signal end of iteration and the value is discarded.
+ `return(val)` works through all `finally` and `on.exit` handlers before returning the given value. For an `async` the promise is resolved with that value. For a generator, the call to `nextOr` will signal end of iteration and the value is discarded.
 
  It is possible to call `stop()` or `return()` from inside a `finally` or `on.exit` handler. In that case the new value and disposition overrides the old one; calling `return` from inside of an `on.exit` handler will suppress any error (as this is what R does). Calling `yield` from inside an `on.exit` handler will also yield the value and suppress the error.
 
 ### Pausing on input/output
 
  * `await(p)` in an async or stream, pauses execution until the given promise resolves.
- * `yield(val)` in a generator pauses execution, returns the given value as the result of `nextElemOr()` 
+ * `yield(val)` in a generator pauses execution, returns the given value as the result of `nextOr()` 
  * `yield(val)` in a stream resolves the next listener with the value given. If the stream is created with `lazy=TRUE`, and there are no more listeners awaiting, the stream will pause until the next value is requested. If the stream was created with `lazy=FALSE` then even with no awaiting requests, the stream will continue yielding more values, queuing them internally until it reaches an `await`.
  * `yieldFrom(i)` takes an iterator _or_ a stream as argument, and yields successive values until it is exhausted. `yieldFrom(iter)` is basically equivalent to `for (i in iter) yield(i)`.
 
@@ -140,7 +140,7 @@ Here, if there is an error in reading a `.csv` or `.json` file we re-try ingesti
 
 ### Exceptions and cleanup
 
-Writing code in a coroutine's `on.exit` clause or in a `tryCatch(finally=)` call does not give any guarantee that the cleanup code will ever run, because coroutines only execute "on demand." If you make a generator designed to return ten items, then call `nextElemOr` ten times, the generator will never run its exit handler. The generator is paused waiting to reach end of iteration; you need to call `nextElemOr` an _eleventh_ time to allow it to reach the end, run ts exit handlers and signal end of iteration.
+Writing code in a coroutine's `on.exit` clause or in a `tryCatch(finally=)` call does not give any guarantee that the cleanup code will ever run, because coroutines only execute "on demand." If you make a generator designed to return ten items, then call `nextOr` ten times, the generator will never run its exit handler. The generator is paused waiting to reach end of iteration; you need to call `nextOr` an _eleventh_ time to allow it to reach the end, run ts exit handlers and signal end of iteration.
 
 Similarly, an `async` with an `on.exit` or `finally` handler will not reach those handlers if it is paused on an `await` that never resolves. With those caveats in mind, coroutines do support both `on.exit` and `tryCatch` constructs and they are useful for sequencing actions.
 
@@ -189,7 +189,7 @@ On calling `nextElem(g)`, the generator will first enter a `tryCatch`, which exi
 
  * `on.exit` handlers can be registered dynamically. 
    * Whatever is written in the `expr` argument of `on.exit` is considered "outside" any loops or other scope.
-   * When there is a `yield` inside of `tryCatch` expression, a generator must re-establish the exception handler the next time that `nextElem` is called. Having to re-establish the exception handler after each `yield` can impact performance of generators. For this reason `iteror` class in this package defines an iteration protocol using `nextElemOr()`, which does not need to use exceptions to signal a normal end of iteration.
-   * In a generator `g <- gen(tryCatch({doStuff(); yield(x), finally=cleanup()}))`, the first call to `nextElemOr(g)` returns `x`. The `finally` clause will only be executed on the _next_ call to `nextElemOr(g, or=NULL)`.
+   * When there is a `yield` inside of `tryCatch` expression, a generator must re-establish the exception handler the next time that `nextElem` is called. Having to re-establish the exception handler after each `yield` can impact performance of generators. For this reason `iteror` class in this package defines an iteration protocol using `nextOr()`, which does not need to use exceptions to signal a normal end of iteration.
+   * In a generator `g <- gen(tryCatch({doStuff(); yield(x), finally=cleanup()}))`, the first call to `nextOr(g)` returns `x`. The `finally` clause will only be executed on the _next_ call to `nextOr(g, or=NULL)`.
    * A difference from base R `tryCatch`: If you don't care about the type of error, you can specify a non-function value to `error=`, and that value will be returned simply. Additionally `error` used this way can include flow control constructs like `break` or `next` or `goto`.
     * `stop()` will jump to the enclosing `tryCatch()` handler if there is one.

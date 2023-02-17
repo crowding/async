@@ -60,7 +60,7 @@ appended to an internal queue, and will be called as soon as data
 is available, in the order that requests were received.
 
 You can also treat a channel as an \link{iteror} over promises, calling
-\code{nextElemOr(pri)} to return a \link{promise} representing the next
+\code{nextOr(pri)} to return a \link{promise} representing the next
 available value. Each promise created this way will be resolved in
 the order that data come in. Note that this way there is no special
 signal for end of iteration; a promise will reject with
