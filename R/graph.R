@@ -241,13 +241,15 @@ make_dot <- function(nodeGraph,
 #' blue edges represent reads.
 #'
 #' Dashed edges represent a state transition that goes through a
-#' trampoline handler. Dashed edges have a symbol representing the
-#' type of trampoline; (⏸) for await/yield; (⤽) or (⤼) to wind on or
-#' off an exception handler; (⮍) for a plain trampoline with no side
-#' effects (done once per loop, to avoid overflowing the stack.)
-#' Meanwhile, a thin edge connects to the trampoline handler; (so the
-#' user-facing "yield" function registers a continuation to the next
-#' step but actually calls the generator's yield handler.)
+#' trampoline handler. Dashed edges have a Unicode symbol representing
+#' the type of trampoline; (DOUBLE VERTICAL BAR) for await/yield; (TOP
+#' ARC ANTICLOCKWISE ARROW WITH PLUS) or (TOP ARC CLOCKWISE ARROW WITH
+#' MINUS) to wind on or off an exception handler; (ANTICLOCKWISE
+#' TRIANGLE-HEADED BOTTOM U-SHAPED ARROW) for a plain trampoline with
+#' no side effects (done once per loop, to avoid overflowing the
+#' stack.)  Meanwhile, a thin edge connects to the trampoline handler.
+#' (So the user-facing "yield" function registers a continuation to
+#' the next step but actually calls the generator's yield handler.)
 #'
 #' @examples
 #' randomWalk <- gen({x <- 0; repeat {yield(x); x <- x + rnorm(1)}})

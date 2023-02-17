@@ -41,14 +41,14 @@ Collate:
   'async-description.R'
   'util.R'
   'iteror.R'
-  'cps.r'
-  'signals.r'
+  'cps.R'
+  'signals.R'
   'syntax.R'
   'coroutine.R'
-  'pump.r'
+  'pump.R'
   'run.R'
   'gen.R'
-  'async.r'
+  'async.R'
   'channel.R'
   'stream.R'
   'collect.R'
@@ -58,7 +58,6 @@ Collate:
   'graph.R'
   'trans.R'
   'munge.R'
-  'compile.R'
 Roxygen: list(markdown=TRUE)
 RoxygenNote: 7.2.1
 VignetteBuilder: knitr

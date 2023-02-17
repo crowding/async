@@ -59,7 +59,7 @@ function in a call to `gen()`, and change each `cat()` to
 of an [iteror].
 
 ```{R}
-library(async) # for gen
+library(async)
 counts <- c(3, 2, 1, 2)
 pattern <- gen({
   repeat {
@@ -239,7 +239,7 @@ back into in phase with each other. We can write a generator function
 that does this "skip," by consuming a value without yielding it:
 
 ```{R}
-drop_one_after <- gen(function(g, n, sep=character(0)) { 
+drop_one_after <- gen(function(g, n, sep=character(0)) {
   repeat {
     for (i in 1:n) yield(nextElemOr(g, break))
     nextElemOr(g, break) #drop

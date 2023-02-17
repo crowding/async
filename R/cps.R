@@ -281,8 +281,10 @@ switch_cps <- function(.contextName, EXPR, ...) {
           branch <- branches[[val]]
           if (is.null(branch))
             stp(simpleError(paste0("Switch: expected numeric, got ", mode(val))))
-          else switch(branch, ..(lapply(seq_along(branches),
-                                        function(i)call(paste0("alt", i)))))
+          else {{
+            switch(branch, ..(lapply(seq_along(branches),
+                                     function(i)call(paste0("alt", i)))))
+          }}
         }
       })))
     } else {
@@ -313,8 +315,8 @@ switch_cps <- function(.contextName, EXPR, ...) {
 
       switchcall <- bquote(
         splice=TRUE,
-        switch(branch, ..(lapply(seq_along(alts),
-                                 function(i)call(paste0("alt", i))))))
+        {{switch(branch, ..(lapply(seq_along(alts),
+                                 function(i)call(paste0("alt", i)))))}})
       named(switch_ <- eval(bquote(function(val) {
         trace("switch: character\n")
         if (!is.character(val))

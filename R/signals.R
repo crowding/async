@@ -130,19 +130,26 @@ finally_cps_ <- function(.contextName, expr, finally) {
     #nonexistent path to brk/nxt/etc.
     named(continue <- eval(bquote(splice=TRUE, function(val) {
       force(val)
-      trace(paste0("finally: continue with ", after, "\n"))
-      switch(after,
+      trace(paste0("finally: continue??? with ", after, "\n"))
+      # {{ }} prevents covr tracing
+      {{switch(after,
              success=cont(result),
              stop=stp(result),
              return=rtn(result),
              ..(c(list(),
-               if (!is_missing(nxt)) alist(`next`=nxt()),
-               if (!is_missing(brk)) alist(`break`=brk()),
-               if (!is_missing(goto)) alist(goto=goto(result))
+                  if (!is_missing(nxt)) alist(`next`={
+                    nxt()
+                  }),
+                  if (!is_missing(brk)) alist(`break`={
+                    brk()
+                  }),
+                  if (!is_missing(goto)) alist(goto={
+                    goto(result)
+                  })
              )),
              stp(simpleError(paste0("Unexpected after-finally action: ",
                              as.character(after))))
-             )
+             )}}
     })))
     # if there is an uncaught saved error, then a jump out of
     # the finally block, throw the saved error instead of jumping.
