@@ -138,8 +138,6 @@ Now, a question I have is about how to handle the `R_` functions because they wi
   * [ ] I think the answer might be to distinguish trampolined edges from trampoline functions somehow. The graph collector should follow both, and register a "trampolined" property...
 * [ ] start doing enough code generation until you identify the need for quasiquote, or run into the thing with the thunks, then see what the mismatch is shaped like.
 
- * why is it getting "iter" and "iterators"...
-
 <!--  LocalWords:  builtins compilable args namespace namespaces
 <!--  LocalWords:  inlining
  -->

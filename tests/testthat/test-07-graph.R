@@ -22,6 +22,10 @@ if (!dir.exists("graphs")) dir.create("graphs")
 filename <- function(name) paste0("graphs/", name, "_",
                                   as.character(getOption("async.compileLevel")))
 
+fullGraph <- function(..., vars=TRUE, handlers=TRUE, orphans=TRUE) {
+  drawGraph(..., envs=FALSE, vars=FALSE, handlers=TRUE, orphans=TRUE)
+}
+
 test_that("function inspection with all_names", {
 
   externConst <- 10
@@ -237,7 +241,28 @@ test_that("Can extract graph of generator", {
     }
   })
 
-  expect_silent(drawGraph(genprimes, filename("genprimes")))
+  expect_silent(fullGraph(genprimes, filename("genprimes")))
+
+})
+
+test_that("no orphans", {
+
+  collatz <- gen(function(x) {
+    x <- as.integer(x)
+    yield(x)
+    repeat {
+      if (x %% 2L == 0) {
+        x <- yield(x %/% 2L)
+      } else {
+        x <- yield(3L * x + 1L)
+      }
+    }
+  })
+  ctz <- collatz(12)
+  expect_silent(drawGraph(ctz, filename("no-orphans"),
+                          vars=FALSE, handlers=FALSE, orphans=FALSE))
+  expect_silent(drawGraph(ctz, filename("no-orphans-handlers"),
+                          vars=FALSE, handlers=TRUE, orphans=FALSE))
 
 })
 

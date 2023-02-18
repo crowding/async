@@ -6,7 +6,8 @@ last <- function(x) x[[length(x)]]
 make_dot <- function(nodeGraph,
                      envs=TRUE,
                      vars=TRUE,
-                     handlers=TRUE) {
+                     handlers=TRUE,
+                     orphans=TRUE) {
   quoted <- function(name) paste0('"', gsub('(["])', "\\\\\\1", name, ""), '"')
   block <- function(block) function(name, ...) {
     c(paste0(block, " ", quoted(name), " { "), paste0("  ", c(...)), "}")}
@@ -50,6 +51,23 @@ make_dot <- function(nodeGraph,
       RETURN=c(shape="doubleoctagon", color="darkblue", style="filled",
                fontcolor="lightblue", margin="0,0", fixedsize="false")))}
   node <- function(nodeGraph, nodeName) {
+    if (!orphans) {
+      # check if node needs to be included
+      if (!vars) { #if you include vars, no point trimming the mess
+        if (length(nodeGraph$nodeEdgeProperties[[nodeName]]) == 0) {
+          if (length(nodeGraph$reverseEdges[[nodeName]]) == 0) {
+            return(NULL)
+          } else {
+            if(!handlers) {
+              incoming <- as.list(nodeGraph$reverseEdges[[nodeName]])
+              reverseEdgeTypes <- mapply(
+                names(incoming), incoming, FUN=\(from, exit) {
+                  nodeGraph$nodeEdgeProperties[[from]][[exit]]$type
+                },
+                SIMPLIFY=TRUE)
+              if (all(reverseEdgeTypes == "hand")) {
+                return(NULL)
+    }}}}}}
     paste(quoted(nodeName),
           attrs(nodeAttrs(nodeGraph, nodeName)))}
   nodes <- function(nodeGraph, nodes) {
@@ -157,17 +175,22 @@ make_dot <- function(nodeGraph,
              stop("unknown edge type?")),
       ## if (identical(nodeGraph$nodeProperties[[to]]$localName, ";"))
       ##   c(arrowhead="none"),
-      if (props$type=="tramp" && length(props$call) > 1) { #"special" or trampolined tailcalls
-        c(arrowhead="odot", taillabel=" ", labelangle=0, fontsize=15, arrowsize=2.25,
-          labeldistance=.9, fontcolor="blue",
-          switch({as.character(props$call[[2]][[1]])},
-                 ret=c(headlabel="\u2b8d"),
-                 yield=,
-                 pause=c(headlabel="\u23f8",labeldistance=0.8),
-                 windup=c(headlabel="\u293d", fontsize=20),
-                 unwind=c(headlabel="\u293c", fontsize=20)))
-      }
-      )}
+      if (props$type=="tramp" && length(props$call) > 1) {
+        #"special" or trampolined tailcalls
+        handler <- as.character(props$call[[2]][[1]])
+        handler_edge <- c(arrowhead="odot", taillabel=" ", labelangle=0,
+                          fontsize=15, arrowsize=2.25,
+                          labeldistance=.9, fontcolor="blue")
+        switch(as.character(props$call[[2]][[1]]),
+               ret=c(handler_edge, headlabel="\u2b8d"),
+               yield=,
+               pause=c(handler_edge, headlabel="\u23f8",labeldistance=0.8),
+               windup=c(handler_edge, headlabel="\u293d", fontsize=20),
+               unwind=c(headlabel="\u293c", fontsize=20),
+               evl=c(style="solid"),
+               c())
+      })
+  }
   edge <- function(nodeGraph, from, local) {
     concat(lapply(local, function(edgeLocal) {
       edge <- nodeGraph$nodeEdgeProperties[[from]][[local]]
@@ -214,7 +237,7 @@ make_dot <- function(nodeGraph,
   )
 }
 
-#' Draw a graph representation of a generator.
+#' Draw a graph representation of a coroutine.
 #'
 #' `drawGraph` will traverse the objects representing a
 #' [generator][gen] or [async] and render a graph of its structure
@@ -225,10 +248,10 @@ make_dot <- function(nodeGraph,
 #' generator as a state machine with nodes that connect to each other.
 #'
 #' If `type` is something other than `dot` `drawGraph will then try to
-#' invoke Graphviz  DOT to turn the graph description into an image
+#' invoke Graphviz `dot` to turn the graph description into an image
 #' file.
 #'
-#' The green octagonal node is where evaluation starts, while red
+#' The green octagonal node is where the program starts, while red
 #' "stop" and blue "return" are where it ends. Nodes in green type on
 #' dark background show code that runs in the host language
 #' unmodified; gray nodes implement control flow. Dark arrows carry a
@@ -254,53 +277,74 @@ make_dot <- function(nodeGraph,
 #' @examples
 #' randomWalk <- gen({x <- 0; repeat {yield(x); x <- x + rnorm(1)}})
 #' \dontrun{
-#' makeGraph(randomWalk, "pdf")
+#' drawGraph(randomWalk, "pdf")
 #' # writes "randomWalk.dot" and invokes dot to make "randomWalk.pdf"
 #'
-#' #or, display it in R with the Rgraphviz package:
+#' #or, display it in an R window with the Rgraphviz package:
 #' g <- Rgraphviz::agread("randomWalk.dot")
 #' Rgraphviz::plot(g)
 #' }
+#' #Or render an HTML sidget using DiagrammeR:
+#' \dontrun{
+#' dot <- drawGraph(randomWalk, type="")
+#' DiagrammeR::DiagrammeR(paste0(dot, collapse="\n"), type="grViz")
+#' }
 #' @param obj A [generator][gen], [async] or [stream] object.
-#' @param type the output format. If "dot", we will just write a Graphviz
-#'   dot file. If another extension like "pdf" or "svg", will write a
-#'   DOT file and then attempt to invoke Graphviz `dot` (if it is
-#'   available according to [`Sys.which`]) to produce the image.
-#' @param basename The base file name. If `basename="X"` and `type="pdf"`
-#'   you will end up with two files, `"X.dot"` and `"X.pdf"`.
+#' @param type the output format. If "dot", we will just write a
+#'   Graphviz dot file. If another extension like "pdf" or "svg", will
+#'   write a DOT file and then attempt to invoke Graphviz `dot` (if it
+#'   is available according to [`Sys.which`]) to produce the image.
+#'   If `type=""` `drawGraph` will return graphviz DOT language as a
+#'   character vector
+#' @param basename The base file name. If `basename="X"` and
+#'   `type="pdf"` you will end up with two files, `"X.dot"` and
+#'   `"X.pdf"`.
 #' @param envs If `TRUE`, multiple nodes that share the same
 #'   environment will be grouped together in clusters.
 #' @param vars If `TRUE`, context variables used in each state node
-#'   will be included on the graph, with edges indicating reads/stores.
+#'   will be included on the graph, with edges indicating
+#'   reads/stores.
 #' @param handlers If `TRUE`, state nodes will have thin edges
-#'   connecting to their trampoline handlers, in addition to the dashed edges
-#'   connecting to the next transition.
+#'   connecting to trampoline handlers they call, in addition to the
+#'   dashed edges connecting to the next transition.
+#' @param orphans If `TRUE`, nodes will be included even if there are
+#'   no connections to them (this mostly being interface methods and
+#'   unused handlers).
 #' @param dot Optional path to the `dot` executable.
 #' @param dotfile Optionally specify the output DOT file name.
 #' @param filename Optionally specify the output picture file name.
-#' @return The name of the file that was created.
+#' @param ... Unused.
+#' @return If `type=""`, a character vector of DOT source. Else
+#'         The name of the file that was created.
 #' @export
 drawGraph <- function(obj,
                       basename=if (is.name(substitute(obj)))
                         as.character(substitute(obj))
                       else stop("Please specify basename"),
                       type="pdf",
+                      ...,
                       envs=TRUE,
-                      vars=TRUE,
-                      handlers=TRUE,
+                      vars=FALSE,
+                      handlers=FALSE,
+                      orphans=FALSE,
                       dot=find_dot(),
                       filename=paste0(basename, ".", type),
                       dotfile=if (type=="dot")
                         filename else paste0(basename, ".dot"))
 {
-  makeGraph(obj, dotfile, envs=envs, vars=vars, handlers=handlers)
-  if (type == "dot" || dot == "") {
-    dotfile
+  gr <- make_graph(obj, envs=envs, vars=vars, handlers=handlers, orphans=orphans)
+  if (type == "") {
+    gr
   } else {
-    result <- system2(dot, c(paste0("-T", type), dotfile), stdout=filename)
-    if (result != 0) stop("status", attr(result, "status"), ": ", stderr=
-                          attr(result, "errmsg"))
-    filename
+    cat(gr, file=dotfile, sep="\n")
+    if (type == "dot" || dot == "") {
+      dotfile
+    } else {
+      result <- system2(dot, c(paste0("-T", type), dotfile), stdout=filename)
+      if (result != 0) stop("status", attr(result, "status"), ": ",
+                            stderr=attr(result, "errmsg"))
+      filename
+    }
   }
 }
 
@@ -314,11 +358,10 @@ find_dot <- function() {
   x
 }
 
-makeGraph <- function(x, file="", sep="\n", ...) UseMethod("makeGraph")
+make_graph <- function(x, ...) UseMethod("make_graph")
 
 #' @exportS3Method
-makeGraph.coroutine <- function(x, file="", sep="\n", ...) {
+make_graph.coroutine <- function(x, ...) {
   graph <- walk(x, forGraph=TRUE)
-  cat(make_dot(graph, ...), file=file, sep=sep)
-  invisible(graph)
+  make_dot(graph, ...)
 }

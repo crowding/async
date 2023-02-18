@@ -1,15 +1,15 @@
 ## -----------------------------------------------------------------------------
 library(async)
-collatz <- async::gen(function(x) {
+collatz <- gen(function(x) {
   yield(x)
   while (x > 1) {
-    x <- if (x %% 2 == 0) x / 2L else 3L * x + 1
-    yield(x)
+    if (x %% 2 == 0)
+      yield(x <- x / 2L)
+    else yield(x <- 3L * x + 1)
   }
 })
 
 ## -----------------------------------------------------------------------------
-ctz <- collatz(12)
 ctz <- collatz(12)
 nextOr(ctz, NA)
 nextOr(ctz, NA)
@@ -19,13 +19,12 @@ nextOr(ctz, NA)
 
 ## -----------------------------------------------------------------------------
 collatz(27L) |> as.list() |> as.numeric()
-#try collatz(63728127L) |> as.list() |> as.numeric()...
+#Try collatz(63728127L) |> as.list() |> as.numeric()...
 
 ## ---- eval=FALSE--------------------------------------------------------------
 #  async({
 #    for (i in 1:5) {
-#      #delay() uses later::later()
-#      await(delay(10))
+#      await(delay(10))     #delay() uses later::later()
 #      cat("Beep", i, "\n")
 #      beepr::beep(2)
 #    }
@@ -83,5 +82,14 @@ printEach <- async(function(st) {
 })
 
 all <- combine(walk, chewGum) |> printEach()
+
+## ----echo=FALSE---------------------------------------------------------------
 async:::wait_for_it()
+
+## ----results="hide"-----------------------------------------------------------
+ctz <- collatz(23)
+drawGraph(ctz, type="svg") #creates a file "ctz.svg"
+
+## -----------------------------------------------------------------------------
+debugAsync(ctz, internal=TRUE)
 
