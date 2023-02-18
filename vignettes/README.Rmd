@@ -22,7 +22,7 @@ This is an R package implementing *generators*, *async* blocks, and *streams* (c
 * There is now syntax for generator functions: `gen(function(x, y) ...)` returns a function that constructs generators.
 * `run(...)` will execute a generator expression immediately and collect the results in a list.
 * There is now an experimental `stream()` coroutine backed by a `channel` class (asynchronous iterator).
-* The underlying implementation now includes the back half of a compiler. As evidence of this, you can draw a graph of a coroutine's control structures by calling `drawGraph(gen)` (this requires you have Graphviz `dot` command installed on your system.)
+* The underlying implementation now includes the back half of a compiler. As evidence of this, you can draw a graph of a coroutine's control structures by calling `graphAsync(gen)` (this requires you have Graphviz `dot` command installed on your system.)
 
 [news]: https://github.com/crowding/async/blob/main/NEWS.md
 For more details see [NEWS.md][news].
@@ -205,11 +205,11 @@ A longer article will be forthcoming, but the basic gist is the `async` package 
 
 A coroutine expression is first scanned for uses of `await`, `yield`, `for`, `break` and other control flow calls. Those calls are swapped out for implementations local to the `async` package. Other R calls are wrapped in functions; all these functions are linked together in so that each function calls the next in sequence. The result is a graph of functions calling each other, each call corresponding to a step in the program.
 
-As of `async` version 0.3 you can extract and visualize this graph with [drawGraph(g)][].
+As of `async` version 0.3 you can extract and visualize this graph with [graphAsync(g)][].
 
 ```{R results="hide"}
 ctz <- collatz(23)
-drawGraph(ctz, type="svg") #creates a file "ctz.svg"
+graphAsync(ctz, type="svg") #creates a file "ctz.svg"
 ```
 ![Graph of the above generator.](ctz.svg){width=75%}
 

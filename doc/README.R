@@ -88,7 +88,7 @@ async:::wait_for_it()
 
 ## ----results="hide"-----------------------------------------------------------
 ctz <- collatz(23)
-drawGraph(ctz, type="svg") #creates a file "ctz.svg"
+graphAsync(ctz, type="svg") #creates a file "ctz.svg"
 
 ## -----------------------------------------------------------------------------
 debugAsync(ctz, internal=TRUE)

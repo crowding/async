@@ -23,7 +23,7 @@ filename <- function(name) paste0("graphs/", name, "_",
                                   as.character(getOption("async.compileLevel")))
 
 fullGraph <- function(..., vars=TRUE, handlers=TRUE, orphans=TRUE) {
-  drawGraph(..., envs=FALSE, vars=FALSE, handlers=TRUE, orphans=TRUE)
+  graphAsync(..., envs=FALSE, vars=FALSE, handlers=TRUE, orphans=TRUE)
 }
 
 test_that("function inspection with all_names", {
@@ -259,9 +259,9 @@ test_that("no orphans", {
     }
   })
   ctz <- collatz(12)
-  expect_silent(drawGraph(ctz, filename("no-orphans"),
+  expect_silent(graphAsync(ctz, filename("no-orphans"),
                           vars=FALSE, handlers=FALSE, orphans=FALSE))
-  expect_silent(drawGraph(ctz, filename("no-orphans-handlers"),
+  expect_silent(graphAsync(ctz, filename("no-orphans-handlers"),
                           vars=FALSE, handlers=TRUE, orphans=FALSE))
 
 })
@@ -292,7 +292,7 @@ test_that("tryCatch", {
     yield("!")
   })
 
-  expect_silent(drawGraph(fizztry, filename("fizztry")))
+  expect_silent(graphAsync(fizztry, filename("fizztry")))
 
 })
 
@@ -309,7 +309,7 @@ test_that("nextOr", {
     }
   })
 
-  expect_silent(drawGraph(incomplete, filename("incomplete")))
+  expect_silent(graphAsync(incomplete, filename("incomplete")))
 })
 
 test_that("collatz", {
@@ -328,7 +328,7 @@ test_that("collatz", {
     })
   }
   collatz11 <- collatz(11L)
-  expect_silent(drawGraph(collatz11, filename("collatz11")))
+  expect_silent(graphAsync(collatz11, filename("collatz11")))
 
 })
 
@@ -338,10 +338,10 @@ test_that("yieldFrom", {
     gen(for (it in its) yieldFrom(it))
   }
   achain <- gchain(list(c("a", "b", "c"), c(1, 2, 3)))
-  expect_silent(drawGraph(achain, filename("achain")))
+  expect_silent(graphAsync(achain, filename("achain")))
 
   achain2 <- gen(for (it in its) for (i in it) yield(i))
-  expect_silent(drawGraph(achain2, filename("achain2")))
+  expect_silent(graphAsync(achain2, filename("achain2")))
 
 })
 
@@ -365,7 +365,7 @@ test_that("Async with try-finally", {
   ## wait_for_it()
   ## expect_true(not_run)
   ## expect_false(cleanup)
-  expect_silent(drawGraph(tryfin, filename("tryfin"),
+  expect_silent(graphAsync(tryfin, filename("tryfin"),
                           vars=TRUE, envs=TRUE, handlers=TRUE))
 
 })
@@ -395,7 +395,7 @@ test_that("try/finally/catch/break/return", {
       yield("<>\n")
     }
   })
-  expect_silent(drawGraph(fizz, filename("fizz"),
+  expect_silent(graphAsync(fizz, filename("fizz"),
                           vars=FALSE, envs=FALSE, handlers=FALSE))
 
 })
@@ -417,7 +417,7 @@ test_that("fizzbuzz", {
       }
     }
   })
-  expect_silent(drawGraph(fizzbuzz, filename("fizzbuzz"),
+  expect_silent(graphAsync(fizzbuzz, filename("fizzbuzz"),
                           vars=TRUE, envs=FALSE))
 
   nicebuzz <- gen({
@@ -439,7 +439,7 @@ test_that("fizzbuzz", {
       finally=yield("Goodnight")
     )
   })
-  expect_silent(drawGraph(nicebuzz, filename("nicebuzz"),
+  expect_silent(graphAsync(nicebuzz, filename("nicebuzz"),
                           handlers=TRUE, vars=TRUE, envs=FALSE))
 
 })
@@ -456,7 +456,7 @@ test_that("graph of switch with goto", {
            goto(4))
     yield("done")})
 
-  expect_silent(drawGraph(gotoN, filename("gotoN"),
+  expect_silent(graphAsync(gotoN, filename("gotoN"),
                           handlers=TRUE, vars=FALSE, envs=TRUE))
 
   gotoChar <- gen({
@@ -470,7 +470,7 @@ test_that("graph of switch with goto", {
       yield("done")
   })
 
-  expect_silent(drawGraph(gotoChar, filename("gotoChar"),
+  expect_silent(graphAsync(gotoChar, filename("gotoChar"),
                           handlers=TRUE, vars=TRUE, envs=FALSE))
 
 })
@@ -496,7 +496,7 @@ test_that("stream with on.exit", {
     }
   })
 
-  expect_silent(drawGraph(fizzFilter, filename("fizzFilter"),
+  expect_silent(graphAsync(fizzFilter, filename("fizzFilter"),
                           handlers=TRUE, vars=TRUE, envs=TRUE))
 
 })

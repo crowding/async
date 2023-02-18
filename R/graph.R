@@ -239,15 +239,15 @@ make_dot <- function(nodeGraph,
 
 #' Draw a graph representation of a coroutine.
 #'
-#' `drawGraph` will traverse the objects representing a
+#' `graphAsync` will traverse the objects representing a
 #' [generator][gen] or [async] and render a graph of its structure
 #' using Graphviz (if it is installed.)
 #'
-#' `drawGraph` will write a Graphviz DOT format file describing the
+#' `graphAsync` will write a Graphviz DOT format file describing the
 #' given [generator][gen] or [async]/await block. The graph shows the
 #' generator as a state machine with nodes that connect to each other.
 #'
-#' If `type` is something other than `dot` `drawGraph will then try to
+#' If `type` is something other than `dot` `graphAsync will then try to
 #' invoke Graphviz `dot` to turn the graph description into an image
 #' file.
 #'
@@ -277,7 +277,7 @@ make_dot <- function(nodeGraph,
 #' @examples
 #' randomWalk <- gen({x <- 0; repeat {yield(x); x <- x + rnorm(1)}})
 #' \dontrun{
-#' drawGraph(randomWalk, "pdf")
+#' graphAsync(randomWalk, "pdf")
 #' # writes "randomWalk.dot" and invokes dot to make "randomWalk.pdf"
 #'
 #' #or, display it in an R window with the Rgraphviz package:
@@ -286,7 +286,7 @@ make_dot <- function(nodeGraph,
 #' }
 #' #Or render an HTML sidget using DiagrammeR:
 #' \dontrun{
-#' dot <- drawGraph(randomWalk, type="")
+#' dot <- graphAsync(randomWalk, type="")
 #' DiagrammeR::DiagrammeR(paste0(dot, collapse="\n"), type="grViz")
 #' }
 #' @param obj A [generator][gen], [async] or [stream] object.
@@ -294,7 +294,7 @@ make_dot <- function(nodeGraph,
 #'   Graphviz dot file. If another extension like "pdf" or "svg", will
 #'   write a DOT file and then attempt to invoke Graphviz `dot` (if it
 #'   is available according to [`Sys.which`]) to produce the image.
-#'   If `type=""` `drawGraph` will return graphviz DOT language as a
+#'   If `type=""` `graphAsync` will return graphviz DOT language as a
 #'   character vector
 #' @param basename The base file name. If `basename="X"` and
 #'   `type="pdf"` you will end up with two files, `"X.dot"` and
@@ -317,7 +317,7 @@ make_dot <- function(nodeGraph,
 #' @return If `type=""`, a character vector of DOT source. Else
 #'         The name of the file that was created.
 #' @export
-drawGraph <- function(obj,
+graphAsync <- function(obj,
                       basename=if (is.name(substitute(obj)))
                         as.character(substitute(obj))
                       else stop("Please specify basename"),
