@@ -1,4 +1,7 @@
-`%is%` <- expect_equal
+fn <- function() {
+  x
+}
+setCompileLevelFromFn(fn)
 
 test_that("simple try", {
   g <- gen({
@@ -435,3 +438,5 @@ test_that("return from catch error handler", {
   expect_resolves_with(as, 5, m$reject("no"))
 
 })
+
+options(async.compileLevel = 0)

@@ -1,4 +1,9 @@
 #' @import nseval
+fn <- function() {
+  x
+}
+setCompileLevelFromFn(fn)
+
 
 test_that("pasting together names", {
 
@@ -366,7 +371,7 @@ test_that("Async with try-finally", {
   ## expect_true(not_run)
   ## expect_false(cleanup)
   expect_silent(graphAsync(tryfin, filename("tryfin"),
-                          vars=TRUE, envs=TRUE, handlers=TRUE))
+                          vars=TRUE, envs=TRUE, handlers=TRUE, orphans=TRUE))
 
 })
 
@@ -500,3 +505,5 @@ test_that("stream with on.exit", {
                           handlers=TRUE, vars=TRUE, envs=TRUE))
 
 })
+
+options(async.compileLevel = 0)

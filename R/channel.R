@@ -186,30 +186,43 @@ channel <- function(impl, max_queue=500L, max_awaiting=500L,
            odo, " sent>")
   }
 
+  willSend <- FALSE
   send <- function() {
+    if (getOption("async.sendLater")) {
+      if (!willSend) {
+        willSend <<- TRUE
+        later(doSend)
+      }
+    } else doSend()
+  }
+
+  doSend <- function() {
+    willSend <<- FALSE
     listener <- awaiting$getFirst(or=return())
     repeat {
-      tryCatch(
-        switch(state,
-               "error" = {
-                 state <<- "stopped"
-                 listener$reject(errorValue)
-                 odo <<- odo+1
-               },
-               "stopped",
-               "closed" = listener$close(),
-               "running" = {
-                 val <- outgoing$getFirst(
-                   or={
-                     awaiting$prepend(listener)
-                     wakeup()
-                     break
-                   })
-                 listener$resolve(val)
-                 odo <<- odo+1
-               }),
-        error=function(err)
-          warning("Unhandled channel error on send: ", err))
+      tryCatch({
+        val <- outgoing$getFirst(
+          or=switch(state,
+                 "error" = {
+                   state <<- "stopped"
+                   listener$reject(errorValue)
+                   odo <<- odo+1
+                   break
+                 },
+                 "stopped",
+                 "closed" = {
+                   listener$close()
+                   break
+                 },
+                 "running" = {
+                   awaiting$prepend(listener)
+                   wakeup()
+                   break
+                 }))
+        listener$resolve(val)
+      }, error=function(err) {
+        warning("Unhandled channel error on send: ", err)
+      })
       listener <- awaiting$getFirst(or=break)
     }
     NULL

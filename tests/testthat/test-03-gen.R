@@ -1,6 +1,9 @@
 #' @import nseval
 
-`%is%` <- expect_equal
+fn <- function() {
+  x
+}
+setCompileLevelFromFn(fn)
 
 test_that("generators", {
   x <- gen({yield("one"); yield("two")})
@@ -321,3 +324,5 @@ test_that("nextElem followed by call", {
   length(as.list(g)) %is% 17
 
 })
+
+options(async.compileLevel=0)

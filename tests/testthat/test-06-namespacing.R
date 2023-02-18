@@ -1,4 +1,7 @@
-`%is%` <- expect_equal
+fn <- function() {
+  x
+}
+setCompileLevelFromFn(fn)
 
 test_that("namespacing", {
   x <- async::gen(yield(0))
@@ -39,3 +42,5 @@ test_that("custom CPS function in isolated env", {
   g <- evalq(async::gen(yield(identity(yield(5)))), f)
   nextOr(g, NULL) %is% 5
 })
+
+options(async.compileLevel = 0)

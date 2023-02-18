@@ -18,3 +18,20 @@
 
 ## doWhile(function(val, continue) continue(x <= 100),
 ##         function(continue) continue(x <= 100)
+
+  cleanup <- FALSE
+  result <- NULL
+  not_run <- TRUE
+  tryfin <- async({
+    tryCatch({
+      if(FALSE) await(NULL)
+      return(2)
+      not_run <<- FALSE
+    }, finally={
+      cleanup <<- TRUE
+    })
+    not_run <<- FALSE
+    5
+  }, compileLevel=-1)
+
+

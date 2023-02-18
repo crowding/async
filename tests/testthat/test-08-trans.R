@@ -79,5 +79,5 @@ test_that("translating munged names in function bodies", {
     )
 
   }
-  
+
 })

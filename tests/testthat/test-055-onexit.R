@@ -1,3 +1,8 @@
+fn <- function() {
+  x
+}
+setCompileLevelFromFn(fn)
+
 test_that("on.exit", {
 
   closed <- FALSE
@@ -142,3 +147,5 @@ test_that("extremely bananas: simultaneously errors and returns", {
   expect_error(nextOr(g, NULL), "swallow")
 
 })
+
+options(async.compileLevel = 0)

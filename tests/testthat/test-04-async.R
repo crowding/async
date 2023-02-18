@@ -1,3 +1,8 @@
+fn <- function() {
+  x
+}
+setCompileLevelFromFn(fn)
+
 test_that("test mock promise", {
   p <- mock_promise()
   resolved <- FALSE
@@ -331,3 +336,5 @@ test_that("async function", {
   expect_resolves_with(fb, 10, b$resolve(5))
 
 })
+
+options(async.compileLevel=0)

@@ -29,14 +29,14 @@ Imports:
         later,
         promises,
         testthat (>= 3.0.0),
+        stringr
 Suggests:
     rmarkdown,
     knitr,
     magrittr,
     iterators,
     audio,
-    profvis,
-    covr
+    profvis
 Collate:
   'async-package.R'
   'util.R'
@@ -62,3 +62,4 @@ Roxygen: list(markdown=TRUE)
 RoxygenNote: 7.2.1
 VignetteBuilder: knitr
 Config/testthat/edition: 3
+Config/testthat/parallel: true

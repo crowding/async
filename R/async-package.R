@@ -44,7 +44,8 @@
   options(async.compileLevel=0,
           async.paranoid=FALSE,
           async.verbose=FALSE,
-          async.destructive=TRUE)
+          async.destructive=TRUE,
+          async.sendLater=TRUE)
 }
 
 trace_ <- function(x) if(getOption("async.verbose")) cat(x)

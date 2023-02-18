@@ -8,14 +8,14 @@ make_dot <- function(nodeGraph,
                      vars=TRUE,
                      handlers=TRUE,
                      orphans=TRUE) {
-  quoted <- function(name) paste0('"', gsub('(["])', "\\\\\\1", name, ""), '"')
+  quoted <- function(name) paste0('"', gsub('(["\\\\])', "\\\\\\1", name, ""), '"')
   block <- function(block) function(name, ...) {
     c(paste0(block, " ", quoted(name), " { "), paste0("  ", c(...)), "}")}
   group <- function(items) paste0("{", paste0(quoted(items), collapse=" "), "}")
-  attrs <- function(...) {
+  attrs <- function(..., quote=TRUE) {
     x = c(...)
     if(length(x) > 0)
-      paste0("[", paste0(names(x), "=", quoted(x), collapse=", "), "]")
+      paste0("[", paste0(names(x), "=", if(quote)quoted(x)else x, collapse=", "), "]")
     else character(0)}
   nodeAttrs <- function(nodeGraph, nodeName) {
     label <- nodeGraph$nodeProperties[[nodeName]]$localName %||% nodeName
@@ -87,11 +87,12 @@ make_dot <- function(nodeGraph,
       safeVarNames <- gsub("([][{}()<>| \\\\])", "\\\\\\1", varNames)
       c(paste(
         quoted(paste0(context, "_", "var")),
-        attrs(shape="record",
-              label=paste0("{",
-                paste0("<", safeVarNames, ">", safeVarNames, collapse="|"), "}"),
+        attrs(quote=FALSE,
+              shape="record",
+              label=paste0("\"{",
+                paste0("<", safeVarNames, ">", safeVarNames, collapse="|"), "}\""),
               fontsize=11,
-              fontname="DevaVu Sans Mono Bold", margin=0.08)),
+              fontname=quoted("DevaVu Sans Mono Bold"), margin=0.08)),
         # "{", paste0("<", varNames, ">", varNames, collapse="|"), "}"))),
         concat(lapply(
           names(nodeGraph$contextNodes[[context]]),
@@ -186,7 +187,7 @@ make_dot <- function(nodeGraph,
                yield=,
                pause=c(handler_edge, headlabel="\u23f8",labeldistance=0.8),
                windup=c(handler_edge, headlabel="\u293d", fontsize=20),
-               unwind=c(headlabel="\u293c", fontsize=20),
+               unwind=c(handler_edge, headlabel="\u293c", fontsize=20),
                evl=c(style="solid"),
                c())
       })

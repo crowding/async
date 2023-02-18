@@ -39,7 +39,7 @@ wait_for_it <- function(timeout = 30) {
       stop("Waited too long")
     }
     later::run_now()
-    Sys.sleep(0.01)
+    Sys.sleep(0.000000000001)
   }
 }
 
@@ -177,44 +177,41 @@ strrev <- function(x)
          \(x) paste0(rev(x), collapse=""),
          "")
 
-#' @import testthat
-expect_emits <- function(channel, expected, trigger=NULL, test=expect_equal) {
-  nonce <- function() NULL
-  val <- nonce
-  nextThen(channel, onNext=function(value) val <<- value,
-           onError=function(err) stop(err),
-           onClose=function() stop("Unexpected channel closing"))
+channel_result <- function(channel, trigger) {
+  response <- NULL
+  value <- NULL
+  finished <- FALSE
+  nextThen(channel,
+           onNext = function(value) {
+             response <<- "next"; value <<- value},
+           onError = function(value) {
+             response <<- "error"; value <<- value},
+           onClose = function()
+             response <<- "close")
   force(trigger)
   wait_for_it()
-  if (identical(val, nonce)) stop("Channel did not emit a value")
-  test(val, expected)
+  list(response, value)
+}
+
+#' @import testthat
+expect_emits <- function(channel, expected, trigger=NULL, test=expect_equal) {
+  result <- channel_result(channel, trigger)
+  expect_equal(result[[1]], "next")
+  test(result[[2]], expected)
 }
 
 #' @import testthat
 expect_channel_rejects <-
   function(channel, expected, trigger=NULL, test=expect_match) {
-  nonce <- function() NULL
-  val <- nonce
-  nextThen(channel,
-           onNext = function(value) stop("Expected channel error, got value"),
-           onError = function(value) val <<- value,
-           onClose = function() stop("Unexpected finish"))
-  force(trigger)
-  wait_for_it()
-  if (identical(val, nonce)) stop("Channel did not reject")
-  test(conditionMessage(val), expected)
+  result <- channel_result(channel, trigger)
+  expect_equal(result[[1]], "error")
+  test(conditionMessage(result[[2]]), expected)
 }
 
 #' @import testthat
 expect_channel_closes <- function(channel, trigger=NULL) {
-  finished <- FALSE
-  nextThen(channel,
-           onNext = function(value) stop("Expected channel finish, got value"),
-           onError = function(value) stop(value),
-           onClose = function() finished <<- TRUE)
-  force(trigger)
-  wait_for_it()
-  expect_true(finished)
+  result <- channel_result(channel, trigger)
+  expect_equal(result[[1]], "close")
 }
 
 traceBinding <- function(name, value,
@@ -238,3 +235,15 @@ traceBinding <- function(name, value,
 on_cran <- function() !identical(Sys.getenv("NOT_CRAN"), "true")
 
 on_ci <- function() { isTRUE(as.logical(Sys.getenv("CI"))) }
+
+setCompileLevelFromFn <- function(fn) {
+  level <- stringr::str_match(getSrcFilename(fn),
+                              "level([-+0-9]+)")[,-1]
+  if (!nullish(level) && !is.na(level)) {
+    options(async.compileLevel = as.numeric(level),
+            async.paranoid=TRUE)
+  } else {
+    options(async.compileLevel = 0,
+            async.paranoid=FALSE)
+  }
+}

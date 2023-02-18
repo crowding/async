@@ -27,3 +27,5 @@ test_that("Compiler level -1 does munging", {
   expect_equal(value, 101)
 
 })
+
+options(async.compileLevel=0, async.verbose=FALSE, async.paranoid=FALSE)

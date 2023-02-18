@@ -1,3 +1,8 @@
+fn <- function() {
+  x
+}
+setCompileLevelFromFn(fn)
+
 test_that("Switch numeric", {
 
   f <- function(x) {
@@ -221,3 +226,5 @@ test_that( "goto from try/catch/finally unwinds the right amount", {
   nextOr(g, NULL) %is% NULL
 
 })
+
+options(async.compileLevel = 0)
