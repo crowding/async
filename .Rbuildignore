@@ -1,3 +1,4 @@
+^README.html
 ^scratch$
 ^doc$
 ^Meta$
@@ -6,3 +7,4 @@
 ^_pkgdown\.yml$
 ^docs$
 ^pkgdown$
+^tests/testthat/graphs

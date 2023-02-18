@@ -23,15 +23,19 @@
 #'
 #' Theare are some global package [options]:
 #'
-#' `async.verbose`: if TRUE, coroutines will print an extremely chatty
-#'   play-by-play of what they are doing.
-#' `async.compileLevel`: Default compile level for new generators. See
-#'   [gen].
-#' `async.paranoid`: if TRUE, perform various time-consuming integrity
-#'   checks on the results of compilation. Meant to be enabled during
+#' `async.verbose`: (default FALSE) if TRUE, coroutines will print an extremely
+#'   chatty play-by-play of what they are doing.
+#' `async.compileLevel`: (0) Default compile level for new coroutines. See
+#'   description of levels under [gen].
+#' `async.paranoid`: (FALSE) If true, perform various time-consuming integrity
+#'   checks on the results of compilation. Meant to be enabled during certain
 #'   package tests.
-#' `async.destructive`: If TRUE (default), tear down interpreted coroutines
+#' `async.destructive`: (TRUE) If true, tear down interpreted coroutines
 #'   while building compiled replacements.
+#' `async.sendLater`: (TRUE) If true, channels will send messages to listeners
+#'   in the event loop. If false, messages are sent immediately, which may be
+#'   faster but may have a higher risk of stack overflow, as well as expose
+#'   different sorts of bugs in your code.
 #'
 #' @import utils
 #' @author Peter Meilstrup
@@ -41,11 +45,11 @@
 "_PACKAGE"
 
 .onLoad <- function(lib, pkg) {
-  options(async.compileLevel=0,
-          async.paranoid=FALSE,
-          async.verbose=FALSE,
-          async.destructive=TRUE,
-          async.sendLater=TRUE)
+  options(async.compileLevel=getOption("async.compileLevel") %||% 0,
+          async.paranoid=getOption("async.paranoid") %||% FALSE,
+          async.verbose=getOption("async.verbose") %||% FALSE,
+          async.destructive=getOption("async.verbose") %||% TRUE,
+          async.sendLater=getOption("async.verbose") %||% TRUE)
 }
 
 trace_ <- function(x) if(getOption("async.verbose")) cat(x)

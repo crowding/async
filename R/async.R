@@ -111,22 +111,40 @@ async <- function(expr, ..., split_pipes=TRUE, trace=trace_,
 #'
 #' @param prom A promise, or something that can be converted to such
 #'   by [promises::as.promise()].
-#' @return In the context of an `async`, `await(x)` returns the
-#'   resolved value of a promise `x`, or stops with an error.
-await <- function(prom) {
+#' @param error This argument will be forced if the promise rejects.  If
+#'   it is a function, it will be called with the error condition.
+#' @return In the context of an `async` or `stream`, `await(x)` returns
+#'   the resolved value of a promise `x`, or stops with an error.
+await <- function(prom, error) {
   stop("Await called outside of async")
 }
 
-await_cps <- function(.contextName, prom) { force(prom)
+await_cps <- function(.contextName, prom, error) {
+  list(prom, maybe(error))
   function(cont, ..., pause, await, stp, trace) {
+    list(cont, pause, maybe(await), stp, trace)
     if (missing(await)) stop("await used, but this is not an async")
-    list(cont, await, pause, stp, trace)
     promis <- NULL
-    success <- NULL
+    success <- NA
     value <- NULL
+
+    node(gotErrorFn <- function(val) {
+      success <<- NA
+      if (is.function(val)) {
+        val <- val(value)
+      }
+      cont(val)
+    })
+    if (is_missing(error)
+        || is_R(error) && identical(R_expr(error), missing_value())) {
+      node(error <- function() stp(value))
+    } else {
+      error <- error(gotErrorFn, ...,
+                 await=await, pause=pause, stp=stp, trace=trace)
+    }
     node(then <- function() {
       trace("await: resolve\n")
-      if(success) cont(value) else stp(value)
+      if(success) cont(value) else error()
     })
     node(await_ <- function(val) {
       val <- promises::as.promise(val)
@@ -136,7 +154,7 @@ await_cps <- function(.contextName, prom) { force(prom)
       await(then,
             promis,
             function(val) {success <<- TRUE; promis <<- NULL; value <<- val},
-            function(err) {success <<- FALSE; promis <<- NULL; value <<- err})
+            function(val) {success <<- FALSE; promis <<- NULL; value <<- val})
     })
     prom(await_, ..., pause=pause, await=await, stp=stp, trace=trace)
   }

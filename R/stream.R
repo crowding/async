@@ -248,12 +248,13 @@ getStartSet.stream <- function(x,...) {
 #' @param or This argument will be evaluated and returned in the case
 #'   the channel closes. If not specified, awaiting on a closed stream
 #'   will raise an error with message "StopIteration".
-#' @param error Provide a function here to handle an error.
+#' @param err A function to be called if the channel throws an error
+#'   condition.
 #' @return In the context of an `async` or `stream`, `awaitNext(x)`
 #'   returns the resolved value of a promise `x`, or stops with an
 #'   error.
 #' @export
-awaitNext <- function(strm, or, error) {
+awaitNext <- function(strm, or, err) {
   stop("awaitNext called outside of async")
 }
 
@@ -272,7 +273,7 @@ awaitNext_cps <- function(.contextName,
     value <- NULL
     awaiting <- FALSE
 
-    node(gotError <- function(val) {
+    node(gotErrorFn <- function(val) {
       state <<- "xxx"
       if (is.function(val)) {
         val <- val(value)
@@ -281,14 +282,14 @@ awaitNext_cps <- function(.contextName,
     })
 
     if (is_missing(error)
-        || is_R(error) && missing_(R_expr(error))) {
+        || is_R(error) && identical(R_expr(error), missing_value())) {
       node(error <- function(val) stp(val))
     } else {
-      error <- error(gotError, ...,
+      error <- error(gotErrorFn, ...,
                        awaitNext=awaitNext, stp=stp, trace=trace)
     }
     if (is_missing(or)
-        || is_R(error) && missing_(R_expr(error))) {
+        || is_R(or) && identical(R_expr(or), quote(expr=))) {
       node(or <- function() stp("StopIteration"))
     } else {
       or <- or(cont, ...,
@@ -299,9 +300,9 @@ awaitNext_cps <- function(.contextName,
       trace("awaitNext: resolve\n")
       switch(state,
              "success" = {state <<- "xxx"; cont(value)},
-             "error" = {state <<- "xxx"; error(value)},
+             "error" = {state <<- "xxx"; error()},
              "closed" = {state <<- "xxx"; or()},
-             stp(paste0("awaitNext: unexpected state ", state)))
+             stp(paste0("awaitNext: unexpected state ", state))) # nocov
     })
     node(await_ <- function(val) {
       trace("awaitNext: got channel\n")
@@ -309,9 +310,12 @@ awaitNext_cps <- function(.contextName,
       value <<- NULL
       awaiting <<- TRUE
       awaitNext(then, val,
-                function(val) {state <<- "success"; value <<- val; awaiting <<- FALSE},
-                function(err) {state <<- "error"; value <<- err; awaiting <<- FALSE},
-                function() {state <<- "closed"; value <<- NULL; awaiting <<- FALSE})
+                function(val) {
+                  state <<- "success"; value <<- val; awaiting <<- FALSE},
+                function(val) {
+                  state <<- "error"; value <<- val; awaiting <<- FALSE},
+                function() {
+                  state <<- "closed"; value <<- NULL; awaiting <<- FALSE})
     })
     strm <- strm(await_, ..., await=await,
                  awaitNext=awaitNext, stp=stp, trace=trace)

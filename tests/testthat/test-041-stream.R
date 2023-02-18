@@ -194,20 +194,57 @@ test_that("async for loop handles channel error", {
 
 })
 
-test_that("async awaitNext handles channel error", {
+test_that("async awaitNext with or", {
 
-  ch <- mock_channel()
-  as <- async({
+  as <- async(function(ch) {
     on.exit(return(c("finally", l)))
     l <- 0
     repeat(l <- awaitNext(ch, break) + l)
     l
   })
+  as1 <- as(ch <- mock_channel())
   ch$emit(10)
-  expect_resolves_with(as, c("finally", "10"), ch$reject("ASDFGHJK"))
+  ch$emit(20)
+  expect_resolves_with(as1, c("finally", "30"), ch$reject("ASDFGHJK"))
 
 })
 
+test_that("async awaitNext with handler", {
+
+  as <- async(function(ch){
+    l <- 10
+    stopping <- FALSE
+    while (!stopping) {
+      l <- awaitNext(ch,
+                     or=break,
+                     error=function(err) {
+                       stopping <<- TRUE
+                       conditionMessage(err)
+                     })
+    }
+    l
+  })
+
+  as1 <- as(ch <- mock_channel())
+  ch$emit(10)
+  expect_resolves_with(as1, "ASDFGHJK", ch$reject("ASDFGHJK"))
+
+  as2 <- as(ch <- mock_channel())
+  ch$emit(10)
+  expect_resolves_with(as2, 10, ch$close())
+
+})
+
+test_that("await a closed channel just calls close()", {
+
+  ch <- mock_channel()
+  as <- async({
+    for (i in 1:10) (awaitNext(ch, next))
+    i
+  })
+  expect_resolves_with(as, 10, ch$close())
+
+})
 
 test_that("stream: can await and yield", {
 

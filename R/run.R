@@ -58,9 +58,10 @@ run <- function(expr, type=list(), ..., split_pipes=FALSE, trace=trace_,
     return(value(defn))
   }
   .contextName <- "run"
-  nseval:::set_arg(expr, cps_translate(expr_,
-                                       endpoints=gen_endpoints,
-                                       split_pipes=split_pipes))
+  set_arg_(quo(expr, environment()),
+           cps_translate(expr_,
+                         endpoints=gen_endpoints,
+                         split_pipes=split_pipes))
   state <- "running"
   result <- NULL
   collecting <- FALSE

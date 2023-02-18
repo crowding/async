@@ -4,7 +4,7 @@
 \alias{awaitNext}
 \title{Wait for the next value from a channel or stream.}
 \usage{
-awaitNext(strm, or, error)
+awaitNext(strm, or, err)
 }
 \arguments{
 \item{strm}{A \link{channel} or \link{stream} object.}
@@ -13,7 +13,8 @@ awaitNext(strm, or, error)
 the channel closes. If not specified, awaiting on a closed stream
 will raise an error with message "StopIteration".}
 
-\item{error}{Provide a function here to handle an error.}
+\item{err}{A function to be called if the channel throws an error
+condition.}
 }
 \value{
 In the context of an \code{async} or \code{stream}, \code{awaitNext(x)}

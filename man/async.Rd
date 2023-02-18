@@ -16,7 +16,7 @@ async(
   compileLevel = getOption("async.compileLevel")
 )
 
-await(prom)
+await(prom, error)
 }
 \arguments{
 \item{prefix}{A function to print debugging messages. \code{trace=cat}
@@ -40,14 +40,17 @@ like \code{trace=browser} for "single stepping" through an async.}
 
 \item{prom}{A promise, or something that can be converted to such
 by \code{\link[promises:is.promise]{promises::as.promise()}}.}
+
+\item{error}{This argument will be forced if the promise rejects.  If
+it is a function, it will be called with the error condition.}
 }
 \value{
 \code{async()} returns an object with class "promise," as
 defined by the \link{promises} package (i.e., rather than the kind of
 promise used in R's lazy evaluation.)
 
-In the context of an \code{async}, \code{await(x)} returns the
-resolved value of a promise \code{x}, or stops with an error.
+In the context of an \code{async} or \code{stream}, \code{await(x)} returns
+the resolved value of a promise \code{x}, or stops with an error.
 }
 \description{
 \code{async({...})}, with an expression written in its argument, allows

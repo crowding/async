@@ -337,4 +337,33 @@ test_that("async function", {
 
 })
 
+test_that("await with handler", {
+
+  pr <- mock_promise()
+  as <- async({
+    await(pr,
+          error=function(err) {
+            conditionMessage(err)
+          })
+  })
+  expect_resolves_with(as, "ASDFGHJK", pr$reject("ASDFGHJK"))
+
+  pr <- mock_promise()
+  as <- async({
+    await(pr, 12)
+  })
+  expect_resolves_with(as, 12, pr$reject("ASDFGHJK"))
+
+  pr <- mock_promise()
+  as <- async({
+    repeat {
+      p <- await(pr, break)
+      return(p)
+    }
+    "broke"
+  })
+  expect_resolves_with(as, "broke", pr$reject("ASDFGHJK"))
+
+})
+
 options(async.compileLevel=0)

@@ -157,7 +157,7 @@ make_store <- function(sym) { force(sym)
   function(.contextName, x, value) { list(.contextName, x, value)
     function(cont, ..., evl, trace=trace_) { list(cont, trace)
 
-      #quote the LHS at constuction time
+      #quote the LHS at construction time
       lhs <- x(cont, ..., evl=evl, trace=trace)
       if (!is_R(lhs)) {
         stop("Unexpected pause on LHS of <- or <<-")
