@@ -227,6 +227,23 @@ test_that("run-function", {
 
 })
 
+test_that("for loop var check", {
+  expect_error( run(repeat `for`(44444, 1:100, yield(i))), "name" )
+  expect_error( run(repeat `for`(break, 1:100, yield(i))), "stuff" )
+})
+
+test_that("stream stop", {
+
+  expect_error(
+    run(tryCatch({
+      yield(1)
+      yield(5+"monkey")
+    },
+    finally=yield(5))),
+    "non-numeric")
+
+})
+
 test_that("generator works wnen async package not attached", {
 
   if ("package:async" %in% search()) {

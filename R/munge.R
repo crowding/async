@@ -224,4 +224,3 @@ move_value.default <- function(graph, contextName, varName, dest.env, newName,
   dest.env[[newName]] <- value
 }
 
-dedupe <- function(x) x[!duplicated(x)] # keeps labels

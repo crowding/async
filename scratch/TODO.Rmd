@@ -24,61 +24,6 @@ make a custom node style for handlers, or maybe an out-and-back edge?
 An edge to a node in the middle of a trampoline edge might work too.
 Hey maybe rewrite graphAsync() in collector style?
 
-## Where does on.exit get its yield callback?
-
-Should it have one? I don't see why not. but the yield callback for a generator comes form gen_cps which is "under" pump. Which means that if pump constructs the on.exit handlers they can't see the yield.
-
-Is there a reason I structured it this way? because we have to yield the value AND pause the generator. but I can pass the pointer to "pause" to a yield callback. That's a another damn double callback like windup though.
-
-Why doesn't async run into this problem?
-
-Okay, the most reasonable course of action is to pass our yield callback into pump and stop wrapping. We still have to
-
-One side effect of this is now we are seeing "pump" as a utility call in nextOr?
- 
- on.exit is leaking scope! I wind up back in doExits. Which call is leaking? Oh duh of course the `exit_fns` list is leaking. Well now on/exit works in compiled, but `expect_properly_munged` fails because graph walk is picking up a "gen_f_pump" for some reason.
- 
- See, even if it's called as a utility function the ref should translate, no?
- 
-## trans_ needs to translate function defaults?
-
-Or I need to just not write them.
-
-So why is the call to pump() not being translated to the right function _pump_?
-That's in _trans_, right?
-
-## on.exit weirdness.
-
- i need to draw some diagrams to figure out what's up with this. 
- 
- * Generator/runner
-  * normal.exit
-  * normal exit overridden
-  * stop
-  * stop overridden
- 
- * Async
-   * normal exit
-   * normal exit overridden
-   * stop
-   * stop overridden
-
-## refactoring.
-
-Okay, I'm failing to munge `when paranoid=TRUE` but _not_ when `paranoid=FALSE` because when walking the second generator it thinks the local name of a node is "pump_v_current_winding". Why? for some reason. But why does `paranoid=TRUE` make this happen?
-
-So what is the difference between 
-
-> graphc$nodeProperties[["base_winding"]]$localName
-[1] "pump_v_current_winding"
-
-so it's in walk(gc) it's coming up with this.
-
-`cnodes$base_winding`
-
-Okay this is strange because it's `paranoid=TRUE` that's causing this to happen? and paranoid _ONLY_ does the second graph walk and munge. And that's not failing?
-
-This is like a weird heisenbug, It crops up if i have paranoid=TRUE checks, but they shouldn't modify anything. Thinking maybe the order in which a hash table is traversed???? I added a `sort` around all my for loops that go over `names()` of an env. That appears to have stopped it for now??? 
 
 ## static check for forcing all args
 

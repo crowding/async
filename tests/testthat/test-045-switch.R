@@ -227,4 +227,12 @@ test_that( "goto from try/catch/finally unwinds the right amount", {
 
 })
 
+test_that("goto from finally", {
+  run({
+    switch("foo",
+           foo=tryCatch("foo", finally=goto("bar")),
+           bar="bar!")
+  }) %is% "bar!"
+})
+
 options(async.compileLevel = 0)

@@ -378,5 +378,19 @@ test_that("stream function", {
 
 })
 
+test_that("stream stop", {
+
+  s <- stream(tryCatch({
+    yield(1)
+    yield(5+"monkey")
+  },
+  finally=yield(5)))
+
+  expect_emits(s, 1, NULL)
+  expect_emits(s, 5, NULL)
+  expect_channel_rejects(s, "non-numeric")
+
+})
+
 options(async.sendLater = TRUE)
 options(async.compileLevel = 0)

@@ -265,9 +265,6 @@ make_pump <- function(expr, ...,
         trace(paste0("pump: caught error: ",
                      conditionMessage(err), "\n"))
         current_winding <<- function(cont)base_winding(cont)
-        if (after_exit == "stop") {
-          warning("discarding previous error: ", value)
-        }
         action <<- "rewind"
         after_exit <<- "stop"
         value <<- err
@@ -289,7 +286,7 @@ make_pump <- function(expr, ...,
           current_winding <<- function(cont) base_winding(cont)
           action <<- "rewind"
           after_exit <<- "xxx"
-          cont() # run the pump here, once
+          base_winding(cont) # run the pump here, once
           trace(paste0("pump: after exit handlers, action is ", action, "\n"))
           switch(action,
                  "return" = {
@@ -301,6 +298,7 @@ make_pump <- function(expr, ...,
                    return(value)
                  },
                  "pause"= {
+                   # unreachable bc only asyncs use pause(), and those use tryCatch
                    warning("pause in on-exit handler suppresses error")
                    return(NULL)
                  },
@@ -308,12 +306,12 @@ make_pump <- function(expr, ...,
                    ## this can't be a call to afterExit b/c I need the "return"
                    after_exit,
                    "return" = {action <<- "return"; return(rtn(value))},
-                   "stop" = {action <<- "stop"; stp(value)},
-                   "rethrow" = {action <<- "stop";
+                   "stop" = {browser(); action <<- "stop"; stp(value)},
+                   "rethrow" = {browser(); action <<- "stop";
                      stp("abnormal exit; previous error suppressed?")
                    },
                    "xxx" = NULL, #let an error bubble out?
-                   stp(paste0("Unexpected after-exit action: ", after_exit))
+                   stp(paste0("Unexpected after-exit action: ", after_exit)) # nocov
                    )
                  )
         }
@@ -349,7 +347,7 @@ make_pump <- function(expr, ...,
            rewind=,
            pause={action <<- "xxx"; pumpCont()},
            pause_val={action <<- "xxx"; pumpCont(value)},
-           stop("pump asked to continue, but last action was ", action))
+           stop("pump asked to continue, but last action was ", action)) # nocov
     repeat switch(action,
              continue={
                trace("pump: continue\n")

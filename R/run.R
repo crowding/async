@@ -78,8 +78,8 @@ run <- function(expr, type=list(), ..., split_pipes=FALSE, trace=trace_,
                     running={ state <<- "active"; pump() },
                     stopped=stop(result),
                     finished=return(result),
-                    active=,
-                    stop(paste0("Run finished unexpectedly: ", state)))
+                    active={}, #error bubbles out
+                    stop(paste0("Run finished unexpectedly: ", state))) #nocov
 
   if (collecting) {
     collect(type=type, function(yield) {

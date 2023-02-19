@@ -29,14 +29,6 @@ test_that("yield inside of try", {
     yield(8)
   })
 
-(function() `{_cps`(".{", try_cps(".{1.try", `{_cps`(".{1.try1.{",
-    yield_cps(".{1.try1.{1.yield", async:::R(".{1.try1.{1.yield.R",
-        5)), async:::R(".{1.try1.{2.R", stop("foo")), yield_cps(".{1.try1.{3.yield",
-        async:::R(".{1.try1.{3.yield.R", 6))), silent = async:::R(".{1.try2.R",
-    TRUE)), yield_cps(".{2.yield", async:::R(".{2.yield.R", 7)),
-    async:::R(".{3.R", stop("bar")), yield_cps(".{4.yield", async:::R(".{4.yield.R",
-        8))))()
-
   expect_equal(nextOr(g, NULL), 5)
   expect_equal(nextOr(g, NULL), 7)
   expect_error(nextOr(g, NULL), "bar")
@@ -57,6 +49,7 @@ test_that("yield inside of try", {
   expect_equal(nextOr(g, NULL), 7)
   expect_error(nextOr(g, NULL), "bar")
   expect_equal(nextOr(g, NULL), NULL)
+
 })
 
 test_that("nested tries", {

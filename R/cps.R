@@ -591,7 +591,7 @@ for_cps <- function(.contextName, var, seq, expr) {
              "success"={state <<- "xxx"; sto(body, var_, value)},
              "error"={state <<- "xxx"; stp(value)},
              "closed"={state <<- "xxx"; cont(invisible(NULL))},
-             stp(simpleError(paste0("awaitNext: unexpected state ", state))))
+             stp(simpleError(paste0("awaitNext: unexpected state ", state)))) # nocov
     })
     node(await_ <- function() {
       trace(paste0("for ", var_, ": awaiting\n"))

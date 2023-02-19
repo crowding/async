@@ -10,17 +10,8 @@ by_name <- function(vec) {
 
 unname <- function(x) `names<-`(x, NULL)
 
-by_class <- function(vec) {
-  out <- list()
-  for (class in sort(unique(names(vec)))) {
-    out[[class]] <- unname(vec[names(vec) == class])
-  }
-  out
-}
-
 contains <- function(env, candidate, cmp=identical) {
-  # FIXME: this should be a hashset or something?
-  # maybe make something like memo::pointer_key(identity, list)("two")
+  # this is only called if there's a bug in the package.
   for (key in sort(names(env))) {
     if (key == "...") next
     if (is_forced_(key, env))
@@ -28,14 +19,6 @@ contains <- function(env, candidate, cmp=identical) {
         return(key)
   }
   return(NA_character_)
-}
-
-# and I need an incremental make.unique?
-make.unique.wrt <- function(x, existing) {
-  u <- make.unique(c(existing, x))
-  if (length(existing) > 0)
-    u <- u[-seq_len(length(existing))]
-  u
 }
 
 paste.dropping.empty <- function(..., sep=".", collapse=NULL, recycle0=FALSE) {
@@ -165,9 +148,8 @@ walk <- function(gen, forGraph=FALSE) {
       keep <- !(duplicated(tails2))
       tailcalls <- tailcalls[keep]
       tails2 <- tails2[keep]
-      if (   !setequal(tails, tails2)
-          || any(names(sort(tails)) != names(sort(tails2))))
-        stop("Hey take a look at this")
+      assert(setequal(tails, tails2)
+             && all(names(sort(tails)) == names(sort(tails2))))
       tails <- tails2
     } else {
       tailcalls <- tails
@@ -240,9 +222,6 @@ walk <- function(gen, forGraph=FALSE) {
           if (identical(context[[nm]], thisNode)) {
             trace_(sprintf("    Exit: %s -> %s\n", nm, thisNodeName))
             nodeProperties[[thisNodeName]][["localName"]] <- nm
-            if(nm == "R_") {
-              nodeProperties[[thisNodeName]][["Rexpr"]] <- expr(get("x", context))
-            }
             break
           }
         }
@@ -266,7 +245,7 @@ find_local_name <- function(fun) {
   if (is.null(name <- attr(fun, "localName"))) {
     name <- contains(environment(fun), fun)
     warning(paste0(get0(".contextName", environment(fun), ifnotfound="???"),
-                   "__", name, " did not have a localName attribute"))
+                   "__", name, " did not have a localName attribute")) # nocov
   } else {
     if (!identical(fun, get0(name, envir=environment(fun), ifnotfound="???"))) {
       stop(paste0(paste0(

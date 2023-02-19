@@ -199,7 +199,7 @@ make_generator <- function(expr, orig=arg(expr), ..., trace=trace_,
     err <<- val
     state <<- "stopped"
     stop(val)
-    NULL #so the above does not look like a tailcall
+    NULL # nocov (so the above does not look like a tailcall)
   })
 
   node(yield_ <- function(cont, val) {

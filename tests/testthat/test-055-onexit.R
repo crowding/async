@@ -16,9 +16,9 @@ test_that("on.exit", {
   closed <- FALSE
   expect_error(
     run({
-    on.exit(close())
-    expect_false(closed)
-    stop("stopping")
+      on.exit(close())
+      expect_false(closed)
+      stop("stopping")
     }, debugInternal=FALSE)
   , "ping")
   expect_true(closed)
@@ -145,6 +145,125 @@ test_that("extremely bananas: simultaneously errors and returns", {
   # this kinda wrecks my mental model of R error handling tbh.
   # the fact that it _also_ works in a generator is bananas.
   expect_error(nextOr(g, NULL), "swallow")
+
+})
+
+test_that("on.exit error from tryCatch", {
+
+  x <- NULL
+  y <- NULL
+  r <- run(function(){
+    on.exit(x <<- "exited")
+    tryCatch({stop("stoppp!"); 5}, finally={y <<- "finally"})
+  })
+  expect_error(r(), "stoppp")
+  x %is% "exited"
+  y %is% "finally"
+
+  x <- NULL
+  y <- NULL
+  run({
+    on.exit(x <- "exited")
+    tryCatch({return("return"); 5}, finally={y <- "finally"})
+  }) %is% "return"
+  x %is% "exited"
+  y %is% "finally"
+
+})
+
+test_that("on.exit before or after", {
+
+  x <- 5
+  run({
+    on.exit(x <- x * 2)
+    on.exit(x <- x + 3)
+    TRUE
+  })
+  x %is% 8
+
+  x <- 5
+  run({
+    on.exit(x <- x * 2)
+    on.exit(x <- x + 3, add=TRUE)
+    TRUE
+  })
+  x %is% 13
+
+  x <- 5
+  run({
+    on.exit(x <- x * 2)
+    on.exit(x <- x + 3, add=TRUE, after=FALSE)
+    TRUE
+  })
+  x %is% 16
+
+})
+
+my_expect_error <- function(code, pattern) {
+  # because the next test has code that throws multiple errors
+  # which expect_that doesn't handle?
+  tryCatch({
+    code
+    stop("did not stop")
+  }, error=function(err) {
+    if (!stringr::str_detect(conditionMessage(err), pattern)) {
+      stop(err)
+    }
+  })
+}
+
+test_that("error in first on.exit does not prevent second", {
+
+  one <- FALSE; two <- FALSE
+  f <- function()({
+    on.exit({one <<- TRUE; 1[[2]]})
+    on.exit({two <<- TRUE; 4$foo}, add=TRUE)
+    5+"duck"
+  })
+  my_expect_error(f(), "atomic")
+
+  one <- FALSE; two <- FALSE
+  f <- run(function() {
+    on.exit({one <<- TRUE; 1[[2]]})
+    on.exit({two <<- TRUE; 4$foo}, add=TRUE)
+    5+"duck"
+  })
+  my_expect_error(f(), "atomic")
+  expect_true(one && two)
+
+  one <- FALSE; two <- FALSE
+  mp <- mock_promise()
+  as <- async({
+    await(mp)
+    on.exit({one <<- TRUE; 1[[2]]})
+    on.exit({two <<- TRUE; 4$foo}, add=TRUE)
+    5+"duck"
+  })
+  expect_rejects_with(as, "atomic", mp$resolve(TRUE))
+  expect_true(one && two)
+
+})
+
+test_that("async re-error discards previous error", {
+  expect_rejects_with(
+    async({
+      on.exit(stop("override"))
+      stop("discarded")
+    }),
+    "override")
+})
+
+test_that("pause in on.exit handler", {
+
+  g <- gen({
+    on.exit(yield(5))
+    yieldFrom(1:4)
+    stop("wow")
+  })
+  for (i in 1:4) nextOr(g)
+  expect_error(x <- nextOr(g, NULL), "wow")
+  x %is% 5
+  expect_error(x <- nextOr(g, NULL), "swallowed")
 
 })
 
