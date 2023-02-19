@@ -1,1 +1,1 @@
-doc/README.html
+vignettes/README.md

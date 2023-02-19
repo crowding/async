@@ -7,4 +7,6 @@
 ^_pkgdown\.yml$
 ^docs$
 ^pkgdown$
+^vignettes/README.md$
+^ctz.svg$
 ^tests/testthat/graphs
