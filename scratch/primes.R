@@ -3,8 +3,61 @@
 # Here is an example of what might be a horrid performance case:
 # a generator that yields prime numbers, via trial division. Written
 # obnoxiously with the "yield" inside a double loop.
-setCompilerOptions(optimize=3)
-enableJIT(3)
+compiler::setCompilerOptions(optimize=3)
+compiler::enableJIT(3)
+
+coro_primes <- function(n) {
+  coroprimes <- coro::gen({
+    yield(2)
+    yield(3)
+    i <- 3
+    repeat {
+      i <- i + 2
+      j <- 3
+      repeat {
+        if ( i %% j == 0 ) {
+          break
+        }
+        if (j >= sqrt(i)) {
+          yield(i)
+          break
+        }
+        j <- j + 2
+      }
+    }
+  })
+  collect_co(coroprimes, n)
+}
+
+coro_generator <- coro::generator({
+    yield(2)
+    yield(3)
+    i <- 3
+    repeat {
+      i <- i + 2
+      j <- 3
+      repeat {
+        if ( i %% j == 0 ) {
+          break
+        }
+        if (j >= sqrt(i)) {
+          yield(i)
+          break
+        }
+        j <- j + 2
+      }
+    }
+  })
+  collect_co(coroprimes, n)
+}
+
+collect_co <- function(coro, n) {
+  out <- numeric(n)
+  for (i in 1:n) {
+    out[i] <- coro()
+  }
+  out
+}
 
 gen_primes <- function(n) {
   genprimes <- gen({
@@ -84,7 +137,7 @@ iter_primes <- function(n) {
 
 # same state machine running in sequential code rather than iterator
 list_primes_enclos <- function(n) {
-  out <- numeric(100)
+  out <- numeric(n)
   state <- "two"
   i <- NULL
   j <- NULL
@@ -173,7 +226,7 @@ list_primes_slot <- function(n) {
   private$out
 }
 
-getNext <- compile(quote({
+getNext <- compiler::compile(quote({
   yielding <- NULL
   while(is.null(yielding)) {
     switch(state,
@@ -206,6 +259,7 @@ getNext <- compile(quote({
   }
   yielding
 }))
+
 # keep state and locals in same env and eval state loop in that env
 list_primes_eval <- function(n) {
   e <-(function(out=numeric(n), i.out=1, state="two", i=NULL, j=NULL,
@@ -306,7 +360,7 @@ list_primes_numeric_singlenv <- function(n) {
 
 e <- (function(state=2, i=NULL, j=NULL,
                yielding=NULL) environment())()
-getNext_numeric <- compile(env=e, quote({
+getNext_numeric <- compiler::compile(env=e, quote({
   yielding <- NULL
   while(is.null(yielding)) {
     switch(state,
@@ -387,13 +441,13 @@ iter_primes_eval_numeric <- function(n) {
 nextElem.primeiter <- function(x) tryCatch(x(), error=stop("StopIteration"))
 simple_iter_primes_eval_numeric <- function(n) {
   e <- (function(state=2, i=NULL, j=NULL, yielding=NULL) environment())()
-  iterprimes <- structure(function() tryCatch(eval(getNext_numeric, e), class="primeiter"), error=
+  iterprimes <- structure(function() tryCatch(eval(getNext_numeric, e), class="primeiter"), error=   ???)
   collect(iterprimes, n)
 }
 
 
 e <- (function(i=1) environment())()
-count <- compile(env=e, quote(i <- i + 1))
+count <- compiler::compile(env=e, quote(i <- i + 1))
 iter_dummy <-function(n) {
   i <- 0
   it <- iter(function() i)
@@ -433,7 +487,7 @@ r_primes <- function(n.out) {
 library(microbenchmark)
 library(dplyr)
 
-marks <- microbenchmark(
+iter_marks <- microbenchmark(
   r_primes(200),
   list_primes_enclos(200),
   list_primes_slot(200),
@@ -453,6 +507,19 @@ marks <- microbenchmark(
   simple_iter_primes_eval_numeric(200)
 ##  gen_primes(200)
 )
+
+marks <- microbenchmark( times=10,
+  list_primes_eval_numeric_fn(1000),
+  coro_primes(1000),
+  gen_primes(1000)
+)
+
+marks <- microbenchmark( times=100,
+  list_primes_eval_numeric_fn(1),
+  coro_primes(1),
+  gen_primes(1)
+)
+
 
 ## Ah, so starting to see a lot of cost from nextElem.funiter
 ## (as opposed to iterators::icount)

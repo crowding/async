@@ -1,20 +1,21 @@
 # Keywords which must always be CPS
 
-# (or do we want to do something more focused in the parsing stage where
-# we start with "yield" but on reaching a "while" we add "next" to the
-# watchlist?
-base_endpoints <- c("break", "next", "return")
-async_endpoints <- c(base_endpoints, "await")
-gen_endpoints <- c(base_endpoints, "yield")
+base_endpoints <- c("break", "next", "return", "for", "switch",
+                    "goto", "on.exit")
+async_endpoints <- c(base_endpoints, "await", "awaitNext")
+gen_endpoints <- c(base_endpoints, "yield", "yieldFrom")
+stream_endpoints <- c(base_endpoints, "yield", "yieldFrom", "await",
+                      "awaitNext")
 
 # function names which block further translation of
 # their arguments
-base_blocks <- c("gen", "function", "async", "quote", "quo", "~", "alist",
-                 "future", "future_promise")
+base_blocks <- c("gen", "function", "async", "stream", "run", "quote",
+                 "quo", "quot", "~", "alist", "future",
+                 "future_promise")
 
-# Translating an argument into CPS
+# Translate R syntax tree into tree of constructor calls
 cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks,
-                          local=TRUE, split_pipes=FALSE) {
+                          split_pipes=FALSE, path="") {
   # The continuation constructors will be arranged in the same syntax
   # tree as the source expression, just about. The trick here is to redirect
   # the `for`, `while`, `if` onto their CPS counterparts.
@@ -51,27 +52,31 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks,
   # arguments are given to promote_arg() to wrap them, and the head of
   # the call is changed to a CPS equivalent.
 
-  trans <- function(expr) {
+  trans <- function(expr, path) {
     # returns a list(expr=, cps=boolean())
     switch(mode(expr),
            `(`=,
-           call=trans_call(expr),
+           call=trans_call(expr, path),
            list(expr=expr, cps=FALSE)
            )
   }
 
-  trans_call <- function(expr) {
+  trans_call <- function(expr, path) {
     if (blocked(expr[[1]])) {
       return(list(expr=expr, cps=FALSE))
     }
-    t_rest <- lapply(expr[-1], trans)
-    t_head <- trans_head(expr[[1]])
+
+    t_head <- trans_head(expr[[1]], path)
+    t_rest <- mapply(trans, expr[-1],
+                     paste0(recycle0=TRUE,
+                            path, ".", t_head$name %||% "",
+                            if(length(expr) != 2) seq_len(length(expr)-1) else ""),
+                     SIMPLIFY=FALSE)
     t_rest_cps <- as.logical(lapply(t_rest, function(x) x$cps))
     any_cps <- any(t_head$cps, t_rest_cps)
     if (any_cps) {
-      promoted <- c(list(try_promote_head(t_head)),
-                    lapply(t_rest, promote_arg))
-      if (! promoted[[1]]$cps) {
+      promoted_head <- try_promote_head(t_head)
+      if (! promoted_head$cps) {
         # we have an ordinary R function, but some argument wants to be pausable
         # Can we split?
         can_split_pipe <-
@@ -89,19 +94,25 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks,
             } else {
               # split out arg 1
               preamble <- as.call(list(qualify("<-_cps"),
+                                       paste0(path, ".{1.<-"),
                                        as.call(list(arg_wrapper,
+                                                    paste0(path, ".{1.<-.R"),
                                                     quote(..async.tmp))),
                                        t_rest[[1]]$expr))
               t_rest[[1]]$expr <- quote(..async.tmp)
               t_rest[[1]]$cps <- FALSE
             }
-            new_call <- as.call(lapply(c(list(t_head), t_rest),
-                                       function(x)x$expr))
+            new_call <- as.call(c(t_head$expr,
+                                  lapply(t_rest,
+                                         function(x)x$expr)))
             list(expr=as.call(list(qualify("{_cps"),
+                                   paste0(path, ".{"),
                                    preamble,
                                    as.call(list(arg_wrapper,
+                                                paste0(path, ".{2.R"),
                                                 new_call)))),
                  cps=TRUE,
+                 name=t_head$name,
                  preamble=preamble,
                  alt=list(expr=new_call, cps=FALSE))
           } else {
@@ -115,18 +126,27 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks,
                "`, which is not pausable.")
         }
       } else {
+        promoted <- c(list(promoted_head),
+                      mapply(promote_arg, SIMPLIFY=FALSE,
+                             t_rest,
+                             paste0(recycle0=TRUE,
+                                    path, ".", t_head$name %||% "",
+                                    if(length(t_rest) != 1)
+                                      seq_along(t_rest) else "")))
         assert(all(as.logical(lapply(promoted, function(x) x$cps))),
                     msg=paste0("Could not make some arguments of",
                                " `", deparse(t_head$expr), "` pausable"))
-        list(expr = as.call(lapply(promoted,
-                                   function(x)x$expr)),
+        list(expr = as.call(c(list(promoted[[1]]$expr,
+                                   paste0(path, ".", t_head$name)),
+                              lapply(promoted[-1],
+                                     function(x)x$expr))),
+             name = t_head$name,
              cps = TRUE)
       }
     } else {
       # no pausables in this call so just wrap it
-      list(expr =
-             as.call(lapply(c(list(t_head), t_rest),
-                            function(x)x$expr)),
+      list(expr = as.call(lapply(c(list(t_head), t_rest),
+                                 function(x)x$expr)),
            cps = FALSE)
     }
   }
@@ -143,14 +163,14 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks,
            )
   }
 
-  trans_head <- function(expr) {
+  trans_head <- function(expr, path) {
     switch(mode(expr),
            `(` =,
            call = {
              if (is_qualified_name(expr)) {
                trans_qualified_head(expr)
              } else {
-               t_call <- trans_call(expr)
+               t_call <- trans_call(expr, paste0(path, "H"))
                if (t_call$cps)
                  stop("Pauses / breaks not allowed in head position of call: ",
                       deparse(expr))
@@ -160,7 +180,7 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks,
            name =,
            character = {
              if (as.character(expr) %in% endpoints) {
-               new_name <- try_promote_function_name(expr)
+               new_name <- try_promote_function_name(expr, path)
                assert(
                  new_name$cps,
                  msg=paste0(
@@ -168,11 +188,11 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks,
                    " is listed as an endpoint, but can't find a pausable definition"))
                new_name
              } else {
-               list(expr=expr, cps=FALSE)
+               list(expr=expr, name=as.character(expr), cps=FALSE)
              }
            },
            { #default. What did you do, call a constant?
-             list(expr=expr, cps=FALSE)
+             list(expr=expr, name="CONSTANT", cps=FALSE)
            })
   }
 
@@ -187,13 +207,13 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks,
         && as.character(name) %in% endpoints) {
       promote_qualified_head(list(expr=expr, cps=FALSE))
     } else
-      list(expr=expr, cps=FALSE)
+      list(expr=expr, name=name, cps=FALSE)
   }
 
   # promote_ functions take in a list(expr=quote(), cps=logical(1))
-  promote_arg <- function(l) {
+  promote_arg <- function(l, path) {
     if(! l$cps) {
-      list(expr = as.call(list(arg_wrapper, l$expr)), cps=TRUE)
+      list(expr = as.call(list(arg_wrapper, paste0(path, ".R"), l$expr)), cps=TRUE)
     } else {
       l
     }
@@ -224,17 +244,13 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks,
     }
   }
 
-  try_promote_function_name <- function(name) {
-    try_promote_function_name_(name, target_env)
+  try_promote_function_name <- function(name, path) {
+    try_promote_function_name_(name, target_env, path)
   }
-
-  out <- trans(expr)
+  out <- trans(expr, path)
   if (! out$cps) {
     warning("no keywords (", paste(endpoints, collapse=", "), ") used?")
-    out <- promote_arg(out)
-  }
-  if(local) {
-    out$expr <- substitute((function() x)(), list(x=out$expr))
+    out <- promote_arg(out, path)
   }
   quo_(out$expr, target_env)
 }
@@ -249,13 +265,13 @@ cps_translate <- function(q, endpoints=base_endpoints, blocks=base_blocks,
 # "deflate_promise" from your package, then implement a function
 # named `deflate_promise_cps`. The second function need not be exported,
 # find_cps_version will look in the package namespace for it.
-try_promote_function_name_ <- function(name, target_env) {
+try_promote_function_name_ <- function(name, target_env, path) {
   original_name <- as.symbol(name)
   potential_name <- as.symbol(paste0(as.character(name), "_cps"))
   where_found <- locate_(potential_name, target_env, mode="function", ifnotfound=NULL)
   if (!is.null(where_found)) {
     # A CPS function is defined in full view, excellent.
-    list(expr=potential_name, cps=TRUE)
+    list(expr=potential_name, name=original_name, cps=TRUE)
   } else {
     where_found <- locate_(original_name, target_env, mode="function", ifnotfound=NULL)
     if (is.null(where_found)) {
@@ -268,7 +284,8 @@ try_promote_function_name_ <- function(name, target_env) {
         stop("Function `", as.character(original_name), "` was not found.")
       }
     }
-    obj <- get(as.character(original_name), envir=where_found, mode="function")
+    obj <- get(as.character(original_name),
+               envir = where_found, mode = "function")
     if (   is.primitive(obj)
         || identical(where_found, baseenv())
         || identical(environment(obj), getNamespace("base"))) {
@@ -276,9 +293,12 @@ try_promote_function_name_ <- function(name, target_env) {
       if (exists(as.character(potential_name),
                  getNamespace("async"), inherits=FALSE)) {
         list(expr = call(":::", quote(async), potential_name),
+             name = as.character(original_name),
              cps = TRUE)
       } else {
-        list(expr=original_name, cps=FALSE)
+        list(expr = original_name,
+             name = as.character(original_name),
+             cps = FALSE)
       }
     } else {
       # look alongside found function
@@ -289,15 +309,19 @@ try_promote_function_name_ <- function(name, target_env) {
           list(expr = call(":::",
                            as.symbol(getNamespaceName(lookin)),
                            as.symbol(potential_name)),
+               name = as.character(original_name),
                cps = TRUE)
         } else {
           # ugh just include the literal function
           list(expr = get(as.character(potential_name), environment(obj)),
+               name = as.character(original_name),
                cps = TRUE)
         }
       } else {
         #guess it's an ordinary function
-        list(expr = original_name, cps = FALSE)
+        list(expr = original_name,
+             name = as.character(original_name),
+             cps = FALSE)
       }
     }
   }
@@ -313,7 +337,7 @@ promote_qualified_head <- function(l) {
     new_name <- as.symbol(paste0(as.character(name), "_cps"))
     loadNamespace(package)
     if (exists(as.character(new_name), .getNamespace(package))) {
-      list(expr=call(":::", package, new_name),cps=TRUE)
+      list(expr=call(":::", package, new_name), name=name, cps=TRUE)
     } else list(expr=l$expr, cps=FALSE)
   }
 }

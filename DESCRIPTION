@@ -1,7 +1,7 @@
 Package: async
-Title: Asynchronous Code Constructs: Generators, Yield, Async, Await
-Version: 0.2.2
-Date: 2022-09-07
+Title: Coroutines: Generators / Yield, Async / Await, and Streams
+Version: 0.3
+Date: 2023-01-23
 Authors@R: 
     person(given = "Peter",
            family = "Meilstrup",
@@ -17,25 +17,49 @@ Description: Write sequential-looking code that pauses and resumes.
              These work similarly to generator and async constructs
              from 'Python' or 'JavaScript'. Objects produced are
              compatible with the 'iterators' and 'promises' packages.
+             Version 0.3 supports on.exit, single-step debugging,
+             stream() for making asynchronous iterators, and
+             delimited goto() in switch() calls.
 License: GPL-2
 Encoding: UTF-8
 LazyData: true
-Depends: R (>= 3.5.0)
+Depends: R (>= 4.1)
 Imports:
-        nseval (>= 0.4),
-        iterators,
-        itertools,
+        nseval (>= 0.4.3),
         later,
-        promises
+        promises,
+        testthat (>= 3.0.0),
+        stringr
 Suggests:
     rmarkdown,
-    testthat (>= 3.0.0),
     knitr,
     magrittr,
+    iterators,
     audio,
-    profvis,
-    covr
+    profvis
+Collate:
+  'async-package.R'
+  'util.R'
+  'iteror.R'
+  'cps.R'
+  'signals.R'
+  'syntax.R'
+  'coroutine.R'
+  'pump.R'
+  'run.R'
+  'gen.R'
+  'async.R'
+  'channel.R'
+  'stream.R'
+  'collect.R'
+  'all_names.R'
+  'walk.R'
+  'all_indices.R'
+  'graph.R'
+  'trans.R'
+  'munge.R'
 Roxygen: list(markdown=TRUE)
 RoxygenNote: 7.2.1
 VignetteBuilder: knitr
 Config/testthat/edition: 3
+Config/testthat/parallel: true

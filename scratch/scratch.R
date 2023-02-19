@@ -1,4 +1,3 @@
-
 # For example, take the function
 
 ## x <- 0
@@ -20,16 +19,19 @@
 ## doWhile(function(val, continue) continue(x <= 100),
 ##         function(continue) continue(x <= 100)
 
-f <- function(...) stop("this!")
+  cleanup <- FALSE
+  result <- NULL
+  not_run <- TRUE
+  tryfin <- async({
+    tryCatch({
+      if(FALSE) await(NULL)
+      return(2)
+      not_run <<- FALSE
+    }, finally={
+      cleanup <<- TRUE
+    })
+    not_run <<- FALSE
+    5
+  }, compileLevel=-1)
 
-
-g <- function(x, ...) tryCatch(
-  x(...),
-  error = function(...) {
-    cat("Caught ", deparse(c(...)), "\n")
-    stop(...)
-  }
-)
-
-g(g, f)
 

@@ -1,5 +1,8 @@
 inst/doc
-/doc/
 /Meta/
 docs
 .Rhistory
+tests/testthat/*.dot
+tests/testthat/*.svg
+tests/testthat/*.pdf
+/doc/

@@ -217,13 +217,13 @@ state_time <- system.time(collect(state_iter, 144*13*10))
 gen_iter <- gen_add2gether(gen_claps(), gen_skip_after(gen_claps(), 144))
 gen_time <- system.time(collect(gen_iter, 144*13*10))
 ## > direct_time
-## user  system elapsed 
-## 0.001   0.000   0.001 
+## user  system elapsed
+## 0.001   0.000   0.001
 ## > gen_time
-## user  system elapsed 
-## 64.478   0.390  65.421 
+## user  system elapsed
+## 64.478   0.390  65.421
 ## > state_time
-## user  system elapsed 
+## user  system elapsed
 ## 1.291   0.073   1.370
 
 # So this give us some sort of idea the speedup possible with better
@@ -235,14 +235,14 @@ state_startup <- system.time(for(i in 1:1000) nextElem(add2gether(claps(), skip_
 gen_startup <- 10*system.time(for (i in 1:100) nextElem(gen_add2gether(gen_claps(), gen_skip_after(claps(), 144))))
 
 ## > direct_startup
-## user  system elapsed 
-## 0.546   0.007   0.556 
+## user  system elapsed
+## 0.546   0.007   0.556
 ## > state_startup
-## user  system elapsed 
-## 0.169   0.002   0.173 
+## user  system elapsed
+## 0.169   0.002   0.173
 ## > gen_startup
-## user  system elapsed 
-## 13.51    0.38   14.02 
+## user  system elapsed
+## 13.51    0.38   14.02
 
 
 # strange that the state machine is faster than running the bare function once!

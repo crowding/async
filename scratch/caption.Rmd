@@ -1,0 +1,4 @@
+The green octagonal node is where evaluation starts, while blue "stop" and red "return" are where it ends. Nodes in green type on dark background show code that runs in the host language unmodified; gray nodes implement control flow. Dark arrows carry a value; gray edges carry no value. A "semicolon" node receives a value and discards it.
+
+Some nodes share a context with other nodes, shown by an enclosing box with a lighter background. Contexts can have state variables, shown as a rectangular record; orange edges from functions to variables represent writes; blue edges represent reads.
+

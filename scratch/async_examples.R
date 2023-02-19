@@ -21,9 +21,7 @@ promise <- async({
 
 
 # support on.exit for cleaning up in generators/asyncawaits
-
 # async shoud by default do what future_promise does?
-#
 
 library(async)
 library(promises)

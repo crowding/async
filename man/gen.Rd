@@ -3,11 +3,20 @@
 \name{gen}
 \alias{gen}
 \alias{yield}
+\alias{yieldFrom}
 \title{Create an iterator using sequential code.}
 \usage{
-gen(expr, ..., split_pipes = FALSE, trace = trace_)
+gen(
+  expr,
+  ...,
+  split_pipes = FALSE,
+  trace = trace_,
+  compileLevel = getOption("async.compileLevel")
+)
 
 yield(expr)
+
+yieldFrom(it)
 }
 \arguments{
 \item{expr}{An expression, to be turned into an iterator.}
@@ -18,37 +27,84 @@ yield(expr)
 appears in chained calls. See \link{async}.}
 
 \item{trace}{Optional tracing function for debugging. See \link{async}.}
+
+\item{compileLevel}{Current levels are 0 (no compilation) or
+-1 (name munging only).}
+
+\item{it}{A list, \link{iteror} or compatible object.}
 }
 \value{
-An object with class "\link[=iterators-package]{iterator}".
+`gen({...}) returns an \link{iteror}.
+
+\code{yield(x)} returns the same value x.
+
+yieldFrom returns NULL, invisibly.
 }
 \description{
 \code{gen({...})} with an expression written in its argument, creates a
-generator, which acts like a block of code whose execution can
-pause and resume. From the "inside," a generator looks like you are
-writing sequential code with loops, branches and such, writing
-values to the outside world by calling \code{yield()}. From the "outside,"
-a generator behaves like an iterator over an indefinite collection.
+generator, an object which computes an indefinite sequence.
+
+When written inside a generator expression, \code{yield(expr)} causes the
+generator to return the given value, then pause until the next value is
+requested.
+
+When running in a generator expression, \verb{yieldFrom(it))}, given
+a list or \link{iteror} in its argument, will yield successive values from that
+iteror until it is exhausted, then continue.
 }
 \details{
-When \code{nextElem} is called on a generator, the generator executes
-its given expression until it reaches a call to \verb{yield(...).}
-\code{nextElem} returns argument to \code{yield} is returne, and the
-generator's execution state is preserved. The generator will resume
-on the next call to \code{nextElem()}.
+On the "inside", that is the point of view of code you write in
+\code{{...}}, is ordinary sequential code using conditionals, branches,
+loops and such, outputting one value after another with \code{yield()}.
+For example, this code creates a generator that computes a random
+walk:
 
-The generator expression is evaluated in a local environment.
+\if{html}{\out{<div class="sourceCode r">}}\preformatted{rwalk <- gen(\{
+  x <- 0;
+  repeat \{
+    x <- x + rnorm(1)
+    yield(x)
+  \}
+\})
+}\if{html}{\out{</div>}}
 
-Generators are not based on forking or parallel OS processes; they
-run in the same thread as their caller. The control flow in a
-generator is interleaved with that of the R code which queries it.
+On the "outside," that is, the object returned by \code{gen()}, a
+generator behaves like an iterator over an indefinite
+collection. So we can collect the first 100 values from the above
+generator and compute their mean:
+
+\if{html}{\out{<div class="sourceCode">}}\preformatted{rwalk |> itertools2::take(100) |> as.numeric() |> mean()
+}\if{html}{\out{</div>}}
+
+When \code{nextOr(rwalk, ...)} is called, the generator executes its
+"inside" expression, in a local environment, until it reaches a
+call to \verb{yield().} THe generator 'pauses', preserving its execution
+state, and \code{nextElem} then returns what was passed to \code{yield}. The
+next time \code{nextElem(rwalk)} is called, the generator resumes
+executing its inside expression starting after the \code{yield()}.
+
+If you call \code{gen} with a function expression, as in:
+
+\if{html}{\out{<div class="sourceCode">}}\preformatted{gseq <- gen(function(x) for (i in 1:x) yield(i))
+}\if{html}{\out{</div>}}
+
+then instead of returning a single generator it will return a
+\emph{generator function} (i.e. a function that constructs and returns a
+generator.) The above is morally equivalent to:
+
+\if{html}{\out{<div class="sourceCode">}}\preformatted{gseq <- function(x) \{force(x); gen(for (i in 1:x) yield(i))\}
+}\if{html}{\out{</div>}}
+
+so the generator function syntax just saves you writing the \link{force}
+call.
 
 A generator expression can use any R functions, but a call to
-\code{yield} may only appear in some positions. This package has several
-built-in \link{pausables}, equivalents to R's base control flow
-functions, such as \code{if}, \code{while}, \code{tryCatch}, \verb{<-}, \code{{}}, \code{||} and
-so on.  A call to \code{yield} may only appear in an argument of one of
-these pausable functions. So this random walk generator:
+\code{yield} may only appear in the arguments of a "pausable" function.
+The \code{async} package has several built-in pausable functions corresponding
+to base R's control flow functions, such as \code{if}, \code{while}, \code{tryCatch},
+\verb{<-}, \code{{}}, \code{||} and so on (see \link{pausables} for more details.)  A call
+to \code{yield} may only appear in an argument of one of these pausable
+functions. So this random walk generator:
 
 \if{html}{\out{<div class="sourceCode r">}}\preformatted{rwalk <- gen(\{x <- 0; repeat \{x <- yield(x + rnorm(1))\}\})
 }\if{html}{\out{</div>}}
@@ -62,4 +118,10 @@ definitions. However, this:
 
 is not legal, because \code{yield} appears in an argument to \code{+}, which
 does not have a pausable definition.
+}
+\examples{
+chain <- function(...) {
+  iterators <- list(...)
+  gen(for (it in iterators) yieldFrom(it))
+}
 }

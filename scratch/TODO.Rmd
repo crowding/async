@@ -1,0 +1,31 @@
+
+# ESS versus closxps?!
+
+Apparently the reason I can't just tag a "class" attribute onto a closxp and call that an iteror is.... ESS is fucking with me. If I evaluate a chunk in ESS, it is altering the environment of the resulting closxp. it comes back with the enclosing environment set to the package namespace, instead of the environment that _really_ enclosed it and has its variables. It's weird.
+
+
+## Emacs locking up when I pause in R debugger
+
+Aargh, something is happening in ess-mode that makes emacs lock up waiting for a response when it's in the debugger. Can be triggered by ess-whatever-completions mode. Is triggered by just having point in an R buffer for a few seconds.
+
+ESS output window keeps saying "Disabling output delimiter because CMD failed to parse."
+
+This is likely because all my variable names in the compiled generators are fucky.
+
+## it would be nice if name-munging twice were idempotent.
+
+(i.e. ended up with the names and translated functions.) One way to do
+that might be to not bother slapping context on the names of nodes in
+the special "first" context encountered.)
+
+## display of handlers in graphs
+
+make a custom node style for handlers, or maybe an out-and-back edge?
+An edge to a node in the middle of a trampoline edge might work too.
+Hey maybe rewrite graphAsync() in collector style?
+
+
+## static check for forcing all args
+
+I fixed a bug in break_cps where it wasn't forcing "cont" and this caused semicolons to be screwy. Seems like I could statically check that context constructors are forcing all the continuation args they use. Extend the static check for handler-passing to check for argument forcing...
+

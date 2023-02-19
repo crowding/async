@@ -1,6 +1,6 @@
 // So here I am writing some Javascript.
 // I installed js-comint mode for now.
-// I also have to install node whcih makes for a whole THING.
+// I also have to install node, which makes for a whole THING.
 // What I want to figure out is, what do JS and Python use for a
 // protocol for async generators.
 
@@ -80,5 +80,3 @@ ticks = async function* (n) {
 // result: NULL until resolved
 // _subscribers_: tasks to "do next" when resolved. Which may involve resolving
 // other promises, etc.
-
-// Let's look at how 
