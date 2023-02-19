@@ -265,7 +265,7 @@
 <code class="sourceCode R"><span><span class="va">ctz</span> <span class="op">&lt;-</span> <span class="fu">collatz</span><span class="op">(</span><span class="fl">23</span><span class="op">)</span></span>
 <span><span class="fu"><a href="reference/graphAsync.html">graphAsync</a></span><span class="op">(</span><span class="va">ctz</span>, type<span class="op">=</span><span class="st">"svg"</span><span class="op">)</span> <span class="co">#creates a file "ctz.svg"</span></span></code></pre></div>
 <div class="figure">
-<img src="ctz.svg" style="width:75.0%" alt=""><p class="caption">Graph of the above generator.</p>
+<img src="ctz.svg" alt=""><p class="caption">Graph of the above generator.</p>
 </div>
 <p>Since each step in the program’s execution corresponds to a function call, when execution reaches a <code>yield</code>, the program’s state is just the “next function” that would have been called (that is, a <a href="https://en.wikipedia.org/wiki/Continuation" class="external-link">continuation</a>.) To pause and resume execution, a generator saves that “next function” until the next time <code><a href="reference/iteror.html">nextOr()</a></code> is called.</p>
 <p>You can also enable single-stepping at the graph level by calling:</p>
