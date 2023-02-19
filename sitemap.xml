@@ -4,6 +4,9 @@
     <loc>/404.html</loc>
   </url>
   <url>
+    <loc>/articles/README.html</loc>
+  </url>
+  <url>
     <loc>/articles/clapping.html</loc>
   </url>
   <url>
@@ -25,15 +28,60 @@
     <loc>/reference/async.html</loc>
   </url>
   <url>
+    <loc>/reference/awaitNext.html</loc>
+  </url>
+  <url>
+    <loc>/reference/channel.html</loc>
+  </url>
+  <url>
+    <loc>/reference/collect.html</loc>
+  </url>
+  <url>
+    <loc>/reference/combine.html</loc>
+  </url>
+  <url>
+    <loc>/reference/debugAsync.html</loc>
+  </url>
+  <url>
     <loc>/reference/delay.html</loc>
+  </url>
+  <url>
+    <loc>/reference/format.html</loc>
+  </url>
+  <url>
+    <loc>/reference/gather.html</loc>
   </url>
   <url>
     <loc>/reference/gen.html</loc>
   </url>
   <url>
+    <loc>/reference/graphAsync.html</loc>
+  </url>
+  <url>
+    <loc>/reference/ilimit.html</loc>
+  </url>
+  <url>
     <loc>/reference/index.html</loc>
   </url>
   <url>
+    <loc>/reference/iseq.html</loc>
+  </url>
+  <url>
+    <loc>/reference/iteror.html</loc>
+  </url>
+  <url>
+    <loc>/reference/nextThen.html</loc>
+  </url>
+  <url>
     <loc>/reference/pausables.html</loc>
+  </url>
+  <url>
+    <loc>/reference/run.html</loc>
+  </url>
+  <url>
+    <loc>/reference/stream.html</loc>
+  </url>
+  <url>
+    <loc>/reference/switch.html</loc>
   </url>
 </urlset>

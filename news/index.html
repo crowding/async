@@ -17,7 +17,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">async</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.2.2</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3</span>
       </span>
     </div>
 
@@ -32,6 +32,9 @@
     <span class="caret"></span>
   </a>
   <ul class="dropdown-menu" role="menu"><li>
+      <a href="../articles/README.html">The `async` package: Generators, async/await, and asynchronous streams for R</a>
+    </li>
+    <li>
       <a href="../articles/clapping.html">A Musical Introduction to Generators</a>
     </li>
   </ul></li>
@@ -58,12 +61,49 @@
     </div>
 
     <div class="section level2">
+<h2 class="page-header" data-toc-text="0.3" id="async-03">async 0.3<a class="anchor" aria-label="anchor" href="#async-03"></a></h2>
+<p>Version 0.3 of <code>async</code> contains a number of new features, usability and performance improvements.</p>
+<ul><li><p>Coroutines now support single step debugging. Use <code>debugAsync(gen, TRUE)</code> to open a browser at each point the coroutine reaches an R expression. Use <code>debugAsync(gen, internal=TRUE)</code> to step through at a lower level, inside the <code>async</code> package implementation.</p></li>
+<li><p>There is now a function <code>goto(branch)</code> that works inside of <code>switch</code> statements, allowing you to jump to another branch; while <code><a href="../reference/switch.html">goto()</a></code> with no arguments will jump back re-evaluate the switch argument.</p></li>
+<li><p>Coroutines now support exit handlers; handlers are registered with <code>on.exit</code> and will be run when the coroutine reaches the end of its code, either normally or by error.</p></li>
+<li><p>There is now an experimental implementation of <code>channel</code> datatype, which is like a combination of an iterator and a promise; a channel represents a sequence of values yet to be determined. You can treat a channel as an iterator that returns a series of promises, or to be slightly more streamlined you can use <code>nextThen(onNext, onError, onClose)</code>, providing callbacks to receive the next value. An <code>async</code> can retrieve values from a channel using <code>awaitNext</code> or a <code>for</code> loop. The implementation of channel includes queues on both input and output, which allows flexibility for different types of data sources.</p></li>
+<li><p>To go along with channels there is now a <code>stream</code> coroutine. A stream implements the <code>channel</code> interface, and in its expression you can use <em>both</em> <code>await</code> and <code>yield</code>. Additionally a stream can com in two flavors, <code>lazy=TRUE</code> (where the stream begins in a paused state, and will not do anything until it has at least one listener request) and <code>lazy=FALSE</code> (the stream starts executing immediately, and will continue executing after <code>yield</code>, even with no listeners, queuing up output values until it reaches an <code>await</code>). For comparison, this package’s <code>gen</code> coroutines are lazy in this sense, while <code>async</code> are eager.</p></li>
+<li><p>Generators are now displayed with a label corresponding to where in their code they were last paused. The function <code>getNode(g)</code> queries this label. For example:</p></li>
+</ul><pre><code>    &gt; g &lt;- gen(for (i in 1:10) {yield(i); if (x %% 2 == 0) yield("even.") else yield("odd!")})
+    &gt; g
+    gen(for (i in 1:10) {
+    yield(i)
+    if (x%%2 == 0) 
+        yield("even.")
+    else yield("odd!")
+    })
+    &lt;environment: R_GlobalEnv&gt;
+    &lt;Generator [yielded at `.for2.R__eval_`]&gt;
+    &gt; nextElem(g)
+    [1] 1
+    &gt; getNode(g)
+    [1] ".for3.{1;__;"
+    &gt; nextElem(g)
+    [1] "odd!"
+    &gt; getNode.generator(g)
+    [1] ".for__again"</code></pre>
+<p>To unpack the above, on creation the generator is paused at node <code>".for2.R__eval_"</code> i.e. the R expression in the second argument of <code>for</code>, which in this case is the expression <code>1:10</code>. After executing the first <code>yield</code>, the generator shows it is paused at <code>".for3.{1;__;"</code>, that is, at the “semicolon” following the first statement in the braces in the third argument of <code>for</code>; so the next thing the generator will execute is the subsequent <code>if</code> statement. After the next <code>yield</code>, the label <code>".for__again"</code> means that the generator’s next action will be to return to the beginning of the <code>for</code> loop.</p>
+<ul><li><p>Under the hood, the implementation has been refactored heavily in order to enable compilation; the package now includes the back half of a compiler. To create a compiled generator you can write <code>gen({...}, compileLevel=-1)</code>; this will take a bit of CPU time but shouldn’t change the functionality. (Or speed; making it faster will be the job of the front half.)</p></li>
+<li><p>A side benefit of compilation work is that coroutines can draw a picture of their graph structure, <code>graphAsync(myGen)</code> collects a coroutine’s structure and writes a Graphviz DOT file (which by default would be named <code>myGen.dot</code> in the current directory.) If the Graphviz <code>dot</code> command is visible on your <code>$PATH</code> it will then be run to render a PDF file.</p></li>
+<li><p>There is now a syntax for “generator functions” (as well as async functions, and stream functions). If the argument is a function expression, <code>gen</code> will construct a function that constructs a generator. So these two calls are nearly equivalent:</p></li>
+</ul><pre><code><span>    <span class="va">g</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/gen.html">gen</a></span><span class="op">(</span><span class="kw">function</span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span><span class="op">)</span> <span class="kw">for</span> <span class="op">(</span><span class="va">i</span> <span class="kw">in</span> <span class="va">x</span><span class="op">:</span><span class="va">y</span><span class="op">)</span> <span class="fu"><a href="../reference/gen.html">yield</a></span><span class="op">(</span><span class="va">i</span><span class="op">)</span><span class="op">)</span></span>
+<span>    <span class="va">g</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span><span class="op">)</span> <span class="op">{</span><span class="fu"><a href="https://rdrr.io/r/base/force.html" class="external-link">force</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span><span class="op">)</span><span class="op">)</span>; <span class="fu"><a href="../reference/gen.html">gen</a></span><span class="op">(</span><span class="kw">for</span> <span class="op">(</span><span class="va">i</span> <span class="kw">in</span> <span class="va">x</span><span class="op">:</span><span class="va">y</span><span class="op">)</span> <span class="fu"><a href="../reference/gen.html">yield</a></span><span class="op">(</span><span class="va">i</span><span class="op">)</span><span class="op">)</span><span class="op">}</span></span></code></pre>
+<p>(so really it just saves you from remembering to <code>force</code> your arguments.)</p>
+</div>
+    <div class="section level2">
 <h2 class="page-header" data-toc-text="0.2.2" id="async-022">async 0.2.2<small>2022-09-08</small><a class="anchor" aria-label="anchor" href="#async-022"></a></h2>
-<ul><li>Re-generate documentation for R-devel</li></ul></div>
+<ul><li>Re-generate documentation for R-devel</li>
+</ul></div>
     <div class="section level2">
 <h2 class="page-header" data-toc-text="0.2.1" id="async-021">async 0.2.1<small>2022-05-26</small><a class="anchor" aria-label="anchor" href="#async-021"></a></h2>
 <p>Fixes:</p>
-<ul><li>Namespacing issue in test vs check</li></ul></div>
+<ul><li>Namespacing issue in test vs check</li>
+</ul></div>
     <div class="section level2">
 <h2 class="page-header" data-toc-text="0.2" id="async-02">async 0.2<a class="anchor" aria-label="anchor" href="#async-02"></a></h2>
 <p>Changes:</p>
@@ -102,7 +142,7 @@
 </div>
 
 <div class="pkgdown">
-  <p></p><p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.0.6.</p>
+  <p></p><p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.0.7.</p>
 </div>
 
       </footer></div>

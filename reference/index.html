@@ -17,7 +17,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">async</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.2.2</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3</span>
       </span>
     </div>
 
@@ -32,6 +32,9 @@
     <span class="caret"></span>
   </a>
   <ul class="dropdown-menu" role="menu"><li>
+      <a href="../articles/README.html">The `async` package: Generators, async/await, and asynchronous streams for R</a>
+    </li>
+    <li>
       <a href="../articles/clapping.html">A Musical Introduction to Generators</a>
     </li>
   </ul></li>
@@ -61,25 +64,81 @@
           <p class="section-desc"></p>
         </th>
       </tr></tbody><tbody><tr><td>
-          <p><code><a href="async-package.html">async-package</a></code> </p>
-        </td>
-        <td><p>The async package.</p></td>
-      </tr><tr><td>
-          <p><code><a href="async.html">async()</a></code> <code><a href="async.html">await()</a></code> <code><a href="async.html">with_prefix()</a></code> </p>
+          <p><code><a href="async.html">with_prefix()</a></code> <code><a href="async.html">async()</a></code> <code><a href="async.html">await()</a></code> </p>
         </td>
         <td><p>Create an asynchronous task from sequential code.</p></td>
+      </tr><tr><td>
+          <p><code><a href="awaitNext.html">awaitNext()</a></code> </p>
+        </td>
+        <td><p>Wait for the next value from a channel or stream.</p></td>
+      </tr><tr><td>
+          <p><code><a href="channel.html">channel()</a></code> <code><a href="channel.html">is.channel()</a></code> </p>
+        </td>
+        <td><p>An object representing a sequence of future values.</p></td>
+      </tr><tr><td>
+          <p><code><a href="collect.html">collect()</a></code> <code><a href="collect.html">collector()</a></code> </p>
+        </td>
+        <td><p>Execute a function and collect a set of values by callback.</p></td>
+      </tr><tr><td>
+          <p><code><a href="combine.html">combine()</a></code> </p>
+        </td>
+        <td><p>Combine several channels into one.</p></td>
+      </tr><tr><td>
+          <p><code><a href="debugAsync.html">debugAsync()</a></code> </p>
+        </td>
+        <td><p>Toggle single-step debugging for a coroutine.</p></td>
       </tr><tr><td>
           <p><code><a href="delay.html">delay()</a></code> </p>
         </td>
         <td><p>Asynchronous pause.</p></td>
       </tr><tr><td>
-          <p><code><a href="gen.html">gen()</a></code> <code><a href="gen.html">yield()</a></code> </p>
+          <p><code><a href="format.html">getNode()</a></code> <code><a href="format.html">getState()</a></code> <code><a href="format.html">getOrig()</a></code> <code><a href="format.html">getEnv()</a></code> <code><a href="format.html">format(<i>&lt;coroutine&gt;</i>)</a></code> </p>
+        </td>
+        <td><p>Query / display coroutine properties and state.</p></td>
+      </tr><tr><td>
+          <p><code><a href="gather.html">gather()</a></code> </p>
+        </td>
+        <td><p>Gather all values emitted by a channel.</p></td>
+      </tr><tr><td>
+          <p><code><a href="gen.html">gen()</a></code> <code><a href="gen.html">yield()</a></code> <code><a href="gen.html">yieldFrom()</a></code> </p>
         </td>
         <td><p>Create an iterator using sequential code.</p></td>
+      </tr><tr><td>
+          <p><code><a href="graphAsync.html">graphAsync()</a></code> </p>
+        </td>
+        <td><p>Draw a graph representation of a coroutine.</p></td>
+      </tr><tr><td>
+          <p><code><a href="ilimit.html">ilimit()</a></code> </p>
+        </td>
+        <td><p>Limit the number of elements emitted by an iterator.</p></td>
+      </tr><tr><td>
+          <p><code><a href="iseq.html">iseq()</a></code> </p>
+        </td>
+        <td><p>Iterator equivalent of <a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a>.</p></td>
+      </tr><tr><td>
+          <p><code><a href="iteror.html">iteror</a></code> <code><a href="iteror.html">iteror.function</a></code> <code><a href="iteror.html">iteror.default</a></code> <code><a href="iteror.html">nextOr</a></code> </p>
+        </td>
+        <td><p>An efficient and compact iteration protocol.</p></td>
+      </tr><tr><td>
+          <p><code><a href="nextThen.html">nextThen()</a></code> <code><a href="nextThen.html">subscribe()</a></code> </p>
+        </td>
+        <td><p>Receive values from channels by callback.</p></td>
       </tr><tr><td>
           <p><code><a href="pausables.html">pausables()</a></code> </p>
         </td>
         <td><p>Pausable functions.</p></td>
+      </tr><tr><td>
+          <p><code><a href="run.html">run()</a></code> </p>
+        </td>
+        <td><p>Execute a generator expression immediately, collecting yielded values.</p></td>
+      </tr><tr><td>
+          <p><code><a href="stream.html">stream()</a></code> </p>
+        </td>
+        <td><p>Create an asynchronous iterator by writing sequential code.</p></td>
+      </tr><tr><td>
+          <p><code><a href="switch.html">goto()</a></code> </p>
+        </td>
+        <td><p>Coroutine switch with delimited goto.</p></td>
       </tr></tbody></table></div>
 
   <div class="col-md-3 hidden-xs hidden-sm" id="pkgdown-sidebar">
@@ -93,7 +152,7 @@
 </div>
 
 <div class="pkgdown">
-  <p></p><p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.0.6.</p>
+  <p></p><p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.0.7.</p>
 </div>
 
       </footer></div>
