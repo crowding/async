@@ -282,7 +282,7 @@ try_cps <- function(.contextName, expr,
 
     returnHandler <- NULL
     node(getHandler <- function() {
-      val <- function(val) {x <- async:::try_handler(val, silent_, outfile_); x}
+      val <- function(val) {x <- try_handler(val, silent_, outfile_); x}
       returnHandler(val)
     })
 
