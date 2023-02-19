@@ -288,17 +288,6 @@ if(FALSE) {
   })
 }
 
-test_that("tracing", {
-
-  x <- TRUE
-  y <- 1
-  expect_output(
-    g <- async(if(x) y else await(pr),
-               trace=with_prefix("one")),
-    "one: R: x.*R: y.*async: return")
-
-})
-
 test_that("awaiting value that doesn't exist", {
 
   if (exists("pr")) {

@@ -63,17 +63,11 @@
 #' @param expr An expression, to be executed asynchronously.
 #' @param trace Enable verbose logging by passing a function to
 #'   `trace`, like `async(trace=cat, {...})`. `trace` should take a
-#'   character argument. Helper `with_prefix` makes a function that
-#'   prints a message with the given prefix. You can also say something
-#'   like `trace=browser` for "single stepping" through an async.
+#'   character argument.
 #' @param split_pipes Rewrite chained calls that use `await`
 #'   (see below)
 #' @param compileLevel Compilation level; same options as for [gen].
-#'
 #' @param ... Undocumented.
-#' @param prefix A function to print debugging messages. `trace=cat`
-#'   will log async actions to the console; `trace=with_prefix("myPrefix")`
-#'   adds a prefix if you have more than one async to debug.
 #' @return `async()` returns an object with class "promise," as
 #'   defined by the [promises] package (i.e., rather than the kind of
 #'   promise used in R's lazy evaluation.)
@@ -82,7 +76,7 @@
 #' myAsync <- async(for (i in 1:4) {
 #'   await(delay(5))
 #'   cat(i, "\n")
-#' }, trace=with_prefix("myAsync"))
+#' })
 #'
 #' @export
 async <- function(expr, ..., split_pipes=TRUE, trace=trace_,

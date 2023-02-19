@@ -13,12 +13,6 @@ assert <- function(condition,
   }
 }
 
-#' @param prefix Character prefix to print before the trace.
-#' @rdname async
-#' @export
-with_prefix <- function(prefix) function(...)
-  cat(paste0(prefix, ": ", ...), sep="")
-
 reset <- function(...) list(...)[[1]]
 
 add_class <- function(x, ...) {

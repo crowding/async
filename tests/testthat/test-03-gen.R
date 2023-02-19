@@ -167,14 +167,6 @@ test_that("Dummy", {
   expect_error( gen(await(yield(5))), "await" )
 })
 
-test_that("tracing", {
-  g <- gen({{j <- 0; i <- 0}; for (i in 1:10) yield(j <- j + i)},
-           trace=with_prefix("triangle"))
-  expect_output(
-    nextOr(g, NULL),
-    "triangle: R: + i <- 0.*triangle: R: j <- j \\+ i.*triangle: generator: yield.*")
-})
-
 test_that("run", {
 
   total_ <- 0

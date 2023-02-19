@@ -1,15 +1,4 @@
----
-title: "The `async` package: Generators, async/await, and asynchronous streams for R"
-output: rmarkdown::html_vignette
-vignette: >
-  %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteIndexEntry{The `async` package: Generators, async/await, and asynchronous streams for R}
-  %\VignetteEncoding{UTF-8}
----
-
-```{=html}
 <p><a href="https://cran.r-project.org/package=async"><img src="https://www.r-pkg.org/badges/version/async?color=purple" alt="cran-version" /></a><a href="https://github.com/crowding/async/actions/workflows/check-standard.yaml"><img src="https://github.com/crowding/async/actions/workflows/check-standard.yaml/badge.svg" alt="check-standard" /></a> <a href="https://github.com/crowding/async/actions/workflows/test-coverage.yaml"><img src="https://github.com/crowding/async/actions/workflows/test-coverage.yaml/badge.svg" alt="test-coverage" /></a></p>
-```
 
 This is an R package implementing *generators*, *async* blocks, and *streams* (collectively known as "coroutines.")
 
@@ -269,7 +258,7 @@ As of `async` version 0.3 you can extract and visualize this graph with [graphAs
 ctz <- collatz(23)
 graphAsync(ctz, type="svg") #creates a file "ctz.svg"
 ```
-![Graph of the above generator.](ctz.svg){width=75%}
+![Graph of the above generator.](ctz.svg)
 
 [continuation]: https://en.wikipedia.org/wiki/Continuation
 Since each step in the program's execution corresponds to a function call, when execution reaches a `yield`, the program's state is just the "next function" that would have been called (that is, a [continuation][].) To pause and resume execution, a generator saves that "next function" until the next time  `nextOr()` is called.
