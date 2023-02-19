@@ -95,7 +95,7 @@ For more examples, see the ["Clapping Music" vignette.][clapping]
 [promises]: https://rstudio.github.io/promises/ "promises"
 Like `gen`, `async({...})` takes a block of sequential code, which
 runs until it reaches a call to `await(p)`. The argument `p` should be
-a promise, (as defined by the [promises] package, which
+a promise, (as defined by the [promises]() package, which
 represents an unfinished external computation.) In turn, `async()`
 constructs and returns a promise.
 
@@ -205,13 +205,14 @@ A longer article will be forthcoming, but the basic gist is the `async` package 
 
 A coroutine expression is first scanned for uses of `await`, `yield`, `for`, `break` and other control flow calls. Those calls are swapped out for implementations local to the `async` package. Other R calls are wrapped in functions; all these functions are linked together in so that each function calls the next in sequence. The result is a graph of functions calling each other, each call corresponding to a step in the program.
 
-As of `async` version 0.3 you can extract and visualize this graph with [graphAsync(g)][].
+As of `async` version 0.3 you can extract and visualize this graph with `graphAsync(g)`.
 
-```{R results="hide"}
+```{R eval=FALSE}
 ctz <- collatz(23)
 graphAsync(ctz, type="svg") #creates a file "ctz.svg"
 ```
-![Graph of the above generator.](ctz.svg){width=75%}
+
+![Graph of the Collatz generator.](ctz.svg){width=75%}
 
 [continuation]: https://en.wikipedia.org/wiki/Continuation
 Since each step in the program's execution corresponds to a function call, when execution reaches a `yield`, the program's state is just the "next function" that would have been called (that is, a [continuation][].) To pause and resume execution, a generator saves that "next function" until the next time  `nextOr()` is called.

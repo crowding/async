@@ -86,9 +86,9 @@ all <- combine(walk, chewGum) |> printEach()
 ## ----echo=FALSE---------------------------------------------------------------
 async:::wait_for_it()
 
-## ----results="hide"-----------------------------------------------------------
-ctz <- collatz(23)
-graphAsync(ctz, type="svg") #creates a file "ctz.svg"
+## ----eval=FALSE---------------------------------------------------------------
+#  ctz <- collatz(23)
+#  graphAsync(ctz, type="svg") #creates a file "ctz.svg"
 
 ## -----------------------------------------------------------------------------
 debugAsync(ctz, internal=TRUE)
