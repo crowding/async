@@ -384,7 +384,7 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 </div>
 <div id="asyncawait" class="section level2">
 <h2>Async/await</h2>
-<p>Like <code>gen</code>, <code>async({...})</code> takes a block of sequential code, which runs until it reaches a call to <code>await(p)</code>. The argument <code>p</code> should be a promise, (as defined by the <a href>promises</a> package, which represents an unfinished external computation.) In turn, <code>async()</code> constructs and returns a promise.</p>
+<p>Like <code>gen</code>, <code>async({...})</code> takes a block of sequential code, which runs until it reaches a call to <code>await(p)</code>. The argument <code>p</code> should be a promise, (as defined by the <a href="https://rstudio.github.io/promises/" title="promises">promises</a> package, which represents an unfinished external computation.) In turn, <code>async()</code> constructs and returns a promise.</p>
 <p>An <code>async</code> block runs until it reaches a call to <code>await(p)</code> and pauses. When the promise <code>p</code> resolves, the <code>async</code> block continues. If <code>p</code> rejects, that is evaluated like an error; you can use <code>await(p)</code> into a <code>tryCatch</code> to handle rejections. When the <code>async</code> block finishes, or throws an error, its promise resolves or rejects.</p>
 <div id="examples" class="section level3">
 <h3>Examples:</h3>
@@ -465,7 +465,7 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 <h2>How does this work anyway?</h2>
 <p>A longer article will be forthcoming, but the basic gist is the <code>async</code> package transforms your given program into a state machine.</p>
 <p>A coroutine expression is first scanned for uses of <code>await</code>, <code>yield</code>, <code>for</code>, <code>break</code> and other control flow calls. Those calls are swapped out for implementations local to the <code>async</code> package. Other R calls are wrapped in functions; all these functions are linked together in so that each function calls the next in sequence. The result is a graph of functions calling each other, each call corresponding to a step in the program.</p>
-<p>As of <code>async</code> version 0.3 you can extract and visualize this graph with <code>graphAsync(g)</code>.</p>
+<p>As of <code>async</code> version 0.3 you can extract and visualize this graph with <code>graphAsync(g)</code>. (You will need Graphviz <code>dot</code> installed to render these graphs.</p>
 <div class="sourceCode" id="cb19"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb19-1" title="1">ctz &lt;-<span class="st"> </span><span class="kw">collatz</span>(<span class="dv">23</span>)</a>
 <a class="sourceLine" id="cb19-2" title="2"><span class="kw">graphAsync</span>(ctz, <span class="dt">type=</span><span class="st">&quot;svg&quot;</span>) <span class="co">#creates a file &quot;ctz.svg&quot;</span></a></code></pre></div>
 <div class="figure">

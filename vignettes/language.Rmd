@@ -1,6 +1,8 @@
 ---
 title: "The Coroutine Language"
-output: rmarkdown::html_vignette
+output:
+  html_vignette:
+    self_contained: true
 vignette: >
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteIndexEntry{The Coroutine Language}
@@ -148,7 +150,7 @@ Here, if there is an error in reading a `.csv` or `.json` file we re-try ingesti
 
 All of this sequencing we are discussing through this document is baked into a sort of graph structure when a generator is constructed. See if you can follow the logic of the preceding `async` through its graph:
 
-```{R}
+```{R eval=FALSE}
 graphAsync(file_dataset, type="svg")
 ```
 ![A directed graph](file_dataset.svg){width=100%}
@@ -167,7 +169,7 @@ Starting and finishing may mean different things for different coroutines.
 * `run` is "eager;" executes an entire coroutine expression immediately without pausing.
 * Generators are "lazy;" at the start, a `gen` does not compute anything when it is first constructed, it only begins executing when there is a request for data via `nextOr`.
 * `async` routines are "eager;" they begin executing immediately on creation, before the constructor returns. An `async` runs until it gets the first `await` and then pauses. allowing the constructor to return. Upon receiving, the async will continue running.
-* `stream` objects can run in either lazy or eager mode. If `lazy=TRUE`, they will not compute anything until something calls the channel's [nextThen](), and will pause after `yield` if there are no more listeners.  If `lazy=FALSE`, a stream starts executing when constructed, will not pause after `yield`, and may run ahead and queue up outgoing values until it reaches an `await`.
+* `stream` objects can run in either lazy or eager mode. If `lazy=TRUE`, they will not compute anything until something calls the channel's `nextThen` method, and will pause after `yield` if there are no more listeners.  If `lazy=FALSE`, a stream starts executing when constructed, will not pause after `yield`, and may run ahead and queue up outgoing values until it reaches an `await`.
 
 #### Pausing
  * `await(p)` in an `async` or stream, pauses execution until the given promise resolves.
@@ -180,7 +182,7 @@ A coroutine might finish normally by reaching a call to `return(...)`, or by sim
 
 If a coroutine reaches a `return` call, all enclosing `tryCatch(finally=)` and `on.exit` handlers will be executed before returning the value.
 
-* When a generator finishes normally, the present call [`nextOr`()] forces its `or` argument. The value returned by the generator expression is discarded.
+* When a generator finishes normally, the present call `nextOr`() forces its `or` argument. The value returned by the generator expression is discarded.
 * When an `async` finishes normally , its promise interface resolves with the return value.
 * When a stream finishes normally, the listeners will be notified of a close _after_ any remaining messages have been read from the channel's outgoing queue.
 
