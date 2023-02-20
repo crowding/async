@@ -315,7 +315,6 @@ See if you can follow the logic of the preceding <code>async</code>
 through its graph:</p>
 <div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/graphAsync.html">graphAsync</a></span><span class="op">(</span><span class="va">file_dataset</span>, type<span class="op">=</span><span class="st">"svg"</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## [1] "file_dataset.dot"</span></span></code></pre>
 <div class="figure">
 <img src="file_dataset.svg" style="width:100.0%" alt=""><p class="caption">A directed graph</p>
 </div>
@@ -353,9 +352,9 @@ async will continue running.</li>
 <li>
 <code>stream</code> objects can run in either lazy or eager mode. If
 <code>lazy=TRUE</code>, they will not compute anything until something
-calls the channel’s <a href="">nextThen</a>, and will pause after
-<code>yield</code> if there are no more listeners. If
-<code>lazy=FALSE</code>, a stream starts executing when constructed,
+calls the channel’s <a href="../reference/nextThen.html">nextThen</a>,
+and will pause after <code>yield</code> if there are no more listeners.
+If <code>lazy=FALSE</code>, a stream starts executing when constructed,
 will not pause after <code>yield</code>, and may run ahead and queue up
 outgoing values until it reaches an <code>await</code>.</li>
 </ul>
@@ -393,7 +392,7 @@ expression.</p>
 be executed before returning the value.</p>
 <ul>
 <li>When a generator finishes normally, the present call
-[<code>nextOr</code>()] forces its <code>or</code> argument. The value
+<code>nextOr</code>() forces its <code>or</code> argument. The value
 returned by the generator expression is discarded.</li>
 <li>When an <code>async</code> finishes normally , its promise interface
 resolves with the return value.</li>
@@ -442,7 +441,7 @@ both the coroutine implementation and user-level R calls.</p>
 <p>A slight difference from base R <code>tryCatch</code> is you can
 supply a non- function value to <code>error</code> if you don’t care
 about parsing the error message; it will just return that value.</p>
-<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span>  <span class="va">as</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/async.html">async</a></span><span class="op">(</span><span class="op">{</span></span>
 <span>    <span class="kw"><a href="https://rdrr.io/r/base/conditions.html" class="external-link">tryCatch</a></span><span class="op">(</span></span>
 <span>      <span class="fu"><a href="../reference/async.html">await</a></span><span class="op">(</span><span class="fu">with_timeout</span><span class="op">(</span><span class="va">x</span>, <span class="fl">10</span><span class="op">)</span><span class="op">)</span>,</span>
@@ -451,7 +450,7 @@ about parsing the error message; it will just return that value.</p>
 <p>For that matter, you can provide an error value or handler directly
 to <code>await</code>, and this might be more efficient as it doesn’t
 have to wind up another tryCatch on the coroutine end of things.</p>
-<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">as</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/async.html">async</a></span><span class="op">(</span><span class="op">{</span></span>
 <span>  <span class="fu"><a href="../reference/async.html">await</a></span><span class="op">(</span><span class="fu">with_timeout</span><span class="op">(</span><span class="fu">promise</span><span class="op">(</span><span class="op">)</span><span class="op">)</span>,</span>
 <span>        <span class="st">"Value was not available"</span><span class="op">)</span></span>
@@ -479,24 +478,24 @@ returned.</p>
 <p>A typical use of <code>on.exit</code> might be to close a file or
 other resource after you are done reading; here’s a simple generator
 that reads a file one line at a time:</p>
-<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">fileLines</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/gen.html">gen</a></span><span class="op">(</span><span class="kw">function</span><span class="op">(</span><span class="va">...</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="va">f</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/connections.html" class="external-link">file</a></span><span class="op">(</span><span class="va">...</span>, open<span class="op">=</span><span class="st">"rt"</span><span class="op">)</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/on.exit.html" class="external-link">on.exit</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/connections.html" class="external-link">close</a></span><span class="op">(</span><span class="va">f</span><span class="op">)</span><span class="op">)</span></span>
 <span>  <span class="kw">while</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">line</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/readLines.html" class="external-link">readLines</a></span><span class="op">(</span><span class="va">f</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span> <span class="op">&gt;</span> <span class="fl">0</span><span class="op">)</span> <span class="fu"><a href="../reference/gen.html">yield</a></span><span class="op">(</span><span class="va">line</span><span class="op">)</span></span>
 <span><span class="op">}</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">as.list</a></span><span class="op">(</span><span class="fu">fileLines</span><span class="op">(</span><span class="st">"language.Rmd"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## [1] 315</span></span></code></pre>
+<pre><code><span><span class="co">## [1] 317</span></span></code></pre>
 <p>It is possible (but rather strange) to call <code><a href="https://rdrr.io/r/base/stop.html" class="external-link">stop()</a></code> or
 <code><a href="https://rdrr.io/r/base/function.html" class="external-link">return()</a></code> from inside an <code>on.exit</code> handler. In
 that case the new value and disposition overrides the old one.</p>
-<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">x</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run.html">run</a></span><span class="op">(</span><span class="op">{</span></span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/on.exit.html" class="external-link">on.exit</a></span><span class="op">(</span><span class="op">{</span><span class="kw"><a href="https://rdrr.io/r/base/function.html" class="external-link">return</a></span><span class="op">(</span><span class="st">"this instead"</span><span class="op">)</span><span class="op">}</span><span class="op">)</span></span>
 <span>    <span class="kw"><a href="https://rdrr.io/r/base/stop.html" class="external-link">stop</a></span><span class="op">(</span><span class="st">"an error"</span><span class="op">)</span></span>
 <span><span class="op">}</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## Error in eval(val, targetEnv): an error</span></span></code></pre>
-<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">x</span></span></code></pre></div>
 <pre><code><span><span class="co">## [1] "this instead"</span></span></code></pre>
 <p>Here he have an odd situation where an error is printed out to the
@@ -531,7 +530,7 @@ handler. The generator will just be paused waiting to reach end of
 iteration; you need to call <code>nextOr</code> an <em>eleventh</em>
 time to allow it to reach the end, run ts exit handlers and signal end
 of iteration.</p>
-<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">finished</span> <span class="op">&lt;-</span> <span class="cn">FALSE</span></span>
 <span><span class="va">g</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/gen.html">gen</a></span><span class="op">(</span><span class="op">{</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/on.exit.html" class="external-link">on.exit</a></span><span class="op">(</span><span class="va">finished</span> <span class="op">&lt;&lt;-</span> <span class="cn">TRUE</span><span class="op">)</span></span>
@@ -540,10 +539,10 @@ of iteration.</p>
 <span><span class="kw">for</span> <span class="op">(</span><span class="va">j</span> <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fl">10</span><span class="op">)</span> <span class="fu"><a href="../reference/iteror.html">nextOr</a></span><span class="op">(</span><span class="va">g</span>, <span class="kw">break</span><span class="op">)</span></span>
 <span><span class="va">finished</span></span></code></pre></div>
 <pre><code><span><span class="co">## [1] FALSE</span></span></code></pre>
-<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/iteror.html">nextOr</a></span><span class="op">(</span><span class="va">g</span>, <span class="st">"stop"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## [1] "stop"</span></span></code></pre>
-<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">finished</span></span></code></pre></div>
 <pre><code><span><span class="co">## [1] TRUE</span></span></code></pre>
 <p>Similarly, an <code>async</code> with an <code>on.exit</code> or
@@ -568,7 +567,7 @@ the development of the [iteror] class; desiring a protocol for iteration
 that did not involve using exceptions for normal flow control.</p>
 <p>For instance compare the performance of iterating over an
 <code>iterator::iter</code> versus an [iteror].</p>
-<div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">bench</span> <span class="op">&lt;-</span> <span class="fu">microbenchmark</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/microbenchmark/man/microbenchmark.html" class="external-link">microbenchmark</a></span><span class="op">(</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">as.list</a></span><span class="op">(</span><span class="fu"><a href="../reference/gen.html">gen</a></span><span class="op">(</span><span class="kw">for</span> <span class="op">(</span><span class="va">i</span> <span class="kw">in</span> <span class="fu">iterators</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/iterators/man/iter.html" class="external-link">iter</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">1000</span><span class="op">)</span><span class="op">)</span> <span class="fu"><a href="../reference/gen.html">yield</a></span><span class="op">(</span><span class="va">i</span><span class="op">)</span><span class="op">)</span><span class="op">)</span>,</span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">as.list</a></span><span class="op">(</span><span class="fu"><a href="../reference/gen.html">gen</a></span><span class="op">(</span><span class="kw">for</span> <span class="op">(</span><span class="va">i</span> <span class="kw">in</span> <span class="fu"><a href="../reference/iteror.html">iteror</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">1000</span><span class="op">)</span><span class="op">)</span> <span class="fu"><a href="../reference/gen.html">yield</a></span><span class="op">(</span><span class="va">i</span><span class="op">)</span><span class="op">)</span><span class="op">)</span>,</span>
@@ -576,8 +575,8 @@ that did not involve using exceptions for normal flow control.</p>
 <span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">bench</span><span class="op">)</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"expr"</span>, <span class="st">"median"</span><span class="op">)</span><span class="op">]</span></span></code></pre></div>
 <pre><code><span><span class="co">##                                                        expr   median</span></span>
-<span><span class="co">## 1 as.list(gen(for (i in iterators::iter(1:1000)) yield(i))) 80.51085</span></span>
-<span><span class="co">## 2          as.list(gen(for (i in iteror(1:1000)) yield(i))) 53.02475</span></span></code></pre>
+<span><span class="co">## 1 as.list(gen(for (i in iterators::iter(1:1000)) yield(i))) 80.10505</span></span>
+<span><span class="co">## 2          as.list(gen(for (i in iteror(1:1000)) yield(i))) 53.27625</span></span></code></pre>
 <p>Part of the difference comes from the fact that <code>gen</code> must
 use a <code>tryCatch</code> for each time to calls <code>nextElem</code>
 on an <code>iterator</code>. Whereas calling <code>nextOr</code> on an
