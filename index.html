@@ -265,12 +265,12 @@
 </h2>
 <p>A longer article will be forthcoming, but the basic gist is the <code>async</code> package transforms your given program into a state machine.</p>
 <p>A coroutine expression is first scanned for uses of <code>await</code>, <code>yield</code>, <code>for</code>, <code><a href="https://rdrr.io/r/base/Control.html" class="external-link">break</a></code> and other control flow calls. Those calls are swapped out for implementations local to the <code>async</code> package. Other R calls are wrapped in functions; all these functions are linked together in so that each function calls the next in sequence. The result is a graph of functions calling each other, each call corresponding to a step in the program.</p>
-<p>As of <code>async</code> version 0.3 you can extract and visualize this graph with <code>graphAsync(g)</code>.</p>
+<p>As of <code>async</code> version 0.3 you can extract and visualize this graph with <code>graphAsync(g)</code>. (You will need Graphviz <code>dot</code> installed to render these graphs.</p>
 <div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">ctz</span> <span class="op">&lt;-</span> <span class="fu">collatz</span><span class="op">(</span><span class="fl">23</span><span class="op">)</span></span>
-<span><span class="fu"><a href="reference/graphAsync.html">graphAsync</a></span><span class="op">(</span><span class="va">ctz</span>, type<span class="op">=</span><span class="st">"ctz.dot"</span><span class="op">)</span> <span class="co">#creates a file "ctz.svg"</span></span></code></pre></div>
+<span><span class="fu"><a href="reference/graphAsync.html">graphAsync</a></span><span class="op">(</span><span class="va">ctz</span>, type<span class="op">=</span><span class="st">"svg"</span><span class="op">)</span> <span class="co">#creates a file "ctz.svg"</span></span></code></pre></div>
 <div class="figure">
-<img src="ctz.svg" alt=""><p class="caption">Graph of the Collatz generator.</p>
+<img src="articles/ctz.svg" alt=""><p class="caption">Graph of the Collatz generator.</p>
 </div>
 <p>Since each step in the program’s execution corresponds to a function call, when execution reaches a <code>yield</code>, the program’s state is just the “next function” that would have been called (that is, a <a href="https://en.wikipedia.org/wiki/Continuation" class="external-link">continuation</a>.) To pause and resume execution, a generator saves that “next function” until the next time <code><a href="reference/iteror.html">nextOr()</a></code> is called.</p>
 <p>You can also enable single-stepping at the graph level by calling:</p>
