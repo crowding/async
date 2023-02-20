@@ -13,6 +13,9 @@
     <loc>/articles/index.html</loc>
   </url>
   <url>
+    <loc>/articles/language.html</loc>
+  </url>
+  <url>
     <loc>/authors.html</loc>
   </url>
   <url>
@@ -47,9 +50,6 @@
   </url>
   <url>
     <loc>/reference/format.html</loc>
-  </url>
-  <url>
-    <loc>/reference/gather.html</loc>
   </url>
   <url>
     <loc>/reference/gen.html</loc>

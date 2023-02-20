@@ -44,6 +44,9 @@ iteror until it is exhausted, then continue."><!-- mathjax --><script src="https
     <li>
       <a href="../articles/clapping.html">A Musical Introduction to Generators</a>
     </li>
+    <li>
+      <a href="../articles/language.html">The Coroutine Language</a>
+    </li>
   </ul></li>
 <li>
   <a href="../news/index.html">Changelog</a>
@@ -90,7 +93,7 @@ iteror until it is exhausted, then continue.</p>
 <span></span>
 <span><span class="fu">yield</span><span class="op">(</span><span class="va">expr</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">yieldFrom</span><span class="op">(</span><span class="va">it</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu">yieldFrom</span><span class="op">(</span><span class="va">it</span>, <span class="va">err</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div id="arguments">
@@ -119,6 +122,10 @@ appears in chained calls. See <a href="async.html">async</a>.</p></dd>
 
 <dt>it</dt>
 <dd><p>A list, <a href="iteror.html">iteror</a> or compatible object.</p></dd>
+
+
+<dt>err</dt>
+<dd><p>An error handler</p></dd>
 
 </dl></div>
     <div id="value">

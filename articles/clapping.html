@@ -55,6 +55,9 @@
     <li>
       <a href="../articles/clapping.html">A Musical Introduction to Generators</a>
     </li>
+    <li>
+      <a href="../articles/language.html">The Coroutine Language</a>
+    </li>
   </ul>
 </li>
 <li>
@@ -91,9 +94,6 @@
 
     
     
-<div class="section level2">
-<h2 id="a-musical-introduction-to-generators">A Musical Introduction to Generators<a class="anchor" aria-label="anchor" href="#a-musical-introduction-to-generators"></a>
-</h2>
 <p>What a generator allows you to do is to take code that is writen in a
 sequential, looping style, and then treat that code’s output as a
 collection to be iterated over.</p>
@@ -190,9 +190,9 @@ items with <code><a href="../reference/ilimit.html">ilimit()</a></code>:</p>
 <span><span class="fu">show_head</span><span class="op">(</span><span class="fu">gen_pattern</span><span class="op">(</span><span class="op">)</span>, <span class="fl">24</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## list(1, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 1, 0, </span></span>
 <span><span class="co">##     1, 0, 1, 1, 0)</span></span></code></pre>
-<div class="section level3">
-<h3 id="making-noise">Making noise<a class="anchor" aria-label="anchor" href="#making-noise"></a>
-</h3>
+<div class="section level2">
+<h2 id="making-noise">Making noise<a class="anchor" aria-label="anchor" href="#making-noise"></a>
+</h2>
 <p>We’re a good way into what I advertised as a musical endeavour and
 haven’t made any sounds yet. First let’s download some handclap samples.
 I located some on GitHub:</p>
@@ -236,9 +236,9 @@ that’s more accurate than <code><a href="https://rdrr.io/r/base/Sys.sleep.html
 <p>So we should hear our pattern now:</p>
 <div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">gen_pattern</span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu"><a href="../reference/ilimit.html">ilimit</a></span><span class="op">(</span><span class="fl">36</span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu">iplay</span><span class="op">(</span><span class="va">claps</span>, <span class="fl">360</span><span class="op">)</span></span></code></pre></div>
-<div class="section level4">
-<h4 id="some-iteror-iterator-functions">Some iteror (iterator) functions<a class="anchor" aria-label="anchor" href="#some-iteror-iterator-functions"></a>
-</h4>
+<div class="section level3">
+<h3 id="some-iteror-iterator-functions">Some iteror (iterator) functions<a class="anchor" aria-label="anchor" href="#some-iteror-iterator-functions"></a>
+</h3>
 <p>The object constructed by <code>gen</code> has class
 <code>iteror</code>. Iterors are an iteration construct included in this
 package. Iterors are cross compatible with iterators from the
@@ -271,9 +271,9 @@ results:</p>
 <code class="sourceCode R"><span><span class="va">g</span> <span class="op">&lt;-</span> <span class="fu">gen_pattern</span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu"><a href="../reference/ilimit.html">ilimit</a></span><span class="op">(</span><span class="fl">24</span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu">iapply</span><span class="op">(</span><span class="va">cat</span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu">isink</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"\n"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## 111011010110111011010110</span></span></code></pre>
 </div>
-<div class="section level4">
-<h4 id="some-iterator-functions-using-generators">Some iterator functions, using generators<a class="anchor" aria-label="anchor" href="#some-iterator-functions-using-generators"></a>
-</h4>
+<div class="section level3">
+<h3 id="some-iterator-functions-using-generators">Some iterator functions, using generators<a class="anchor" aria-label="anchor" href="#some-iterator-functions-using-generators"></a>
+</h3>
 <p>Generators enjoy some syntax extensions over base R; one extension is
 that they can use a regular <code>for</code> loop with an iteror. So we
 can equivalently write the above <code>iapply</code> and
@@ -288,9 +288,9 @@ So <code>gsink</code> is a function that when called will consume all
 items from the iterator <code>it</code> before returning.</p>
 </div>
 </div>
-<div class="section level3">
-<h3 id="phasing-and-combining">Phasing and combining<a class="anchor" aria-label="anchor" href="#phasing-and-combining"></a>
-</h3>
+<div class="section level2">
+<h2 id="phasing-and-combining">Phasing and combining<a class="anchor" aria-label="anchor" href="#phasing-and-combining"></a>
+</h2>
 <p>“Clapping Music” is a piece for two performers, who both play the
 same pattern, but after every 12 loops, one of the performers skips
 forward by one step. Over the course of the piece, the two parts move
@@ -353,9 +353,9 @@ N bars. Then we create a third generator that adds together the two.</p>
 <span><span class="co">## 122112111121122112111121122112111121122112111121</span></span>
 <span><span class="co">## 222022020220222022020220222022020220222022020220</span></span></code></pre>
 </div>
-<div class="section level3">
-<h3 id="a-performance">A performance<a class="anchor" aria-label="anchor" href="#a-performance"></a>
-</h3>
+<div class="section level2">
+<h2 id="a-performance">A performance<a class="anchor" aria-label="anchor" href="#a-performance"></a>
+</h2>
 <p>Now we should be able to hear our performance:</p>
 <div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">iplay</span><span class="op">(</span><span class="fu">clapping_music</span><span class="op">(</span>n<span class="op">=</span><span class="fl">4</span>, sep<span class="op">=</span><span class="st">"\n"</span><span class="op">)</span>, <span class="va">claps</span>, <span class="fl">480</span><span class="op">)</span></span></code></pre></div>
@@ -365,7 +365,6 @@ alert sound facility, which is typically not built for precise timing,
 so you may hear some glitches and hiccups. Nevertheless, I hope this has
 illustrated how generators allows control to be <em>interleaved</em>
 among different sequential processes.</p>
-</div>
 </div>
   </div>
 
