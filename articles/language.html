@@ -576,8 +576,8 @@ that did not involve using exceptions for normal flow control.</p>
 <span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">bench</span><span class="op">)</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"expr"</span>, <span class="st">"median"</span><span class="op">)</span><span class="op">]</span></span></code></pre></div>
 <pre><code><span><span class="co">##                                                        expr   median</span></span>
-<span><span class="co">## 1 as.list(gen(for (i in iterators::iter(1:1000)) yield(i))) 79.44565</span></span>
-<span><span class="co">## 2          as.list(gen(for (i in iteror(1:1000)) yield(i))) 52.31005</span></span></code></pre>
+<span><span class="co">## 1 as.list(gen(for (i in iterators::iter(1:1000)) yield(i))) 80.51085</span></span>
+<span><span class="co">## 2          as.list(gen(for (i in iteror(1:1000)) yield(i))) 53.02475</span></span></code></pre>
 <p>Part of the difference comes from the fact that <code>gen</code> must
 use a <code>tryCatch</code> for each time to calls <code>nextElem</code>
 on an <code>iterator</code>. Whereas calling <code>nextOr</code> on an
