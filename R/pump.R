@@ -96,6 +96,7 @@ make_pump <- function(expr, ...,
   })
 
   node(evl_ <- function(cont, val) {
+    trace(paste0("R: ", deparse(val), "\n"))
     if(debugR)
       val <- eval(substitute({browser(); x}, list(x=val)), targetEnv)
     else

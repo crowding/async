@@ -319,8 +319,6 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 
 
 
-<div id="a-musical-introduction-to-generators" class="section level1">
-<h1>A Musical Introduction to Generators</h1>
 <p>What a generator allows you to do is to take code that is writen in a sequential, looping style, and then treat that code’s output as a collection to be iterated over.</p>
 <p>To illustrate what this means, and the the generators package in general, I will use R to perform a suitable piece of music, specifically Steve Reich’s “Clapping Music.”</p>
 <p>The piece starts with a loop counting out groups of 3, 2, 1, 2, 3, 2, 1, 2, 3… with each group separated by one rest. This adds up to a 12-note loop:</p>
@@ -494,7 +492,6 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 <p>Now we should be able to hear our performance:</p>
 <div class="sourceCode" id="cb25"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb25-1" title="1"><span class="kw">iplay</span>(<span class="kw">clapping_music</span>(<span class="dt">n=</span><span class="dv">4</span>, <span class="dt">sep=</span><span class="st">&quot;</span><span class="ch">\n</span><span class="st">&quot;</span>), claps, <span class="dv">480</span>)</a></code></pre></div>
 <p>It has to be said that R is not particularly built to be a multimedia environment, plus the <code>audio</code> package will be using the OS alert sound facility, which is typically not built for precise timing, so you may hear some glitches and hiccups. Nevertheless, I hope this has illustrated how generators allows control to be <em>interleaved</em> among different sequential processes.</p>
-</div>
 </div>
 
 

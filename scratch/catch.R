@@ -1,4 +1,3 @@
-
 #' @title Named, nonlocal exits.
 #'
 #' `catch(name, expr) evaluates and returns `expr`. If during the

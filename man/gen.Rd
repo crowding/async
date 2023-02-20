@@ -16,7 +16,7 @@ gen(
 
 yield(expr)
 
-yieldFrom(it)
+yieldFrom(it, err)
 }
 \arguments{
 \item{expr}{An expression, to be turned into an iterator.}
@@ -32,6 +32,8 @@ appears in chained calls. See \link{async}.}
 -1 (name munging only).}
 
 \item{it}{A list, \link{iteror} or compatible object.}
+
+\item{err}{An error handler}
 }
 \value{
 `gen({...}) returns an \link{iteror}.

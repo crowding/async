@@ -216,7 +216,7 @@ make_dot <- function(nodeGraph,
 
   digraph(
     "G",
-    props(bgcolor="lightgray", margin=0, pad=0.25, concentrate="false",
+    props(bgcolor="gray90", margin=0, pad=0.25, concentrate="false",
           nodesep=0.3, ranksep=0.4, newrank="true",
           clusterrank="local", packmode="clust",
           labeljust="l", fontname="DejaVu Sans Mono Book", rankdir="TB",

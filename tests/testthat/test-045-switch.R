@@ -235,4 +235,15 @@ test_that("goto from finally", {
   }) %is% "bar!"
 })
 
+test_that("goto from error", {
+
+  run({
+    switch("foo",
+           baz="baz!",
+           foo=tryCatch(stop("bar"), error=goto("baz")),
+           bar="bar!")
+  }) %is% "baz!"
+
+})
+
 options(async.compileLevel = 0)

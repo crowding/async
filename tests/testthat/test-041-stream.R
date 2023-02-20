@@ -392,5 +392,27 @@ test_that("stream stop", {
 
 })
 
+
+test_that("yieldFrom channel", {
+
+  it <- iteror(1:10)
+  ch <- stream(for (i in 11:20) yield(i))
+  st <- stream({
+    yieldFrom(it)
+    yieldFrom(ch)
+  })
+
+  expect_resolves_with(gather(st, 0), 1:20)
+
+  st1 <- stream(for (i in 1:10) if (i %% 7 == 0) stop("yyy") else yield(i))
+  st2 <- stream(yieldFrom(st1))
+  pr <- gather(st2, 0)
+  then(pr,
+       \(val) stop("should have rejected"),
+       \(val) expect_equal(attr(val, "partialResults"), 1:6))
+  wait_for_it()
+
+})
+
 options(async.sendLater = TRUE)
 options(async.compileLevel = 0)

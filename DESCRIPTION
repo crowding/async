@@ -36,7 +36,8 @@ Suggests:
     magrittr,
     iterators,
     audio,
-    profvis
+    profvis,
+    microbenchmark
 Collate:
   'async-package.R'
   'util.R'

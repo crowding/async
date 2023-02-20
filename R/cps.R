@@ -115,7 +115,7 @@ globalNode <- function(assignment) {
 R <- function(.contextName, x) {
   x <- arg_expr(x)
 
-  function(cont, ..., evl, trace=trace_) {
+  function(cont, ..., evl) {
     list(cont, evl)
     if (is_missing(x)) {
       node(eval_ <- eval(bquote(function() cont(.(quote(expr=))))))
@@ -124,7 +124,7 @@ R <- function(.contextName, x) {
     } else {
       expr_ <- x
       node(eval_ <- function() {
-        trace(paste0("R: ", deparse(expr_), "\n"))
+        expr_ # hmm, compiler isn't picking up the arg to a handler??
         evl(cont, expr_)
       })
     }

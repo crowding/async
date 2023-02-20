@@ -1,3 +1,153 @@
+#' Gather all values emitted by iterators and channels.
+#'
+#' @description These functions help collect values from generators, streams or
+#' other processes into lists. Note that you can also generate a list
+#' of values using [run].
+#'
+#' @description `as.list.iteror` and `as.vector.iteror` convert iterable
+#' objects into vectors of the given mode.
+#'
+#' @exportS3Method as.list iteror
+#' @param ... Undocumented.
+#' @return `as.list.iteror` returns a `[list]`.
+#' @author Peter Meilstrup
+#' @rdname collect
+#' @examples
+#'
+#' as.list(iseq(1,10, by=3))
+as.list.iteror <- function(x, ...) {
+  collect(function(emit) repeat emit(nextOr(x, break)), type=list())
+}
+
+#' @param x An [iteror]
+#' @param mode The mode of the output; taking the same modes as `vector`.
+#' @return `as.vector.iteror(x, mode)` returns a vector of the given mode.
+#' @exportS3Method as.vector iteror
+#' @rdname collect
+#' @examples
+#'
+#' as.vector(gen(for (i in 1:10) if (i %% 3 != 0) yield(i)), "numeric")
+as.vector.iteror <- function(x, mode) {
+  collect(function(emit)
+    repeat(emit(nextOr(x, break))),
+    vector(mode, 0))
+}
+
+#' @rdname collect
+#' @description `gather` takes a [channel] as argument and returns a
+#'   [promise]. All values emitted by the channel will be collected
+#'   into a vector matching the prototype mode. After the source
+#'   channel closes, the promise will resolve with the collected
+#'   vector.
+#' @export
+#' @param ch a [channel] object.
+#' @param type Optionally provide a vector of the desired output type
+#'   (similarly to using `vapply`); defaults to `list()`
+#' @return `gather(ch, list())` returns a [[promise]] that eventually
+#'   resolves with a list. If the channel emits an error, the promise
+#'   will reject with that error. The partial results will be attached
+#'   to the error's `attr(err, "partialResults")`.
+#'
+#' @examples
+#'
+#' ch <- stream(for (i in 1:10) {await(delay(0.1)); if (i %% 3 == 0) yield(i)})
+#' \dontrun{ ch |> gather(numeric(0)) |> then(\(x)cat(x, "\n")) }
+gather <- function(ch, type=list()) {
+  promise(\(resolve, reject) {
+    collector(type=type, \(emit, extract) {
+      subscribe(ch, emit,
+                \(err) {
+                  attr(err, "partialResults") <- extract(TRUE)
+                  reject(err)
+                },
+                \()resolve(extract(TRUE)))
+    })
+  })
+}
+
+#' @rdname collect
+#' @description Method `as.promise.channel` is a synonym for `gather`.
+#' @exportS3Method promises::as.promise channel
+as.promise.channel <- gather
+
+#' @rdname collect
+#' @description `collect` and `collector` are used in the
+#'   implementation of the above functions.  `collect` calls the
+#'   function `fn` in its argument, supplying a callback of the form
+#'   `function (val, name=NULL).` I like to call it `emit`.  While
+#'   `fn` is running, it can call `emit(x)` any number of times.
+#'   After `fn` returns, all the values passed to `emit` are returned
+#'   in a vector, with optional names.
+#'
+#' @param fn A function, which should accept a single argument, here
+#'   called `emit`.
+#' @param type A prototype output vector (similar to the `FUN.VALUE`
+#'   argument of [vapply]) Defaults to `list()`.
+#' @return `collect` returns a vector of the same mode as `type`.
+#' @author Peter Meilstrup
+#'
+#' @examples
+#'
+#' #cumulative sum with collect
+#' cumsum <- function(vec) {
+#'   total <- 0
+#'   collect(type=0, function(emit) {
+#'     for (i in vec) total <- emit(total+i)
+#'   })
+#' }
+#'
+#' # `as.list.iteror` is implemented simply with `collect`:
+#' as.list.iteror <- function(it) {
+#'   collect(\(yield) repeat yield(nextOr(it, break)))
+#' }
+collect <- function(fn, type=list()) {
+  collector(function(emit, extract) {fn(emit); extract(TRUE)}, type)
+}
+
+#' @export
+#' @rdname collect
+#' @description `collector()` works similarly to collect() but does
+#'   not gather values when your inner function returns. Instead, it
+#'   provides your inner function with two callbacks, one to add a
+#'   value and the second to extract the value; so you can use that
+#'   callback to extract values at a later time. For an example of
+#'   `collector` usage see the definition of [gather].
+collector <- function(fn, type=list()) {
+  size <- 64
+  a <- vector(mode(type), length=size)
+  i <- 0
+  yield <- function(val, name=NULL) {
+    force(val)
+    i <<- i + 1
+    if (i >= size) {
+      size <<- min(2 * size, i)
+      length(a) <<- size
+    }
+    if (!is.null(name)) {
+      if(is.null(names(a)))
+        names(a) <- ""
+      names(a)[[i]] <<- name
+    }
+    if (is.null(val)) {
+      a[i] <<- list(val)
+    } else {
+      a[[i]] <<- val
+    }
+  }
+  extract <- function(reset=FALSE) {
+    if(reset) {
+      tmp <- a[seq_len(i)]
+      a <<- vector(mode(type), length=size)
+      i <<- 0
+      tmp
+    } else {
+      a[seq_len(i)]
+    }
+  }
+  fn(yield, extract)
+}
+
+# collect_tree is used in name munging but has not been exported.
 collect_tree <- function(fn) {
   size <- 32
   this_level <- vector("list", length=size)
@@ -52,6 +202,7 @@ collect_tree <- function(fn) {
   result
 }
 
+
 is.sequence <- function(x)
   switch(typeof(x),
          list= ,
@@ -74,102 +225,5 @@ tree_filter <- function(tree, filter) {
     }
     visit(tree)
     close()
-  })
-}
-
-#' Execute a function and collect a set of values by callback.
-#'
-#' `collect` calls the function `fn` in its argument, supplying a
-#' callback of the form `function (val, name=NULL).` I like to call it
-#' `emit`.  While `fn` is running, it can call `emit(x)` any number of
-#' times.  After `fn` returns, all the values passed to `emit` are
-#' returned in a vector, with optional names.
-#'
-#' @param fn A function, which should accept a single argument, here
-#'     called `emit`.
-#' @param type A prototype output vector (i.e. a vector of the same
-#'   type as the desired output, similar to `FUN.VALUE` of [vapply].)
-#'   Defaults to `list()`.
-#' @return A vector of all values passed to `emit` whle `fn` was
-#'   running.
-#' @author Peter Meilstrup
-#'
-#' @examples
-#'
-#' #cumulative sum
-#' cumsum <- function(vec) {
-#'   total <- 0
-#'   collect(type=0, function(emit) {
-#'     for (i in vec) total <- emit(total+i)
-#'   })
-#' }
-#'
-#' # we could implement `iterors::as.list.iteror` thus:
-#' as.list.iteror <- function(it) {
-#'   collect(\(yield) repeat yield(nextOr(it, break)))
-#' }
-collect <- function(fn, type=list()) {
-  collector(function(yield, extract) {fn(yield); extract(TRUE)}, type)
-}
-
-#' @export
-#' @rdname collect
-#' @description `collector()` works similarly but does not gather
-#'   values when your inner function returns. Instead, it provides
-#'   your inner function with two callbacks, one to add a value and
-#'   the second to extract the value; so you can use that callback to
-#'   extract values at a later time. For an example of `collector`
-#'   usage see the definition of [gather].
-collector <- function(fn, type=list()) {
-  size <- 64
-  a <- vector(mode(type), length=size)
-  i <- 0
-  yield <- function(val, name=NULL) {
-    force(val)
-    i <<- i + 1
-    if (i >= size) {
-      size <<- min(2 * size, i)
-      length(a) <<- size
-    }
-    if (!is.null(name)) {
-      if(is.null(names(a)))
-        names(a) <- ""
-      names(a)[[i]] <<- name
-    }
-    if (is.null(val)) {
-      a[i] <<- list(val)
-    } else {
-      a[[i]] <<- val
-    }
-  }
-  extract <- function(reset=FALSE) {
-    if(reset) {
-      tmp <- a[seq_len(i)]
-      a <<- vector(mode(type), length=size)
-      i <<- 0
-      tmp
-    } else {
-      a[seq_len(i)]
-    }
-  }
-  fn(yield, extract)
-}
-
-#' Gather all values emitted by a channel.
-#'
-#' `gather` takes a [channel] as argument and returns a [promise]. It
-#' is analogous to what [as.list] does for [iteror]s. All values
-#' emitted by the channel will be collected into a list (or other
-#' vector.) When the source channel closes, the promise will resolve
-#' with the collected list.
-#' @export
-#' @param ch a [channel] object.
-#' @param type Optionally provide a vector of the desired output type
-#'   (similarly to using `vapply`); defaults to `list()`
-gather <- function(ch, type=list()) {
-  promise(\(resolve, reject) {
-    collector(type=type, \(yield, extract) {
-      subscribe(ch, yield, reject, \() resolve(extract(TRUE)))
-    })
   })
 }

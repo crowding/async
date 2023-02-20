@@ -367,9 +367,6 @@ test_that("Async with try-finally", {
     5
   })
 
-  ## wait_for_it()
-  ## expect_true(not_run)
-  ## expect_false(cleanup)
   expect_silent(graphAsync(tryfin, filename("tryfin"),
                           vars=TRUE, envs=TRUE, handlers=TRUE, orphans=TRUE))
 

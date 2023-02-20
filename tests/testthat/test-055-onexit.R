@@ -77,7 +77,7 @@ test_that("on.exit in async; can override", {
   as <- async({
     on.exit(stop("changed my mind."))
     await(p)
-  }, compileLevel=-1)
+  })
   expect_rejects_with(as, "changed my mind.", p$resolve("happy"))
 
   p <- mock_promise()

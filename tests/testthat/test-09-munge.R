@@ -63,9 +63,13 @@ test_that("nested loops", {
 })
 
 test_that("can compile and print async", {
+
   p <- mock_promise()
-  a <- async(await(p) + 1, compileLevel=-1)
+  a <- async({
+    await(p) + 1
+  }, compileLevel=-1)
   expect_output(print(a))
+
 })
 
 test_that("can compile and print stream", {

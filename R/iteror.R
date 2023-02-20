@@ -230,24 +230,6 @@ hasNext.ihasNextOr <- function(obj, ...) {
   obj(query="has", ...)
 }
 
-#' @exportS3Method as.list iteror
-as.list.iteror <- function(x, n=as.integer(2^31-1), ...) {
-  size <- 64
-  a <- vector('list', length=size)
-  i <- 0
-  repeat {
-    item <- nextOr(x, break)
-    i <- i + 1
-    if (i >= size) {
-      size <- min(2 * size, n)
-      length(a) <- size
-    }
-    a[[i]] <- item
-  }
-  length(a) <- i
-  a
-}
-
 #' Limit the number of elements emitted by an iterator.
 #' @param it an [iteror] os something that converts to an iteror.
 #' @param n How many elements to take.
@@ -286,18 +268,4 @@ iseq <- function(from=1L, to=Inf, by=1L) {
     })
 }
 
-#' Iteror that chains multiple arguments together into a single iterator
-#'
-#' Generates an [iteror] that returns elements from the first argument until it
-#' is exhausted. Then generates an iterator from the next argument and returns
-#' elements from it. This process continues until all arguments are exhausted
-#' Chaining is useful for treating consecutive sequences as a single sequence.
-#'
-#' @export
-#' @param ... multiple arguments to iterate through in sequence
-#' @return iteror that iterates through each argument in sequence
-#'
-#' @examples
-#' it <- ichain(1:3, 4:5, 6)
-#' as.list(it)
-#'
+

@@ -7,8 +7,6 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-# A Musical Introduction to Generators
-
 What a generator allows you to do is to take code that is writen in
 a sequential, looping style, and then treat that code's output as
 a collection to be iterated over.

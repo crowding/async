@@ -134,21 +134,43 @@ yield_cps <- function(.contextName, expr) {
 #' iteror until it is exhausted, then continue.
 #'
 #' @param it A list, [iteror] or compatible object.
+#' @param err An error handler
 #' @return yieldFrom returns NULL, invisibly.
 #' @examples
 #' chain <- function(...) {
 #'   iterators <- list(...)
 #'   gen(for (it in iterators) yieldFrom(it))
 #' }
-yieldFrom <- function(it) {
+yieldFrom <- function(it, err) {
   stop("yieldFrom() called outside a generator")
 }
 
 yieldFrom_cps <- function(.contextName, it) {
   list(.contextName, it)
-  function(cont, ..., yield, trace=trace, registerYield) {
-    list(cont, yield, trace, maybe(registerYield))
+  function(cont, ..., stp, yield, trace=trace, registerYield, awaitNext) {
+    list(cont, yield, trace, maybe(registerYield), maybe(awaitNext))
     if (!is_missing(registerYield)) registerYield()
+
+    result <- "xxx"
+    value <- NULL
+    node(received <- function() {
+      switch(result,
+             success={ val <- value; value <<- NULL; yield(streamFrom_, val) },
+             error={ stp(value) },
+             close=cont(invisible(NULL)),
+             stp(paste("Unexpected result from awaitNext", result))) # nocov
+    })
+
+    node(streamFrom_ <- function(val) {
+      val <- NULL
+      trace("yieldFrom: next\n")
+      result <<- "xxx"
+      awaitNext(received,
+                iter,
+                \(val) {result <<- "success"; value <<- val},
+                \(val) {result <<- "error"; value <<- val},
+                \() {result <<- "close"; value <<- NULL})
+    })
 
     node(yieldFrom_ <- function(val) {
       stopping <- FALSE
@@ -163,13 +185,25 @@ yieldFrom_cps <- function(.contextName, it) {
     })
 
     iter <- NULL
-    node(iter_ <- function(val) {
-      iter <<- iteror(val)
-      trace("yieldFrom: got iteror")
-      yieldFrom_(NULL)
-    })
+    if(is_missing(awaitNext)) {
+      node(iter_ <- function(val) {
+        iter <<- iteror(val)
+        trace("yieldFrom: got iteror")
+        yieldFrom_(NULL)
+      })
+    } else {
+      node(iter_ <- function(val) {
+        iter <<- iteror(val)
+        trace("yieldFrom: got iteror")
+        if (is.channel(iter)) {
+          streamFrom_(NULL)
+        } else {
+          yieldFrom_(NULL)
+        }
+      })
+    }
 
-    it(iter_, ..., yield=yield, trace=trace, registerYield=registerYield)
+    it(iter_, ..., yield=yield, stp=stp, trace=trace, registerYield=registerYield, awaitNext=awaitNext)
   }
 }
 

@@ -19,6 +19,8 @@ This is an R package implementing *generators*, *async* blocks, and *streams* (c
 [news]: https://github.com/crowding/async/blob/main/NEWS.md
 For more details see [NEWS.md][news].
 
+For more details on the package as a whole, see the [help index](https://crowding.github.io/async/reference/index.html) and [vignettes](https://crowding.github.io/async/articles/index.html). 
+
 ## Generators
 
 `g <- gen({...})` is like a function that knows how to "pause." The

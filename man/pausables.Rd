@@ -4,37 +4,32 @@
 \alias{pausables}
 \title{Pausable functions.}
 \usage{
-pausables(envir = caller(), packages = base::.packages())
+pausables(envir = caller(), packages = NULL)
 }
 \arguments{
 \item{envir}{The environment to search (defaulting to the calling
 environment).}
 
-\item{packages}{Which packages to search; defaults to currently
-loaded packages. You can scan all packages with
-\code{pausables(packages=base::.packages(all.available=TRUE))}}
+\item{packages}{By default, will only look for pausable functions
+visible from the caller's environment. \code{packages} argument
+additionally specifies aditional packages to
+search. \code{packages=base::.packages()} will search all currently
+loaded packages. \verb{[.packages(all.available=TRUE)]} will search
+all installped package.}
 }
 \value{
 A list of expressions (either names or \code{:::} calls)
 }
 \description{
-\code{\link{async}} and \code{\link{gen}} rely on "pausable" workalikes for R functions
+Coroutines rely on "pausable" workalikes for control flow functions
 like \code{if}, \code{while}, and so on. \code{pausables()} scans for and returns
-a list of all pausable functions visible in the present environment
-and in attached packages.
+a list of all pausable functions visible from the present
+environment.
 }
 \details{
-It is possible for a third party package to define pausable
-functions. To do this:
-\enumerate{
-\item Define and export a function \code{yourname} and an ordinary R implementation
-(the pausable version is only used when there is an \code{await} or
-\code{yield} in the arguments.)
-\item Also define a function \code{yourname_cps} in your package namespace. (It
-does not need to be exported.) \code{yourname_cps} should have the pausable
-(callback based) implementation.
-}
-
-The API for pausable functions is not yet fixed, but it is described
-in source file \code{cps.r} along with implementations for R builtins.
+A pausable function is a public function that has a corresponding
+private function with a name endng with \verb{_cps}.  Most of these
+private functions are defined in \code{async} source file \code{cps.r}. For
+instance, \code{async:::for_cps} contains the pausable implementation of
+\code{for}.
 }

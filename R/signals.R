@@ -50,7 +50,7 @@ catch_cps_ <- function(.contextName, expr, error) {
       cont(val)
     })
     getErrHandler <- error(gotErrHandler, ..., stp=stp, brk=brk,
-                           nxt=nxt, windup=windup, unwind=unwind,
+                           goto=goto, nxt=nxt, windup=windup, unwind=unwind,
                            rtn=rtn, trace=trace)
     node(do_return <- function() {
       rtn(list(result, result <<- NULL)[[1]])

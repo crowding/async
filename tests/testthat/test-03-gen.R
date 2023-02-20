@@ -8,6 +8,8 @@ setCompileLevelFromFn(fn)
 test_that("generators", {
   x <- gen({yield("one"); yield("two")})
   as.list(x) %is% list("one", "two")
+  x <- gen({yield("one"); yield("two")})
+  as.vector(x, "character") %is% c("one", "two")
 
   x <- gen({yield("one"); yield("two"); print("threeeee")})
   expect_output(as.list(x) %is% list("one", "two"), "threee")

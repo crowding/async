@@ -345,33 +345,29 @@ promote_qualified_head <- function(l) {
 
 #' Pausable functions.
 #'
-#' [`async`] and [`gen`] rely on "pausable" workalikes for R functions
+#' Coroutines rely on "pausable" workalikes for control flow functions
 #' like `if`, `while`, and so on. `pausables()` scans for and returns
-#' a list of all pausable functions visible in the present environment
-#' and in attached packages.
+#' a list of all pausable functions visible from the present
+#' environment.
 #'
-#' It is possible for a third party package to define pausable
-#' functions. To do this:
-#
-#' 1. Define and export a function `yourname` and an ordinary R implementation
-#' (the pausable version is only used when there is an `await` or
-#' `yield` in the arguments.)
-#' 2. Also define a function `yourname_cps` in your package namespace. (It
-#' does not need to be exported.) `yourname_cps` should have the pausable
-#' (callback based) implementation.
-#'
-#' The API for pausable functions is not yet fixed, but it is described
-#' in source file `cps.r` along with implementations for R builtins.
+#' A pausable function is a public function that has a corresponding
+#' private function with a name endng with `_cps`.  Most of these
+#' private functions are defined in `async` source file `cps.r`. For
+#' instance, `async:::for_cps` contains the pausable implementation of
+#' `for`.
 #'
 #' @param envir The environment to search (defaulting to the calling
 #'   environment).
-#' @param packages Which packages to search; defaults to currently
-#'   loaded packages. You can scan all packages with
-#'   `pausables(packages=base::.packages(all.available=TRUE))`
+#' @param packages By default, will only look for pausable functions
+#'   visible from the caller's environment. `packages` argument
+#'   additionally specifies aditional packages to
+#'   search. `packages=base::.packages()` will search all currently
+#'   loaded packages. `[.packages(all.available=TRUE)]` will search
+#'   all installped package.
 #' @return A list of expressions (either names or `:::` calls)
 #' @export
 pausables <- function(envir=caller(),
-                      packages=base::.packages()) {
+                      packages=NULL) {
   visible_pausables <-
     lapply(
       Filter(
