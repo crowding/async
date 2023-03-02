@@ -314,4 +314,4 @@ If you call `debugAsync(co, R=TRUE)` the coroutine `co` will start a  browser be
 If you call `debugAsync(co, internal=TRUE)` the browser will be opened at the R implementation level. This will present you with a twisty little path of tailcalls; Step through each call with `n` but make sure to `s` to step into a tailcall to follow execution.
 
 [nseval]: https://github.com/crowding/nseval
-The `async` package imports [nseval]() which I find can be very handy at the debugger console. I often use `get_function()`, `get_call()`, ans `caller()` to get a handle on where exactly the debugger is paused at.  `arg_env` `arg_expr`, `is_forced` and friends really help when ng with R's lazy evaluation,
+The `async` package imports [nseval][] which can be very handy at the debugger console. I often use `get_function()`, `get_call()`, and `caller()` to get a handle on where exactly the debugger is paused at.  `arg_env` `arg_expr`, `is_forced` and friends really help when dealing with R's lazy evaluation,

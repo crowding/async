@@ -315,7 +315,7 @@ reconstitute.generator <- function(orig, munged) {
 }
 
 #' @rdname format
-#' @return For a [generator][gen] `g`, `getState(g)` might return "yielded",
+#' @return For a [gen]erator `g`, `getState(g)` might return "yielded",
 #' "running" (if nextElem is _currently_ being called), "stopped" (for
 #' generators that have stopped with an error) or "finished" (for
 #' generators that have finished normally.)
