@@ -43,8 +43,8 @@
 #'   level, allowing single-stepping through `async` package code.
 #' @param trace a tracing function.
 #' @export
-run <- function(expr, type=list(), ..., split_pipes=FALSE, trace=trace_,
-                debugR=FALSE, debugInternal=FALSE) {
+run <- function(expr, type=list(), ..., split_pipes=FALSE,
+                debugR=FALSE, debugInternal=FALSE, trace=getOption("async.verbose")) {
   expr_ <- arg(expr);
   expr <- NULL
   if (identical(expr(expr_)[[1]], quote(`function`))) {
@@ -54,7 +54,8 @@ run <- function(expr, type=list(), ..., split_pipes=FALSE, trace=trace_,
                                type=type,
                                split_pipes=split_pipes,
                                debugR=debugR,
-                               debugInternal=debugInternal)
+                               debugInternal=debugInternal,
+                               trace=trace)
     return(value(defn))
   }
   .contextName <- "run"
@@ -72,7 +73,7 @@ run <- function(expr, type=list(), ..., split_pipes=FALSE, trace=trace_,
   yield <- function(cont, val) {val <- y(val); cont(val)}
   pump <- make_pump(expr, ..., targetEnv=env(expr_), registerYield=registerYield_,
                     rtn=return_, stp=stop_, yield=yield, catch=FALSE)
-  environment(pump)$setDebug(R=debugR, internal=debugInternal)
+  environment(pump)$setDebug(R=debugR, internal=debugInternal, trace=trace)
 
   go <- function() repeat switch(state,
                     running={ state <<- "active"; pump() },

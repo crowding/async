@@ -1,6 +1,6 @@
 #' Create an asynchronous iterator by writing sequential code.
 #'
-#' (Experimental as of async 0.4.) `stream(...)` constructs a [channel]
+#' (Experimental as of async 0.3) `stream(...)` constructs a [channel]
 #' object, i.e. an asynchronous iterator, which will compute and
 #' return values according to sequential code written in `expr`. A
 #' `stream` is a coroutine wearing a [channel] interface in the same
@@ -69,9 +69,10 @@
 #'   "coroutine", "iteror", "iter".
 #' @author Peter Meilstrup
 #' @export
-stream <- function(expr, ..., split_pipes=TRUE, lazy=TRUE, trace=trace_,
+stream <- function(expr, ..., split_pipes=TRUE, lazy=TRUE,
                    compileLevel=getOption("async.compileLevel"),
-                   debugR=FALSE, debugInternal=FALSE) {
+                   debugR=FALSE, debugInternal=FALSE,
+                   trace=getOption("async.verbose")) {
   expr_ <- arg(expr)
   expr <- NULL
   if (identical(expr(expr_)[[1]], quote(`function`))) {
@@ -82,7 +83,8 @@ stream <- function(expr, ..., split_pipes=TRUE, lazy=TRUE, trace=trace_,
                                lazy=lazy,
                                compileLevel=compileLevel,
                                debugR=debugR,
-                               debugInternal=debugInternal)
+                               debugInternal=debugInternal,
+                               trace=trace)
     return(value(defn))
   }
   list(split_pipes, lazy, trace, compileLevel, debugR, debugInternal)
@@ -91,23 +93,22 @@ stream <- function(expr, ..., split_pipes=TRUE, lazy=TRUE, trace=trace_,
                            endpoints=stream_endpoints,
                            split_pipes=split_pipes),
              orig=forced_quo(expr_),
-             trace=arg(trace),
              dots(...))
   set_dots(environment(), args_)
   strm <- make_stream(..., lazy=lazy,
                       compileLevel=compileLevel,
                       callingEnv=env(expr_))
-  debugAsync(strm, R=debugR, internal=debugInternal)
+  debugAsync(strm, R=debugR, internal=debugInternal, trace=trace)
   strm
 }
 
 make_stream <- function(expr, orig=expr, ...,
-                        trace=trace_, callingEnv, compileLevel, lazy, local=TRUE) {
+                        trace=identity, callingEnv, compileLevel, lazy, local=TRUE) { #FIXME
   list(orig, expr, ..., trace, callingEnv, compileLevel, lazy)
   .contextName <- "stream"
   targetEnv <- if (local) new.env(parent=callingEnv) else callingEnv
   nonce <- (function() function() NULL)()
-  if (getOption("async.verbose")) traceBinding("state", "xxx")
+  #if (getOption("async.verbose")) traceBinding("state", "xxx")
   state <- "xxx" #print method uses this
   yielded <- nonce
   value <- nonce
@@ -123,7 +124,6 @@ make_stream <- function(expr, orig=expr, ...,
   globalNode(getState <- function() state)
 
   node(return_ <- function(val) {
-    trace("stream: return\n")
     state <<- "resolved"
     value <<- val
     close_() # avoid gathering this as a tailcall
@@ -131,7 +131,6 @@ make_stream <- function(expr, orig=expr, ...,
   })
 
   node(stop_ <- function(val) {
-    trace("stream: reject\n")
     err <<- val
     state <<- "rejected"
     reject_(val)
@@ -143,11 +142,9 @@ make_stream <- function(expr, orig=expr, ...,
     state <<- "yielding"
     emit_(val)
     if (!lazy || state == "woken") {
-      trace("stream: continuing\n")
       state <<- "running"
       bounce_val(cont, val)
     } else {
-      trace("stream: pausing\n")
       state <<- "yielded"
       pause_val(cont, val)
     }
@@ -162,7 +159,7 @@ make_stream <- function(expr, orig=expr, ...,
   pump <- make_pump(expr, ...,
                     rtn=return_, stp=stop_, await=await_,
                     awaitNext=awaitNext_, yield=yield_,
-                    trace=trace, targetEnv=targetEnv)
+                    targetEnv=targetEnv)
 
   bounce_val <- environment(pump)$bounce_val_
   bounce <- environment(pump)$bounce_
@@ -170,7 +167,6 @@ make_stream <- function(expr, orig=expr, ...,
   pause <- environment(pump)$pause_
 
   globalNode(wakeup <- function(x) {
-    trace("stream: wakeup\n")
     switch(state,
            "yielding" = {state <<- "woken"},
            "yielded" = {state <<- "running"; pump()}
@@ -264,9 +260,9 @@ awaitNext_cps <- function(.contextName,
                           error) {
   list(.contextName, strm, maybe(or), maybe(error))
 
-  function(cont, ..., awaitNext, stp, trace) {
+  function(cont, ..., awaitNext, stp) {
     if (missing(awaitNext)) stop("awaitNext used, but this is not an async")
-    list(cont, awaitNext, stp, trace)
+    list(cont, awaitNext, stp)
 
     nonce <- function(x) NULL
     state <- "xxx"
@@ -286,18 +282,17 @@ awaitNext_cps <- function(.contextName,
       node(error <- function(val) stp(val))
     } else {
       error <- error(gotErrorFn, ...,
-                       awaitNext=awaitNext, stp=stp, trace=trace)
+                       awaitNext=awaitNext, stp=stp)
     }
     if (is_missing(or)
         || is_R(or) && identical(R_expr(or), quote(expr=))) {
       node(or <- function() stp("StopIteration"))
     } else {
       or <- or(cont, ...,
-               awaitNext=awaitNext, stp=stp, trace=trace)
+               awaitNext=awaitNext, stp=stp)
     }
 
     node(then <- function() {
-      trace("awaitNext: resolve\n")
       switch(state,
              "success" = {state <<- "xxx"; cont(value)},
              "error" = {state <<- "xxx"; error()},
@@ -305,7 +300,6 @@ awaitNext_cps <- function(.contextName,
              stp(paste0("awaitNext: unexpected state ", state))) # nocov
     })
     node(await_ <- function(val) {
-      trace("awaitNext: got channel\n")
       state <<- "xxx"
       value <<- NULL
       awaiting <<- TRUE
@@ -318,6 +312,6 @@ awaitNext_cps <- function(.contextName,
                   state <<- "closed"; value <<- NULL; awaiting <<- FALSE})
     })
     strm <- strm(await_, ..., await=await,
-                 awaitNext=awaitNext, stp=stp, trace=trace)
+                 awaitNext=awaitNext, stp=stp)
   }
 }

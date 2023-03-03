@@ -69,20 +69,19 @@
 #' @param ... Undocumented.
 #' @param split_pipes Silently rewrite expressions where "yield"
 #'   appears in chained calls. See [async].
-#' @param trace Optional tracing function for debugging. See [async].
 #' @return `gen({...}) returns an [iteror].
 #' @param compileLevel Current levels are 0 (no compilation) or
 #' -1 (name munging only).
 #' @export
-gen <- function(expr, ..., split_pipes=FALSE, trace=trace_,
+gen <- function(expr, ..., split_pipes=FALSE,
                 compileLevel=getOption("async.compileLevel")) {
   expr_ <- arg(expr); expr <- NULL
   if (identical(expr(expr_)[[1]], quote(`function`))) {
     defn <- coroutine_function(expr_,
                                quote(async::gen),
                                ...,
-                               split_pipes=split_pipes,
-                               compileLevel=compileLevel)
+                               split_pipes = split_pipes,
+                               compileLevel = compileLevel)
     return(value(defn))
   }
   .contextName <- "wrapper"
@@ -91,7 +90,6 @@ gen <- function(expr, ..., split_pipes=FALSE, trace=trace_,
                            endpoints=gen_endpoints,
                            split_pipes=split_pipes),
              orig=forced_quo(expr_),
-             trace=arg(trace),
              dots(...))
   set_dots(environment(), args_)
   gen <- make_generator(..., callingEnv=envir)
@@ -112,16 +110,15 @@ yield <- function(expr) {
 
 yield_cps <- function(.contextName, expr) {
   list(.contextName, expr)
-  function(cont, ..., yield, registerYield, trace) {
+  function(cont, ..., yield, registerYield) {
     if (missing_(arg(yield))) stop("yield used but this is not a generator")
     if (!missing(registerYield)) registerYield()
-    list(cont, yield, trace)
+    list(cont, yield)
     node(yield_ <- function(val) {
       force(val)
-      trace("yield\n")
       yield(cont, val)
     })
-    expr(yield_, ..., yield=yield, registerYield=registerYield, trace=trace)
+    expr(yield_, ..., yield=yield, registerYield=registerYield)
   }
 }
 
@@ -147,8 +144,8 @@ yieldFrom <- function(it, err) {
 
 yieldFrom_cps <- function(.contextName, it) {
   list(.contextName, it)
-  function(cont, ..., stp, yield, trace=trace, registerYield, awaitNext) {
-    list(cont, yield, trace, maybe(registerYield), maybe(awaitNext))
+  function(cont, ..., stp, yield, registerYield, awaitNext) {
+    list(cont, yield, maybe(registerYield), maybe(awaitNext))
     if (!is_missing(registerYield)) registerYield()
 
     result <- "xxx"
@@ -163,7 +160,6 @@ yieldFrom_cps <- function(.contextName, it) {
 
     node(streamFrom_ <- function(val) {
       val <- NULL
-      trace("yieldFrom: next\n")
       result <<- "xxx"
       awaitNext(received,
                 iter,
@@ -174,10 +170,8 @@ yieldFrom_cps <- function(.contextName, it) {
 
     node(yieldFrom_ <- function(val) {
       stopping <- FALSE
-      trace("yieldFrom: next\n")
       val <- nextOr(iter, stopping <- TRUE)
       if (stopping) {
-        trace("yieldFrom: stopping\n")
         cont(invisible(NULL))
       } else {
         yield(yieldFrom_, val) #FIXME: under a "run" this winds up the stack
@@ -188,13 +182,11 @@ yieldFrom_cps <- function(.contextName, it) {
     if(is_missing(awaitNext)) {
       node(iter_ <- function(val) {
         iter <<- iteror(val)
-        trace("yieldFrom: got iteror")
         yieldFrom_(NULL)
       })
     } else {
       node(iter_ <- function(val) {
         iter <<- iteror(val)
-        trace("yieldFrom: got iteror")
         if (is.channel(iter)) {
           streamFrom_(NULL)
         } else {
@@ -203,18 +195,15 @@ yieldFrom_cps <- function(.contextName, it) {
       })
     }
 
-    it(iter_, ..., yield=yield, stp=stp, trace=trace, registerYield=registerYield, awaitNext=awaitNext)
+    it(iter_, ..., yield=yield, stp=stp, registerYield=registerYield, awaitNext=awaitNext)
   }
 }
 
-make_generator <- function(expr, orig=arg(expr), ..., trace=trace_,
+make_generator <- function(expr, orig=arg(expr), ...,
                            local=TRUE, callingEnv) {
-  list(expr, ..., orig, trace)
+  list(expr, ..., orig)
   .contextName <- "gen"
   targetEnv <- if(local) new.env(parent=callingEnv) else callingEnv
-  # gen_cps <- function(.contextName, expr) {
-  #   list(.contextName, expr)
-  #     list(stp, rtn, pause, pause_val, trace)
   nonce <- function() NULL
   yielded <- nonce
   err <- nonce
@@ -224,12 +213,10 @@ make_generator <- function(expr, orig=arg(expr), ..., trace=trace_,
 
   node(return_ <- function(val) {
     force(val)
-    trace("generator: return\n")
     state <<- "finished"
   })
 
   node(stop_ <- function(val) {
-    trace("generator: stop\n")
     err <<- val
     state <<- "stopped"
     stop(val)
@@ -237,14 +224,12 @@ make_generator <- function(expr, orig=arg(expr), ..., trace=trace_,
   })
 
   node(yield_ <- function(cont, val) {
-    trace("generator: yield\n")
     state <<- "yielded"
     yielded <<- val
     pause_val(cont, val)
   })
 
   globalNode(nextOr_ <- function(or, ...) {
-    trace("generator: nextOr\n")
     val <- switch(state,
                   "stopped" =,
                   "finished" = or,
@@ -281,7 +266,7 @@ make_generator <- function(expr, orig=arg(expr), ..., trace=trace_,
     val
   })
 
-  pump <- make_pump(expr, ..., trace=trace, catch=FALSE,
+  pump <- make_pump(expr, ..., catch=FALSE,
                     stp=stop_, yield=yield_, rtn=return_,
                     targetEnv=targetEnv)
   pause_val <- get("pause_val_", envir=environment(pump))

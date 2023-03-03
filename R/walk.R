@@ -256,7 +256,7 @@ find_local_name <- function(fun) {
   name
 }
 
-find_global_name <- function(fun, nameOverrides) {
+find_global_name <- function(fun, nameOverrides=emptyenv()) {
   if (is.null(name <- attr(fun, "globalName"))) {
     name <- paste0(get0(".contextName", environment(fun)),
                    "__", find_local_name(fun))

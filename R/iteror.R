@@ -267,5 +267,3 @@ iseq <- function(from=1L, to=Inf, by=1L) {
       if (i < to) or else i
     })
 }
-
-

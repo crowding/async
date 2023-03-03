@@ -9,9 +9,9 @@ run(
   type = list(),
   ...,
   split_pipes = FALSE,
-  trace = trace_,
   debugR = FALSE,
-  debugInternal = FALSE
+  debugInternal = FALSE,
+  trace = getOption("async.verbose")
 )
 }
 \arguments{
@@ -25,13 +25,13 @@ in \link{vapply}.)}
 
 \item{split_pipes}{See \link{async}; defaults to FALSE.}
 
-\item{trace}{a tracing function.}
-
 \item{debugR}{Will open a browser at the first and subsequent R
 evaluations allowing single-stepping through user code.}
 
 \item{debugInternal}{Will set a breakpoint at the implementation
 level, allowing single-stepping through \code{async} package code.}
+
+\item{trace}{a tracing function.}
 }
 \value{
 If \code{expr} contains any \code{yield} calls, a vector of the

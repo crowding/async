@@ -35,3 +35,5 @@
   }, compileLevel=-1)
 
 
+pump(`(_cps`("", R("", 12+12)), targetEnv=environment(), catch=FALSE)
+  

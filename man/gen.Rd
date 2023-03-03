@@ -10,7 +10,6 @@ gen(
   expr,
   ...,
   split_pipes = FALSE,
-  trace = trace_,
   compileLevel = getOption("async.compileLevel")
 )
 
@@ -25,8 +24,6 @@ yieldFrom(it, err)
 
 \item{split_pipes}{Silently rewrite expressions where "yield"
 appears in chained calls. See \link{async}.}
-
-\item{trace}{Optional tracing function for debugging. See \link{async}.}
 
 \item{compileLevel}{Current levels are 0 (no compilation) or
 -1 (name munging only).}

@@ -155,10 +155,9 @@ maybe <- function(x, if_missing=NULL)
 
 make_store <- function(sym) { force(sym)
   function(.contextName, x, value) { list(.contextName, x, value)
-    function(cont, ..., evl, trace=trace_) { list(cont, trace)
-
+    function(cont, ..., evl) { list(cont)
       #quote the LHS at construction time
-      lhs <- x(cont, ..., evl=evl, trace=trace)
+      lhs <- x(cont, ..., evl=evl)
       if (!is_R(lhs)) {
         stop("Unexpected pause on LHS of <- or <<-")
       }
@@ -171,80 +170,76 @@ make_store <- function(sym) { force(sym)
         val <- as.call(pairlist(sym, var_, val))
         evl(cont,val)
       })
-      value(store, ..., evl=evl, trace=trace)
+      value(store, ..., evl=evl)
     }
   }
 }
 
-`<-_cps` <- make_store(`<-`)
-`<<-_cps` <- make_store(`<<-`)
+`<-_cps` <- make_store(quote(`<-`))
+`<<-_cps` <- make_store(quote(`<<-`))
 
 `&&_cps` <- function(.contextName, left, right) {
   list(.contextName, left, right)
-  function(cont, ..., trace=trace_) {
-    list(cont, trace)
+  function(cont, ...) {
+    list(cont)
     leftVal <- NULL
     node(andRight <- function(val) {
       val <- leftVal && val
-      trace(paste0("&&: ", deparse(val), "\n"))
       leftVal <<- NULL
       cont(val)
     })
-    ifTrue <- right(andRight, ..., trace=trace)
+    ifTrue <- right(andRight, ...)
     node(andLeft <- function(val) {
       if (isFALSE(val)) {
-        trace("&&: FALSE (skip)\n")
         cont(FALSE)
       } else {
         leftVal <<- val
         ifTrue()
       }
     })
-    getLeft <- left(andLeft, ..., trace=trace)
+    getLeft <- left(andLeft, ...)
     getLeft
   }
 }
 
 `||_cps` <- function(.contextName, left, right) { list(.contextName, left, right)
-  function(cont, ..., trace=trace_) {
-    list(cont, trace)
+  function(cont, ...) {
+    list(cont)
     leftVal <- NULL
     node(orRight <- function(val) {
       val <- leftVal || val
-      trace(paste0("||: ", deparse(val), "\n"))
       cont(val)
     })
-    ifFalse <- right(orRight, ..., trace=trace)
+    ifFalse <- right(orRight, ...)
     node(orLeft <- function(val) {
       if (isTRUE(val)) {
-        trace("||: TRUE (skip)\n")
         cont(TRUE)
       } else {
         leftVal <<- val
         ifFalse()
       }
     })
-    getLeft <- left(orLeft, ..., trace=trace)
+    getLeft <- left(orLeft, ...)
     getLeft
   }
 }
 
 if_cps <- function(.contextName, cond, cons.expr, alt.expr) {
   list(.contextName, cond, cons.expr, maybe(alt.expr))
-  function(cont, ..., stp, trace=trace_) {
-    list(cont, stp, trace)
-    ifTrue <- cons.expr(cont, ..., stp=stp, trace=trace)
+  function(cont, ..., stp) {
+    list(cont, stp)
+    ifTrue <- cons.expr(cont, ..., stp=stp)
     if (missing_(arg(alt.expr))) {
       node(if_ <- function(val) {
         if(val) ifTrue() else cont(invisible(NULL))
       })
     } else {
-      ifFalse <- alt.expr(cont, ..., stp=stp, trace=trace)
+      ifFalse <- alt.expr(cont, ..., stp=stp)
       node(if_ <- function(val) {
         if(val) ifTrue() else ifFalse()
       })
     }
-    getCond <- cond(if_, ..., stp=stp, trace=trace)
+    getCond <- cond(if_, ..., stp=stp)
   }
 }
 
@@ -252,8 +247,8 @@ if_cps <- function(.contextName, cond, cons.expr, alt.expr) {
 switch_cps <- function(.contextName, EXPR, ...) {
   list(.contextName, EXPR)
   alts <- list(...)
-  function(cont, ..., stp, goto, bounce, bounce_val, trace=trace_) {
-    list(cont, stp, trace, bounce, bounce_val)
+  function(cont, ..., stp, goto, bounce, bounce_val) {
+    list(cont, stp, bounce, bounce_val)
     maybe(goto)
 
     node(goto_ <- function(val) {
@@ -263,7 +258,7 @@ switch_cps <- function(.contextName, EXPR, ...) {
     # for the compiler to see the branches they need to be bound to names
     for (i in seq_along(alts)) {
       alts[[i]] <- alts[[i]](cont, ..., stp=stp,
-        bounce=bounce, bounce_val=bounce_val, trace=trace, goto=goto_)
+        bounce=bounce, bounce_val=bounce_val, goto=goto_)
       assign(paste0("alt", i), alts[[i]], envir=environment())
     }
 
@@ -272,7 +267,6 @@ switch_cps <- function(.contextName, EXPR, ...) {
       branches <- seq_along(alts)
 
       node(switch_ <- eval(bquote(splice=TRUE, function(val) {
-        trace("switch: numeric\n")
         if (!is.numeric(val))
           stp(simpleError(paste0("switch: expected numeric, got ", mode(val))))
         else if (val < 1)
@@ -318,7 +312,6 @@ switch_cps <- function(.contextName, EXPR, ...) {
         {{switch(branch, ..(lapply(seq_along(alts),
                                  function(i)call(paste0("alt", i)))))}})
       node(switch_ <- eval(bquote(function(val) {
-        trace("switch: character\n")
         if (!is.character(val))
           stp(simpleError(paste0("switch: expected character, got ", mode(val))))
         else .(if (is.null(default)) bquote({
@@ -334,7 +327,7 @@ switch_cps <- function(.contextName, EXPR, ...) {
         )
       })))
     }
-    EXPR <- EXPR(switch_, ..., stp=stp, trace=trace, goto=goto,
+    EXPR <- EXPR(switch_, ..., stp=stp, goto=goto,
                  bounce=bounce, bounce_val=bounce_val)
   }
 }
@@ -437,12 +430,11 @@ goto_cps <- function(.contextName, branch=R(NULL)) {
 
 next_cps <- function(.contextName) {
   force(.contextName)
-  function(cont, ..., nxt, trace=trace_) {
+  function(cont, ..., nxt) {
     if (missing_(arg(nxt))) stop("call to next is not in a loop")
-    list(nxt, trace)
+    list(nxt)
     if (getOption("async.verbose")) {
       node(next_ <- function() {
-        trace("next\n")
         nxt()
       })
     } else nxt
@@ -451,12 +443,11 @@ next_cps <- function(.contextName) {
 
 break_cps <- function(.contextName) {
   force(.contextName)
-  function(cont, ..., brk, trace=trace_) {
+  function(cont, ..., brk) {
     if (missing_(arg(brk))) stop("call to break is not in a loop")
-    list(cont, brk, trace)
+    list(cont, brk)
     if(getOption("async.verbose")) {
       node(break_ <- function() {
-        trace("break\n")
         brk()
       })
     } else brk
@@ -465,10 +456,10 @@ break_cps <- function(.contextName) {
 
 nextOr_cps <- function(.contextName, expr, or) {
   list(.contextName, expr, or)
-  function(cont, ..., trace=trace_) {
-    list(cont, trace_)
+  function(cont, ...) {
+    list(cont)
 
-    or_ <- or(cont, ..., trace=trace_)
+    or_ <- or(cont, ...)
 
     node(getNext <- function(val) {
       stopping <- FALSE
@@ -477,7 +468,7 @@ nextOr_cps <- function(.contextName, expr, or) {
       if (stopping) or_() else cont(val)
     })
 
-    expr(getNext, ..., trace=trace_)
+    expr(getNext, ...)
   }
 }
 
@@ -486,71 +477,64 @@ nextOr_cps <- function(.contextName, expr, or) {
 # pass that down to constructor arguments:
 
 repeat_cps <- function(.contextName, expr) { list(.contextName, expr)
-  function(cont, ..., bounce, brk, nxt, trace=trace_) {
-    list(cont, maybe(brk), maybe(nxt), trace)
+  function(cont, ..., bounce, brk, nxt) {
+    list(cont, maybe(brk), maybe(nxt))
     node(repeat_ <- function(val) {
-      trace("repeat: again\n")
       force(val)
       val <- NULL
       bounce(begin)
     })
     node(brk_ <- function() {
-      trace("repeat: break\n")
       cont(invisible(NULL))
     })
     node(nxt_ <- function() {
-      trace("repeat: next\n")
       bounce(begin)
     })
     begin <- expr(repeat_, ..., bounce=bounce,
-                  brk=brk_, nxt=nxt_, trace=trace)
+                  brk=brk_, nxt=nxt_)
     begin
   }
 }
 
 while_cps <- function(.contextName, cond, expr) {
   list(.contextName, cond, expr)
-  function(cont, ..., bounce, bounce_val, nxt, brk, trace=trace_) {
-    list(cont, bounce, bounce_val, maybe(nxt), maybe(brk), trace)
+  function(cont, ..., bounce, bounce_val, nxt, brk) {
+    list(cont, bounce, bounce_val, maybe(nxt), maybe(brk))
     node(again <- function(val) {
       force(val)
       val <- NULL
       bounce(begin)
     })
     node(brk_ <- function() {
-      trace("while: break\n")
       bounce_val(cont, invisible(NULL))
     })
     node(nxt_ <- function() {
-      trace("while: next\n")
       bounce(begin)
     })
     doExpr <- expr(again, ..., bounce=bounce, bounce_val=bounce_val,
-                   nxt=nxt_, brk=brk_, trace=trace)
+                   nxt=nxt_, brk=brk_)
     node(while_ <- function(val) {
       if (val) {
-        trace("while: do\n")
         val <- NULL
         doExpr()
       } else {
-        trace("while: end\n")
         val <- NULL
         bounce_val(cont, invisible(NULL))
       }
     })
     begin <- cond(while_, ..., bounce=bounce, bounce_val=bounce_val,
-                  nxt=nxt_, brk=brk_, trace=trace)
+                  nxt=nxt_, brk=brk_)
   }
 }
 
 
 for_cps <- function(.contextName, var, seq, expr) {
   list(.contextName, var, seq, expr)
-  function(cont, ..., bounce, bounce_val, nxt, brk, awaitNext, sto, stp, trace=trace_) {
-    list(cont, bounce, bounce_val, maybe(nxt), maybe(brk), maybe(awaitNext), trace)
+  function(cont, ..., bounce, bounce_val, nxt, brk, awaitNext, sto, stp) {
+    list(cont, bounce, bounce_val, maybe(nxt), maybe(brk), maybe(awaitNext))
     #quote the LHS at construction time
     var_ <- var(cont, ..., bounce=bounce, bounce_val=bounce_val,
-                sto=sto, stp=stp, trace=trace, nxt=nxt,
+                sto=sto, stp=stp, nxt=nxt,
                 brk=brk, awaitNext=awaitNext) #not our brk/nxt
     if (!is_R(var_)) stop("Unexpected stuff in for() loop variable")
     var_ <- R_expr(var_)
@@ -580,13 +564,12 @@ for_cps <- function(.contextName, var, seq, expr) {
 
     body <- expr(nxt_, ..., bounce=bounce,
                  bounce_val=bounce_val, nxt=nxt_, brk=brk_,
-                 sto=sto, stp=stp, trace=trace, awaitNext=awaitNext) # our brk_
+                 sto=sto, stp=stp, awaitNext=awaitNext) # our brk_
 
     state <- "xxx"
     value <- NULL
 
     node(received <- function() {
-      trace(paste0("for ", var_, ": received\n"))
       switch(state,
              "success"={state <<- "xxx"; sto(body, var_, value)},
              "error"={state <<- "xxx"; stp(value)},
@@ -594,7 +577,6 @@ for_cps <- function(.contextName, var, seq, expr) {
              stp(simpleError(paste0("awaitNext: unexpected state ", state)))) # nocov
     })
     node(await_ <- function() {
-      trace(paste0("for ", var_, ": awaiting\n"))
       awaitNext(received, seq_,
                 function(val) {state <<- "success"; value <<- val},
                 function(err) {state <<- "error"; value <<- err},
@@ -602,13 +584,10 @@ for_cps <- function(.contextName, var, seq, expr) {
     })
     node(do_ <- function() {
       stopping <- FALSE
-      trace(paste0("for ", var_, ": next\n"))
       val <- async::nextOr(seq_, stopping <- TRUE)
       if (stopping) {
-        trace(paste0("for ", var_, ": finished\n"))
         cont(invisible(NULL))
       } else {
-        trace(paste0("for ", var_, ": do\n"))
         sto(body, var_, val)
       }
     })
@@ -630,7 +609,7 @@ for_cps <- function(.contextName, var, seq, expr) {
       })
     }
     getSeq <- seq(for_, ..., bounce=bounce, bounce_val=bounce_val,
-                  nxt=nxt, brk=brk, sto=sto, stp=stp, trace=trace, #not our brk
+                  nxt=nxt, brk=brk, sto=sto, stp=stp, #not our brk
                   awaitNext=awaitNext)
   }
 }

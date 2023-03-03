@@ -76,13 +76,13 @@ print.coroutine <- function(x, ...) {
 #' @param internal Set TRUE to step through at coroutine implementation level.
 #' @return a `list(R=, internal=) with the current debug setting.
 #' @export
-debugAsync <- function(x, R, internal) UseMethod("debugAsync")
+debugAsync <- function(x, R, internal, trace) UseMethod("debugAsync")
 
 #' @exportS3Method
-debugAsync.coroutine <- function(x, R=current$R, internal=current$internal) {
+debugAsync.coroutine <- function(x, R=current$R, internal=current$internal, trace=current$trace) {
   sd <- get("setDebug", envir = environment(getPump(x)))
   current <- sd()
-  sd(R, internal)
+  sd(R, internal, trace)
 }
 
 #' @exportS3Method

@@ -1,7 +1,7 @@
 Package: async
 Title: Coroutines: Generators / Yield, Async / Await, and Streams
-Version: 0.3
-Date: 2023-01-23
+Version: 0.3.1
+Date: 2023-03-01
 Authors@R: 
     person(given = "Peter",
            family = "Meilstrup",

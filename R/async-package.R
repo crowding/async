@@ -44,6 +44,9 @@
 #' @name async-package
 "_PACKAGE"
 
+trace_ <- function(x) if(getOption("async.verbose")) cat(x)
+notrace_ <- function(x) NULL
+
 .onLoad <- function(lib, pkg) {
   options(async.compileLevel=getOption("async.compileLevel") %||% 0,
           async.paranoid=getOption("async.paranoid") %||% FALSE,
@@ -51,8 +54,6 @@
           async.destructive=getOption("async.verbose") %||% TRUE,
           async.sendLater=getOption("async.verbose") %||% TRUE)
 }
-
-trace_ <- function(x) if(getOption("async.verbose")) cat(x)
 
 ## usethis namespace: start
 ## usethis namespace: end

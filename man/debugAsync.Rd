@@ -4,7 +4,7 @@
 \alias{debugAsync}
 \title{Toggle single-step debugging for a coroutine.}
 \usage{
-debugAsync(x, R, internal)
+debugAsync(x, R, internal, trace)
 }
 \arguments{
 \item{x}{A coroutine object as constructed by (\link{async}, \link{gen} or \link{stream}).}

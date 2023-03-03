@@ -37,7 +37,7 @@ make_pump <- function(expr, ...,
                                     globalName="stp", localName="stp"),
                       rtn=structure(function(x)x,
                                     globalName="rtn", localName="rtn"),
-                      trace=trace_,
+                      trace=notrace_,
                       catch=TRUE,
                       targetEnv) {
 
@@ -52,12 +52,25 @@ make_pump <- function(expr, ...,
   debugR <- FALSE
   debugInternal <- FALSE
 
-  setDebug <- structure(function(R, internal) {
+  globalNode(setDebug <- function(R, internal, tracer) {
     if (!missing(R)) debugR <<- R
     if (!missing(internal)) debugInternal <<- internal
-    x <- list(R=debugR, internal=debugInternal)
+    if (!missing(tracer)) {
+      if (is.logical(tracer)) {
+        if(tracer) {
+          trace <<- cat
+        } else {
+          trace <<- notrace_
+        }
+      } else if (!is.function(tracer)) {
+        stop("trace argument must be a function or TRUE/FALSE")
+      } else {
+        trace <<- tracer
+      }
+    }
+    x <- list(R=debugR, internal=debugInternal, trace=trace)
     x
-  }, localName="setDebug", globalName="setDebug")
+  })
 
   globalNode(getCont <- function() {
     # For display, return a string describing the current state.
@@ -69,34 +82,30 @@ make_pump <- function(expr, ...,
   })
 
   node(pause_ <- function(cont) {
-    trace("pump: pause (awaiting)\n")
     pumpCont <<- cont
     action <<- "pause"
   })
 
   node(pause_val_ <- function(cont, val) {
-    trace("pump: pause (yielding)\n")
     pumpCont <<- cont
     value <<- val
     action <<- "pause_val"
   })
 
   node(bounce_ <- function(cont) {
-    trace("pump: bounce\n")
     pumpCont <<- cont
     action <<- "continue"
   })
 
   node(bounce_val_ <- function(cont, val) {
     force(val)
-    trace("pump: bounce with value\n")
     value <<- val
     pumpCont <<- cont
     action <<- "continue_val"
   })
 
   node(evl_ <- function(cont, val) {
-    trace(paste0("R: ", deparse(val), "\n"))
+    trace(paste0('`', find_global_name(cont), "`:    ", deparse(val), "\n"))
     if(debugR)
       val <- eval(substitute({browser(); x}, list(x=val)), targetEnv)
     else
@@ -110,14 +119,12 @@ make_pump <- function(expr, ...,
   })
 
   node(stop_ <- function(val) {
-    trace(paste0("pump: stop: ", conditionMessage(val), "\n"))
     value <<- val
     after_exit <<- "stop"
     bounce_(doExits)
   })
 
   node(return_ <- function(val) {
-    trace("pump: return\n")
     force(val)
     value <<- val
     after_exit <<- "return"
@@ -125,7 +132,7 @@ make_pump <- function(expr, ...,
   })
 
   exit_list <- list()
-  if(getOption("async.verbose")) traceBinding("after_exit", NULL)
+  #if(getOption("async.verbose")) traceBinding("after_exit", NULL)
   after_exit <- "xxx"
 
   node(addExit <- function(cont, handle, add, after) {
@@ -160,7 +167,6 @@ make_pump <- function(expr, ...,
   # functions and both need to be treated as nodes.
   node(windup_ <- function(cont, winding) {
     list(cont, winding)
-    trace("pump: Adding to windup list\n")
     outerWinding <- current_winding
     g <- function(cont) {
       # Call outer winding first and have it continue to the
@@ -174,15 +180,23 @@ make_pump <- function(expr, ...,
   })
 
   node(unwind_ <- function(cont) {
-    trace("pump: removing from windup list\n")
     current_winding <<- winding_stack[[1]]
     winding_stack[[1]] <<- NULL
     pumpCont <<- cont
     action <<- "rewind"
   })
 
+  node(unwind_exit_ <- function(cont, val) {
+    current_winding <<- function(cont)base_winding(cont)
+    winding_stack <<- list()
+    action <<- "rewind"
+    after_exit <<- "stop"
+    value <<- val
+    pumpCont <<- cont
+  })
+
   node(afterExit <- function() {
-    trace("pump: afterExit\n")
+    trace(paste0("(exit: ", after_exit, ")\n"))
     switch(after_exit,
            "return" = {action <<- "return"; rtn(value)},
            "stop" = {action <<- "stop"; stp(value)},
@@ -213,12 +227,10 @@ make_pump <- function(expr, ...,
 
     node(doExits <- function() {
       if (length(exit_list) > 0) {
-        trace("pump: running on.exit handlers\n")
         first_exit <- exit_list[[1]]
         exit_list[[1]] <<- NULL
         takeExit(first_exit)
       } else {
-        trace("pump: no more on.exit handlers\n")
         action <<- "exit"
       }
     })
@@ -255,34 +267,23 @@ make_pump <- function(expr, ...,
   # and returning from f(cont), unwinds that context.
   if(catch) {
     globalNode(base_winding <- function(cont) {
-      trace("pump: base tryCatch\n")
       tryCatch({tmp <- cont(); return(tmp)}, error=function(err){
-        trace(paste0("pump: caught error: ",
-                     conditionMessage(err), "\n"))
-        current_winding <<- function(cont)base_winding(cont)
-        action <<- "rewind"
-        after_exit <<- "stop"
-        value <<- err
-        pumpCont <<- function() doExits()
-      }, finally=trace("pump: base tryCatch exits\n"))
+        unwind_exit_(doExits, err)
+      })
     })
   } else if (!using_onexit) {
     globalNode(base_winding <- function(cont) cont())
   } else {
-    trace("pump: base on.exit\n")
     globalNode(base_winding <- function(cont) {
       on.exit({
-        trace(paste0("pump: base on.exit with action ", action, "\n"))
         if (!action %in%
               c("pause", "pause_val", "exit", "stop", "return", "rewind")) {
-          trace(paste0("pump: exiting abnormally: ", action, "\n"))
           # silly compiler, count these as tailcalls I guess?
           pumpCont <<- function() doExits()
           current_winding <<- function(cont) base_winding(cont)
           action <<- "rewind"
           after_exit <<- "xxx"
           base_winding(cont) # run the pump here, once
-          trace(paste0("pump: after exit handlers, action is ", action, "\n"))
           switch(action,
                  "return" = {
                    action <<- "exit"
@@ -323,7 +324,6 @@ make_pump <- function(expr, ...,
   })
 
   globalNode(pump <- function() {
-    trace("pump: run\n")
     doWindup(runPump)
     while(action == "rewind") {
       doWindup(runPump)
@@ -337,27 +337,29 @@ make_pump <- function(expr, ...,
   exit_fns <- NULL
 
   globalNode(runPump <- function() {
+    trace(paste0('`', find_global_name(pumpCont), "`   (from ", action, ")\n"))
     if (debugInternal) debugonce(pumpCont)
     switch(action,
            rewind=,
            pause={action <<- "xxx"; pumpCont()},
            pause_val={action <<- "xxx"; pumpCont(value)},
            stop("pump asked to continue, but last action was ", action)) # nocov
-    repeat switch(action,
+    repeat {
+      trace(paste0('`', find_global_name(pumpCont), "`   (", action, ")\n"))
+      switch(action,
              continue={
-               trace("pump: continue\n")
                if (debugInternal) debugonce(pumpCont)
                action <<- "xxx";
                pumpCont()
              },
              continue_val={
-               trace("pump: continue with value\n")
                if (debugInternal) debugonce(pumpCont)
                action <<- "xxx";
                pumpCont(value)
              },
              break
              )
+    }
     value
   })
 

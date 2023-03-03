@@ -9,10 +9,10 @@ stream(
   ...,
   split_pipes = TRUE,
   lazy = TRUE,
-  trace = trace_,
   compileLevel = getOption("async.compileLevel"),
   debugR = FALSE,
-  debugInternal = FALSE
+  debugInternal = FALSE,
+  trace = getOption("async.verbose")
 )
 }
 \arguments{
@@ -27,8 +27,6 @@ operators and other calls.}
 
 \item{lazy}{If TRUE, start paused, and pause after \code{yield()} (see above.)}
 
-\item{trace}{An optional tracing function.}
-
 \item{compileLevel}{Compilation level.}
 
 \item{debugR}{Set TRUE to single-step debug at R level. Use \code{\link[=debugAsync]{debugAsync()}}
@@ -36,13 +34,15 @@ to enable or disable debugging on a stream after it has been created.}
 
 \item{debugInternal}{Set TRUE to single-step debug at coroutine
 implementation level.}
+
+\item{trace}{An optional tracing function.}
 }
 \value{
 An object with (at least) classes "stream", "channel",
 "coroutine", "iteror", "iter".
 }
 \description{
-(Experimental as of async 0.4.) \code{stream(...)} constructs a \link{channel}
+(Experimental as of async 0.3) \code{stream(...)} constructs a \link{channel}
 object, i.e. an asynchronous iterator, which will compute and
 return values according to sequential code written in \code{expr}. A
 \code{stream} is a coroutine wearing a \link{channel} interface in the same

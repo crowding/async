@@ -62,7 +62,7 @@
 #'
 #' @param expr An expression, to be executed asynchronously.
 #' @param trace Enable verbose logging by passing a function to
-#'   `trace`, like `async(trace=cat, {...})`. `trace` should take a
+#'   `trace`, like `trace=cat`. This function should take a
 #'   character argument.
 #' @param split_pipes Rewrite chained calls that use `await`
 #'   (see below)
@@ -79,8 +79,10 @@
 #' })
 #'
 #' @export
-async <- function(expr, ..., split_pipes=TRUE, trace=trace_,
-                  compileLevel=getOption("async.compileLevel")) {
+async <- function(expr, ..., split_pipes=TRUE,
+                  compileLevel=getOption("async.compileLevel"),
+                  debugR=FALSE, debugInternal=FALSE,
+                  trace=getOption("async.verbose")) {
   expr_ <- arg(expr)
   expr <- NULL
   if (identical(expr(expr_)[[1]], quote(`function`))) {
@@ -88,16 +90,21 @@ async <- function(expr, ..., split_pipes=TRUE, trace=trace_,
                                quote(async::async),
                                ...,
                                split_pipes=split_pipes,
-                               compileLevel=compileLevel)
+                               compileLevel=compileLevel,
+                               debugR=debugR,
+                               debugInternal=debugInternal,
+                               trace=trace)
     return(value(defn))
   }
-  list(trace, split_pipes, compileLevel)
+  list(split_pipes, compileLevel, trace)
   .contextName <- "wrapper"
   envir <- env(expr_)
   translated_ <- cps_translate(expr_, async_endpoints, split_pipes=split_pipes)
   args <- c(translated_, orig=forced_quo(expr(expr_)), trace=quo(trace), dots(...))
   set_dots(environment(), args)
-  make_async(..., callingEnv=env(expr_), compileLevel=compileLevel)
+  as <- make_async(..., callingEnv=env(expr_), compileLevel=compileLevel)
+  debugAsync(as, R=debugR, internal=debugInternal, trace=trace)
+  as
 }
 
 #' @export
@@ -115,8 +122,8 @@ await <- function(prom, error) {
 
 await_cps <- function(.contextName, prom, error) {
   list(prom, maybe(error))
-  function(cont, ..., pause, await, stp, trace) {
-    list(cont, pause, maybe(await), stp, trace)
+  function(cont, ..., pause, await, stp) {
+    list(cont, pause, maybe(await), stp)
     if (missing(await)) stop("await used, but this is not an async")
     promis <- NULL
     success <- NA
@@ -134,35 +141,33 @@ await_cps <- function(.contextName, prom, error) {
       node(error <- function() stp(value))
     } else {
       error <- error(gotErrorFn, ...,
-                 await=await, pause=pause, stp=stp, trace=trace)
+                 await=await, pause=pause, stp=stp)
     }
     node(then <- function() {
-      trace("await: resolve\n")
       if(success) cont(value) else error()
     })
     node(await_ <- function(val) {
       val <- promises::as.promise(val)
       promis <<- val
-      trace("await: got promise\n")
       success <<- NULL
       await(then,
             promis,
             function(val) {success <<- TRUE; promis <<- NULL; value <<- val},
             function(val) {success <<- FALSE; promis <<- NULL; value <<- val})
     })
-    prom(await_, ..., pause=pause, await=await, stp=stp, trace=trace)
+    prom(await_, ..., pause=pause, await=await, stp=stp)
   }
 }
 
 #' @import promises
 make_async <- function(expr, orig = expr, ...,
                        compileLevel = 0,
-                       trace = trace_,
                        local = TRUE,
                        callingEnv,
+                       trace = identity, #FIXME
                        targetEnv = if (local) new.env(parent=callingEnv) else callingEnv,
                        debugR, debugInternal) {
-  list(orig, expr, ..., trace)
+  list(orig, expr, ...)
   .contextName <- "async"
   pause <- NULL
 
@@ -175,7 +180,6 @@ make_async <- function(expr, orig = expr, ...,
   node(getState <- function() state)
 
   node(return_ <- function(val) {
-    trace("async: return (resolving)\n")
     state <<- "resolved"
     value <<- val
     resolve_(val) # avoid gathering this as a tailcall
@@ -183,7 +187,6 @@ make_async <- function(expr, orig = expr, ...,
   })
 
   node(stop_ <- function(val) {
-    trace("async: stop (rejecting)\n")
     value <<- val
     state <<- "rejected"
     reject_(val)
@@ -207,7 +210,7 @@ make_async <- function(expr, orig = expr, ...,
 
   pump <- make_pump(expr, ...,
                     rtn=return_, stp=stop_, await=await_,
-                    awaitNext=awaitNext_, trace=trace,
+                    awaitNext=awaitNext_,
                     targetEnv=targetEnv)
 
   pause <- environment(pump)$pause_
@@ -218,7 +221,7 @@ make_async <- function(expr, orig = expr, ...,
   if (compileLevel != 0) {
     pr <- compile(pr, level=compileLevel)
   }
-  debugAsync(pr, R=debugR, internal=debugInternal)
+  debugAsync(pr, R=debugR, internal=debugInternal, trace=trace)
   pr$state$pump()
   pr
 }
@@ -231,13 +234,11 @@ await_handlers <- quote({
   node(check_wake <- function()
     switch(await_state,
            "awaiting"={
-             trace("await: got callback while still running\n")
              # pump is still running, stream.r::awaitNext_cps will be
              # watching for this and simply not pause
              await_state <<- "xxx"
            },
            "awaited"={
-             trace("await: waking up\n")
              await_state <<- "xxx"
              pump()
            }
@@ -247,13 +248,11 @@ await_handlers <- quote({
     list(promise, success, failure)
 
     succ <- function(val) {
-      trace("await: success\n")
       awaiting <<- NULL
       success(val)
       check_wake()
     }
     fail <- function(val) {
-      trace("await: fail\n")
       awaiting <<- NULL
       failure(val)
       check_wake()
@@ -261,7 +260,6 @@ await_handlers <- quote({
     awaiting <<- promise
     await_state <<- "awaiting"
     promises::then(promise, succ, fail)
-    trace("await: registered\n")
     await_state <<- "awaited"
     if (is.null(awaiting))
       bounce(cont) else pause(cont)
@@ -270,19 +268,16 @@ await_handlers <- quote({
   node(awaitNext_ <- function(cont, strm, success, error, finish) {
     list(strm, success, error, finish)
     succ <- function(val) {
-      trace("awaitNext: got value\n")
       awaiting <<- NULL
       success(val)
       check_wake()
     }
     err <- function(val) {
-      trace("awaitNext: stream error")
       awaiting <<- NULL
       error(val)
       check_wake()
     }
     fin <- function() {
-      trace("awaitNext: stream finished\n")
       awaiting <<- NULL
       finish()
       check_wake()
