@@ -37,13 +37,13 @@ make_pump <- function(expr, ...,
                                     globalName="stp", localName="stp"),
                       rtn=structure(function(x)x,
                                     globalName="rtn", localName="rtn"),
-                      trace=notrace_,
+                      trace=nonce,
                       catch=TRUE,
                       targetEnv) {
 
   .contextName <- "pump"
+  nonce <- (function(x) NULL)
   list(expr, stp, rtn, trace, targetEnv)
-  nonce <- (function() NULL)
 
   if(getOption("async.verbose")) traceBinding("action", NULL)
   action <- "pause" # stopped, pause
@@ -51,6 +51,8 @@ make_pump <- function(expr, ...,
   value <- nonce
   debugR <- FALSE
   debugInternal <- FALSE
+
+  notrace <- function(x) NULL
 
   globalNode(setDebug <- function(R, internal, tracer) {
     if (!missing(R)) debugR <<- R
@@ -60,7 +62,7 @@ make_pump <- function(expr, ...,
         if(tracer) {
           trace <<- cat
         } else {
-          trace <<- notrace_
+          trace <<- nonce
         }
       } else if (!is.function(tracer)) {
         stop("trace argument must be a function or TRUE/FALSE")

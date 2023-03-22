@@ -1,3 +1,8 @@
+fn <- function() {
+  x
+}
+setCompileLevelFromFn(fn)
+
 test_that("tracing execution", {
 
   op <- capture.output({

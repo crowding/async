@@ -7,14 +7,19 @@
 debugAsync(x, R, internal, trace)
 }
 \arguments{
-\item{x}{A coroutine object as constructed by (\link{async}, \link{gen} or \link{stream}).}
+\item{x}{A coroutine object as constructed by (\link{async}, \link{gen} or
+\link{stream}).}
 
-\item{R}{set TRUE to step through expressions at user level}
+\item{R}{Set TRUE to step through expressions at user level}
 
-\item{internal}{Set TRUE to step through at coroutine implementation level.}
+\item{internal}{Set TRUE to step through at coroutine
+implementation level.}
+
+\item{trace}{Set TRUE or provide a print function to print each R
+expression evaluated in turn.}
 }
 \value{
-a `list(R=, internal=) with the current debug setting.
+a \code{list(R=, internal=, trace=)} with the current debug state.
 }
 \description{
 Toggle single-step debugging for a coroutine.

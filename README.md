@@ -259,7 +259,7 @@ ctz <- collatz(23)
 graphAsync(ctz, type="svg") #creates a file "ctz.svg"
 ```
 
-![Graph of the Collatz generator.](vignettes/ctz.svg)
+![Graph of the Collatz generator.](ctz.svg)
 
 Since each step in the program’s execution corresponds to a function
 call, when execution reaches a `yield`, the program’s state is just the
@@ -279,3 +279,8 @@ debugAsync(ctz, internal=TRUE)
     ## 
     ## $internal
     ## [1] TRUE
+    ## 
+    ## $trace
+    ## function(x) NULL
+    ## <bytecode: 0x55fcd8b49dc8>
+    ## <environment: namespace:async>

@@ -208,18 +208,6 @@ reconstitute.stream <- function(orig, munged) {
 }
 
 #' @exportS3Method
-getNode.stream <- function(x, ...) {
-  environment(x$state$pump)$getCont()
-}
-
-#' @rdname format
-#' @return `getState(s)` on a [stream] might return "resolved",
-#'   "rejected", "running", "woken", "yielding", or "yielded".
-#' @exportS3Method
-getState.stream <- function(x, ...) x$state$getState()
-#' @exportS3Method
-getOrig.stream <- function(x, ...) x$orig
-#' @exportS3Method
 getPump.stream <- function(x, ...) x$state$pump
 #' @exportS3Method
 getReturn.stream <- function(x, ...) x$state$return_
@@ -232,6 +220,16 @@ getStartSet.stream <- function(x,...) {
     replace = x$state$replace,
     getState = x$state$getState,
     wakeup = x$state$wakeup))
+}
+
+#' @rdname format
+#' @description `summary(s)$state` on a [stream] might be "resolved",
+#'   "rejected", "running", "woken", "yielding", or "yielded".
+#' @exportS3Method
+summary.stream <- function(object, ...) {
+  c(list(code=object$orig,
+         state=object$state$getState()),
+    NextMethod("summary"))
 }
 
 #' Wait for the next value from a channel or stream.

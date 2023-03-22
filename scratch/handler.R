@@ -1,5 +1,3 @@
-
-
 #' `%~%` defines a sort of function that runs in its parent scope,
 #' without creating a local scope.
 #'

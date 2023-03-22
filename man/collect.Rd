@@ -15,7 +15,7 @@
 
 gather(ch, type = list())
 
-\method{as.promise}{channel}(ch, type = list())
+\method{as.promise}{channel}(x)
 
 collect(fn, type = list())
 

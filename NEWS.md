@@ -1,3 +1,11 @@
+# async 0.3.1
+
+* `debugAsync` now accepts a `trace` argument to control printing of execution traces to console.
+  Execution traces now print node addresses. 
+* Various inspection methods `getNode`, `getState`, `getEnv`, `getOrig`  have been consolidated into the method `summary.coroutine`.
+* `ihasNext` has been removed (in the process of extracting a separate `iterors` package.)
+* S3 method argument names have been made consistent.
+
 # async 0.3
 
 Version 0.3 of `async` contains a number of new features, usability and performance improvements.

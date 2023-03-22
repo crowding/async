@@ -276,15 +276,6 @@ make_generator <- function(expr, orig=arg(expr), ...,
 }
 
 #' @exportS3Method
-getCurrent.generator <- function(x)
-  environment(getPump(x))$cont
-
-#' @exportS3Method
-getOrig.generator <- function(x, ...) {
-  expr(get("orig", envir=environment(x$nextOr)))
-}
-
-#' @exportS3Method
 getStartSet.generator <- function(x) {
   c(NextMethod(x), list(
     nextOr_=  x$nextOr,
@@ -299,22 +290,20 @@ reconstitute.generator <- function(orig, munged) {
   new
 }
 
-#' @rdname format
-#' @return For a [gen]erator `g`, `getState(g)` might return "yielded",
-#' "running" (if nextElem is _currently_ being called), "stopped" (for
-#' generators that have stopped with an error) or "finished" (for
-#' generators that have finished normally.)
-#' @exportS3Method
-getState.generator <- function(x, ...) {
-  environment(x$nextOr)$getState()
-}
-
 #' @exportS3Method
 getPump.generator <- function(x) {
   get("pump", environment(x$nextOr))
 }
 
 #' @exportS3Method
-getNode.generator <- function(x, ...) {
-  environment(getPump(x))$getCont()
+#' @rdname format
+#' @description `summary(g)$state` for a [generator][gen] `g` might be  "yielded",
+#' "running" (if nextElem is _currently_ being called,) "stopped" (for
+#' generators that have stopped with an error,) or "finished" (for
+#' generators that have finished normally.)
+#' @exportS3Method
+summary.generator <- function(object, ...) {
+  c(list(code=expr(get("orig", envir=environment(object$nextOr))),
+         state=environment(object$nextOr)$getState()),
+    NextMethod("summary"))
 }

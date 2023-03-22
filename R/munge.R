@@ -225,4 +225,3 @@ move_value.default <- function(graph, contextName, varName, dest.env, newName,
     rm(list=varName, envir=graph$contexts[[contextName]])
   dest.env[[newName]] <- value
 }
-

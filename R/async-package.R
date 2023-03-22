@@ -45,7 +45,6 @@
 "_PACKAGE"
 
 trace_ <- function(x) if(getOption("async.verbose")) cat(x)
-notrace_ <- function(x) NULL
 
 .onLoad <- function(lib, pkg) {
   options(async.compileLevel=getOption("async.compileLevel") %||% 0,

@@ -103,7 +103,7 @@ walk <- function(gen, forGraph=FALSE) {
   nameOverrides <- list2env(structure(as.list(names(nodeStartNames)), names=nodeStartNames))
   nodeOrder <- names(nodes)
   nodes <- list2env(nodes, parent=emptyenv())
-  orig <- getOrig(gen)
+  orig <- summary(gen)$code
   iter <- iseq()
   nodeProperties <- new.env(parent=emptyenv())
   reverseEdges <- new.env(parent=emptyenv())

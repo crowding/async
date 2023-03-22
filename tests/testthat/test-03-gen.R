@@ -1,5 +1,7 @@
 #' @import nseval
 
+`%is%` <- expect_equal
+
 fn <- function() {
   x
 }
@@ -22,14 +24,6 @@ test_that("generator loop", {
     nextOr(i, stop("unexpected end")) %is% j
   }
   expect_equal(nextOr(i, NULL), NULL)
-
-  i <- ihasNext(ii(10))
-  for (j in 1:10) {
-    hasNext(i) %is% TRUE
-    nextOr(i, NULL) %is% j
-  }
-  hasNext(i) %is% FALSE
-  nextOr(i, NULL) %is% NULL
 })
 
 test_that("further nextElems will error with stopIteration", {

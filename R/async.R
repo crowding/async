@@ -62,12 +62,17 @@
 #'
 #' @param expr An expression, to be executed asynchronously.
 #' @param trace Enable verbose logging by passing a function to
-#'   `trace`, like `trace=cat`. This function should take a
-#'   character argument.
-#' @param split_pipes Rewrite chained calls that use `await`
-#'   (see below)
+#'   `trace`, like `trace=cat`. This function should take a character
+#'   argument.
+#' @param split_pipes Rewrite chained calls that use `await` (see
+#'   below)
 #' @param compileLevel Compilation level; same options as for [gen].
 #' @param ... Undocumented.
+#' @param debugR Set TRUE to enter the browser immediately on
+#'   executing the first R expression.
+#' @param debugInternal Set TRUE to single-step at implementation
+#'   level, immediately upon execution.
+#'
 #' @return `async()` returns an object with class "promise," as
 #'   defined by the [promises] package (i.e., rather than the kind of
 #'   promise used in R's lazy evaluation.)
@@ -293,15 +298,6 @@ await_handlers <- quote({
 
 #' @exportS3Method
 getPump.async <- function(x, ...) x$state$pump
-#' @exportS3Method
-getOrig.async <- function(x, ...) x$orig
-#' @exportS3Method
-
-#' @exportS3Method
-#' @rdname format
-#' @return `getState(a)` on an [async] might return "pending", "resolved" or
-#' "rejected".
-getState.async <- function(x, ...) x$state$getState()
 
 #' @exportS3Method
 getStartSet.async <- function(x, ...) {
@@ -311,6 +307,19 @@ getStartSet.async <- function(x, ...) {
       getState = x$state$getState
 ))
 }
+
+#' @rdname format
+#' @description `summary(a)$state` of an [async] might be "pending", "resolved" or
+#' "rejected".
+#' @exportS3Method
+summary.async <- function(object, ...) {
+  c(list(code=object$orig,
+         state=object$state$getState(),
+         node=environment(object$state$pump)$getCont(),
+         envir=environment(object$state$pump)$targetEnv),
+    NextMethod("summary"))
+}
+
 
 #' @exportS3Method
 reconstitute.async <- function(orig, munged) {

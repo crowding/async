@@ -156,28 +156,6 @@ format.iteror <- function(x, ...) {
   "<iteror>"
 }
 
-# `sigil()` creates a unique value, with an optional name attached.
-# An object created with `sigil()` with compare [`identical()`] to
-# itself and to no other object in the R session.
-# Sigil values are useful as the "or" argument to `awaitOr` or
-# `nextOr`;
-# @return a closure; calling the closure returns the name.
-sigil <- function(name=NULL) function()name
-
-ihasNext <- function(obj, ...) {
-  UseMethod("ihasNext")
-}
-
-hasNext <- function(obj, ...) {
-  UseMethod('hasNext')
-}
-
-#' @exportS3Method
-ihasNext.ihasNextOr <- identity
-
-#' @exportS3Method
-ihasNext.default <- function(obj) ihasNext(iteror(obj))
-
 `%then%` <- function(a, b) { force(a); force(b); a }
 
 #' @exportS3Method
@@ -188,46 +166,6 @@ nextOr.iter <- function(obj, or, ...) {
     iterators::nextElem(obj),
     error=function(e)
       if (!identical(conditionMessage(e), 'StopIteration')) stop(e) else or)
-}
-
-#' @exportS3Method
-ihasNext.iteror <- function(iter, ...) {
-  noValue <- sigil("noValue")
-  endIter <- sigil("endIter")
-  last <- noValue
-  structure(function(or, query="next", ...) {
-    switch(query,
-           "next"={
-             if (identical(last, noValue))
-               last <<- nextOr(iter, endIter)
-             if (identical(last, endIter))
-               or
-             else
-               last %then% (last <<- noValue)
-           },
-           "has"={
-             if (identical(last, noValue))
-               last <<- nextOr(iter, endIter)
-             !identical(last, endIter)
-           },
-           stop("unknown query: ", query)
-           )
-  }, class=c("ihasNextOr", "iteror", "ihasNext", "iter"))
-}
-
-#' @exportS3Method iterators::nextElem ihasNextOr
-nextElem.ihasNextOr <- function(obj, ...) {
-  obj(stop("StopIteration", call.=FALSE), query="next", ...)
-}
-
-#' @exportS3Method
-nextOr.ihasNextOr <- function(obj, or, ...) {
-  obj(or, query="next", ...)
-}
-
-#' @exportS3Method
-hasNext.ihasNextOr <- function(obj, ...) {
-  obj(query="has", ...)
 }
 
 #' Limit the number of elements emitted by an iterator.

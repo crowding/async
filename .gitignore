@@ -2,7 +2,5 @@ inst/doc
 /Meta/
 docs
 .Rhistory
-tests/testthat/*.dot
-tests/testthat/*.svg
-tests/testthat/*.pdf
+tests/testthat/graphs
 /doc/

@@ -22,14 +22,20 @@ await(prom, error)
 
 \item{...}{Undocumented.}
 
-\item{split_pipes}{Rewrite chained calls that use \code{await}
-(see below)}
+\item{split_pipes}{Rewrite chained calls that use \code{await} (see
+below)}
 
 \item{compileLevel}{Compilation level; same options as for \link{gen}.}
 
+\item{debugR}{Set TRUE to enter the browser immediately on
+executing the first R expression.}
+
+\item{debugInternal}{Set TRUE to single-step at implementation
+level, immediately upon execution.}
+
 \item{trace}{Enable verbose logging by passing a function to
-\code{trace}, like \code{trace=cat}. This function should take a
-character argument.}
+\code{trace}, like \code{trace=cat}. This function should take a character
+argument.}
 
 \item{prom}{A promise, or something that can be converted to such
 by \code{\link[promises:is.promise]{promises::as.promise()}}.}

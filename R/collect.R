@@ -68,7 +68,7 @@ gather <- function(ch, type=list()) {
 #' @rdname collect
 #' @description Method `as.promise.channel` is a synonym for `gather`.
 #' @exportS3Method promises::as.promise channel
-as.promise.channel <- gather
+as.promise.channel <- function(x) gather(x)
 
 #' @rdname collect
 #' @description `collect` and `collector` are used in the
