@@ -17,7 +17,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">async</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.1</span>
       </span>
     </div>
 
@@ -69,28 +69,35 @@
     </div>
 
     <div id="ref-usage">
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">debugAsync</span><span class="op">(</span><span class="va">x</span>, <span class="va">R</span>, <span class="va">internal</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">debugAsync</span><span class="op">(</span><span class="va">x</span>, <span class="va">R</span>, <span class="va">internal</span>, <span class="va">trace</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div id="arguments">
     <h2>Arguments</h2>
     <dl><dt>x</dt>
-<dd><p>A coroutine object as constructed by (<a href="async.html">async</a>, <a href="gen.html">gen</a> or <a href="stream.html">stream</a>).</p></dd>
+<dd><p>A coroutine object as constructed by (<a href="async.html">async</a>, <a href="gen.html">gen</a> or
+<a href="stream.html">stream</a>).</p></dd>
 
 
 <dt>R</dt>
-<dd><p>set TRUE to step through expressions at user level</p></dd>
+<dd><p>Set TRUE to step through expressions at user level</p></dd>
 
 
 <dt>internal</dt>
-<dd><p>Set TRUE to step through at coroutine implementation level.</p></dd>
+<dd><p>Set TRUE to step through at coroutine
+implementation level.</p></dd>
+
+
+<dt>trace</dt>
+<dd><p>Set TRUE or provide a print function to print each R
+expression evaluated in turn.</p></dd>
 
 </dl></div>
     <div id="value">
     <h2>Value</h2>
     
 
-<p>a `list(R=, internal=) with the current debug setting.</p>
+<p>a <code>list(R=, internal=, trace=)</code> with the current debug state.</p>
     </div>
 
   </div>

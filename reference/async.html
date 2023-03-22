@@ -20,7 +20,7 @@ implements the promise interface.'><!-- mathjax --><script src="https://cdnjs.cl
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">async</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.1</span>
       </span>
     </div>
 
@@ -79,8 +79,10 @@ implements the <a href="https://rstudio.github.io/promises//reference/promise.ht
 <span>  <span class="va">expr</span>,</span>
 <span>  <span class="va">...</span>,</span>
 <span>  split_pipes <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  trace <span class="op">=</span> <span class="va">trace_</span>,</span>
-<span>  compileLevel <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/options.html" class="external-link">getOption</a></span><span class="op">(</span><span class="st">"async.compileLevel"</span><span class="op">)</span></span>
+<span>  compileLevel <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/options.html" class="external-link">getOption</a></span><span class="op">(</span><span class="st">"async.compileLevel"</span><span class="op">)</span>,</span>
+<span>  debugR <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  debugInternal <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  trace <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/options.html" class="external-link">getOption</a></span><span class="op">(</span><span class="st">"async.verbose"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu">await</span><span class="op">(</span><span class="va">prom</span>, <span class="va">error</span><span class="op">)</span></span></code></pre></div>
@@ -97,18 +99,28 @@ implements the <a href="https://rstudio.github.io/promises//reference/promise.ht
 
 
 <dt>split_pipes</dt>
-<dd><p>Rewrite chained calls that use <code>await</code>
-(see below)</p></dd>
-
-
-<dt>trace</dt>
-<dd><p>Enable verbose logging by passing a function to
-<code>trace</code>, like <code>async(trace=cat, {...})</code>. <code>trace</code> should take a
-character argument.</p></dd>
+<dd><p>Rewrite chained calls that use <code>await</code> (see
+below)</p></dd>
 
 
 <dt>compileLevel</dt>
 <dd><p>Compilation level; same options as for <a href="gen.html">gen</a>.</p></dd>
+
+
+<dt>debugR</dt>
+<dd><p>Set TRUE to enter the browser immediately on
+executing the first R expression.</p></dd>
+
+
+<dt>debugInternal</dt>
+<dd><p>Set TRUE to single-step at implementation
+level, immediately upon execution.</p></dd>
+
+
+<dt>trace</dt>
+<dd><p>Enable verbose logging by passing a function to
+<code>trace</code>, like <code>trace=cat</code>. This function should take a character
+argument.</p></dd>
 
 
 <dt>prom</dt>
