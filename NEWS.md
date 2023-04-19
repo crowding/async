@@ -1,5 +1,9 @@
 # async 0.3.1
 
+* `iteror` and associated functions have been extracted to a new package [`iterors`](http://github.com/crowding/iterors), which includes 
+
+# async 0.3.1
+
 * `debugAsync` now accepts a `trace` argument to control printing of execution traces to console.
   Execution traces now print node addresses. 
 * Various inspection methods `getNode`, `getState`, `getEnv`, `getOrig`  have been consolidated into the method `summary.coroutine`.

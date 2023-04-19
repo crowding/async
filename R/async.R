@@ -179,10 +179,11 @@ make_async <- function(expr, orig = expr, ...,
   nonce <- (function() function() NULL)()
   state <- "pending" #print method uses this
   value <- nonce
+  err <- NULL
   resolve_ <- NULL
   reject_ <- NULL
 
-  node(getState <- function() state)
+  node(getState <- function() list(state=state, err=err))
 
   node(return_ <- function(val) {
     state <<- "resolved"
@@ -192,7 +193,7 @@ make_async <- function(expr, orig = expr, ...,
   })
 
   node(stop_ <- function(val) {
-    value <<- val
+    err <<- val
     state <<- "rejected"
     reject_(val)
     val
@@ -313,10 +314,8 @@ getStartSet.async <- function(x, ...) {
 #' "rejected".
 #' @exportS3Method
 summary.async <- function(object, ...) {
-  c(list(code=object$orig,
-         state=object$state$getState(),
-         node=environment(object$state$pump)$getCont(),
-         envir=environment(object$state$pump)$targetEnv),
+  c(list(code=object$orig),
+    object$state$getState(),
     NextMethod("summary"))
 }
 

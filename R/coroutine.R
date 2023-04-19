@@ -1,4 +1,3 @@
-
 # not-exported methods
 getPump <- function(x) UseMethod("getPump")
 getEntry <- function(x) UseMethod("getEntry")
@@ -80,7 +79,7 @@ getStartSet.coroutine <- function(x) {
        runPump = environment(getPump(x))$runPump,
        base_winding = environment(getPump(x))$base_winding,
        setDebug = environment(getPump(x))$setDebug,
-       getCont = environment(getPump(x))$getCont)
+       getPumpState = environment(getPump(x))$getPumpState)
 }
 
 #' Query / display coroutine properties and state.
@@ -95,11 +94,11 @@ getStartSet.coroutine <- function(x) {
 format.coroutine <- function(x, ...) {
   s <- summary(x)
   a <- deparse(call(class(x)[[1]], s$code), backtick=TRUE)
-  b <- format(s$envir, ...)
+  b <- format(s$targetEnv, ...)
   c <- paste0(c("<", class(x)[[1]], " [",
                 s$state,
-                " at `", s$node, "`",
-                if (s$state=="stopped")
+                " at `", s$cont, "`",
+                if (s$state %in% c("stopped", "rejected"))
                   c(": ", capture.output(print(s$err))),
                 "]>"), collapse="")
   d <- NextMethod()
@@ -136,12 +135,8 @@ coroutine_function <- function(arg, head, ...) {
 #' * `err`: the error object, if the coroutine caught an error.
 #' @export
 summary.coroutine <- function(object, ...) {
+  s <- environment(getPump(object))$getPumpState()
   d <- debugAsync(object)
-  list(
-    node=environment(getPump(object))$getCont(),
-    envir=environment(getPump(object))$targetEnv,
-    err=environment(getPump(object))$err,
-    debugR=d$R,
-    debugInternal=d$internal,
-    trace=d$trace)
+  c(s,
+    debug=d)
 }

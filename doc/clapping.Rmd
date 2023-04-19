@@ -11,7 +11,7 @@ What a generator allows you to do is to take code that is writen in
 a sequential, looping style, and then treat that code's output as
 a collection to be iterated over.
 
-To illustrate what this means, and the the generators package in
+To illustrate what this means, and the generators package in
 general, I will use R to perform a suitable piece of music,
 specifically Steve Reich's "Clapping Music."
 
@@ -48,7 +48,7 @@ to `cat` produce output on the terminal, but they don't produce data
 that we can easily manipulate with more programming -- we need to make
 this pattern into data, rather than terminal output.
 
-The `generators` package allows us to enclose a data-generating process into an
+The `async` package allows us to enclose a data-generating process into an
 object.
 
 To make a generator for this pattern, we just enclose the body of the
@@ -58,6 +58,7 @@ of an [iteror].
 
 ```{R}
 library(async)
+library(iterors)
 counts <- c(3, 2, 1, 2)
 pattern <- gen({
   repeat {
@@ -112,7 +113,7 @@ with `ilimit()`:
 
 ```{R}
 show_head <- function(x, n=24) {
-  x |> ilimit(n) |> as.list() |> deparse() |> cat(sep="\n")
+  x |> as.list(n=n) |> deparse() |> cat(sep="\n")
 }
 show_head(gen_pattern(), 24)
 ```
@@ -176,10 +177,11 @@ gen_pattern() |> ilimit(36) |> iplay(claps, 360)
 ### Some iteror (iterator) functions
 
 The object constructed by `gen` has class `iteror`. Iterors are an
-iteration construct included in this package. Iterors are cross
-compatible with iterators from the `iterators` package and its
-`nextElem` method, but using their preferred method `nextOr` can
-lead to better performance and more compact code.
+iteration construct included in the companion package
+`iterors`. Iterors are cross compatible with iterators from the
+`iterators` package and its `nextElem` method, but using their
+preferred method `nextOr` can lead to better performance and more
+compact code.
 
 We can work with generators using iteror methods. Here are two methods
 that will come in handy. One is an iteror equivalent of `lapply`,

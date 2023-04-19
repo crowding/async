@@ -288,7 +288,8 @@ try_promote_function_name_ <- function(name, target_env, path) {
                envir = where_found, mode = "function")
     if (   is.primitive(obj)
         || identical(where_found, baseenv())
-        || identical(environment(obj), getNamespace("base"))) {
+        || identical(environment(obj), getNamespace("base"))
+        || identical(environment(obj), getNamespace("iterors"))) { #hmm
       # look in async's exported namespace.
       if (exists(as.character(potential_name),
                  getNamespace("async"), inherits=FALSE)) {
@@ -333,7 +334,7 @@ promote_qualified_head <- function(l) {
   } else {
     package <- l$expr[[2]]
     name <- l$expr[[3]]
-    if (as.character(package) == "base") package <- quote(async)
+    if (as.character(package) %in% c("base", "iterors")) package <- quote(async)
     new_name <- as.symbol(paste0(as.character(name), "_cps"))
     loadNamespace(package)
     if (exists(as.character(new_name), .getNamespace(package))) {

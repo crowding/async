@@ -72,6 +72,7 @@
 #' @return `gen({...}) returns an [iteror].
 #' @param compileLevel Current levels are 0 (no compilation) or
 #' -1 (name munging only).
+#' @importFrom iterors nextOr
 #' @export
 gen <- function(expr, ..., split_pipes=FALSE,
                 compileLevel=getOption("async.compileLevel")) {
@@ -142,6 +143,7 @@ yieldFrom <- function(it, err) {
   stop("yieldFrom() called outside a generator")
 }
 
+#' @importFrom iterors iteror
 yieldFrom_cps <- function(.contextName, it) {
   list(.contextName, it)
   function(cont, ..., stp, yield, registerYield, awaitNext) {
@@ -170,7 +172,7 @@ yieldFrom_cps <- function(.contextName, it) {
 
     node(yieldFrom_ <- function(val) {
       stopping <- FALSE
-      val <- nextOr(iter, stopping <- TRUE)
+      val <- iter(or=stopping <- TRUE)
       if (stopping) {
         cont(invisible(NULL))
       } else {
@@ -206,10 +208,10 @@ make_generator <- function(expr, orig=arg(expr), ...,
   targetEnv <- if(local) new.env(parent=callingEnv) else callingEnv
   nonce <- function() NULL
   yielded <- nonce
-  err <- nonce
+  err <- NULL
   state <- "yielded"
 
-  node(getState <- function() state)
+  node(getState <- function() list(state=state, err=err))
 
   node(return_ <- function(val) {
     force(val)
@@ -278,21 +280,23 @@ make_generator <- function(expr, orig=arg(expr), ...,
 #' @exportS3Method
 getStartSet.generator <- function(x) {
   c(NextMethod(x), list(
-    nextOr_=  x$nextOr,
+    #note that this can be different from "x" because
+    #"x" had extra classes/attributes tacked on
+    nextOr_ =  environment(x)$nextOr_,
     #doWindup = environment(getPump(x))$doWindup),
-    getState = environment(x$nextOr)$getState))
+    getState = environment(x)$getState))
 }
 
 #' @exportS3Method
 reconstitute.generator <- function(orig, munged) {
-  environment(munged$nextOr_)$orig <- environment(orig$nextOr)$orig
+  environment(munged$nextOr_)$orig <- environment(orig)$orig
   new <- add_class(iteror(munged$nextOr_), "generator", "coroutine")
   new
 }
 
 #' @exportS3Method
 getPump.generator <- function(x) {
-  get("pump", environment(x$nextOr))
+  get("pump", environment(x))
 }
 
 #' @exportS3Method
@@ -303,7 +307,7 @@ getPump.generator <- function(x) {
 #' generators that have finished normally.)
 #' @exportS3Method
 summary.generator <- function(object, ...) {
-  c(list(code=expr(get("orig", envir=environment(object$nextOr))),
-         state=environment(object$nextOr)$getState()),
+  c(list(code=expr(get("orig", envir=environment(object)))),
+    environment(object)$getState(),
     NextMethod("summary"))
 }

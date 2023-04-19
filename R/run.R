@@ -23,7 +23,7 @@
 #' @examples
 #'
 #' run(type=0, {
-#'   for (i in iseq(2, Inf, by=5)) {
+#'   for (i in iterors::iseq(2, Inf, by=5)) {
 #'     if (i %% 37 == 0) break
 #'     else yield(i)
 #'   }

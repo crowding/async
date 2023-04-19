@@ -159,7 +159,7 @@ Is it a bit spaghetti? Here we have nodes for each discrete step in the computat
 
 Each node in the graph is literally a function and each line represents where it calls the next function. You can step through these if you set `debugAsync(as, debugInternal=TRUE)`.
 
-Saving state, then, is just remembering the last call. (Dotted lines, here, represent where it saves state rather 
+Saving state, then, is just remembering the last call. (Dotted lines, here, represent where it saves state rather
 
 ### Starting, pausing, finishing, errors, and cleanup
 
@@ -223,7 +223,7 @@ as <- async({
 })
 ```
 
-You can also use `break` or `next` or `goto` in the `error` value to take those actions on error. 
+You can also use `break` or `next` or `goto` in the `error` value to take those actions on error.
 
 ### Cleaning up
 
@@ -257,7 +257,7 @@ Here he have an odd situation where an error is printed out to the console, but 
 
 #### Cleanup with try/finally
 
-`tryCatch(expr={...}, finally={...})` will execute `expr`, and after `expr` finishes,  whether it finishes normally or not, `tryCatch` will then execute `finally`. 
+`tryCatch(expr={...}, finally={...})` will execute `expr`, and after `expr` finishes,  whether it finishes normally or not, `tryCatch` will then execute `finally`.
 
 The `finally` clause will also be executed if you exit from `expr` _without_ finishing it, for instance by `break` or `next` in a loop, or by `goto` in a switch statement.
 
@@ -286,20 +286,7 @@ so that it can wind up an R-level `tryCatch` on the stack and then
 resume. If there is a a `yield` or `await` in the tryCatch expression,
 the coroutine has to exit from its tryCatch and re-establish it when execution resumes.
 
-This means that yielding from inside a tryCatch can be more costly, performance-wise, than a regular yield. This is part of what motivated the development of the [iteror] class; desiring a protocol for iteration that did not involve using exceptions for normal flow control.
-
-For instance compare the performance of iterating over an `iterator::iter` versus an [iteror].
-
-```{R}
-bench <- microbenchmark::microbenchmark(
-  as.list(gen(for (i in iterators::iter(1:1000)) yield(i))),
-  as.list(gen(for (i in iteror(1:1000)) yield(i))),
-  times=10
-)
-summary(bench)[, c("expr", "median")]
-```
-
-Part of the difference comes from the fact that `gen` must use a `tryCatch` for each time to calls `nextElem` on an `iterator`. Whereas calling `nextOr` on an `iteror` does not involve many calls to `tryCatch`.
+This means that yielding from inside a tryCatch can be more costly, performance-wise, than a regular yield. This is part of what motivated the development of the [iterors package][iterors::iteror-package]; desiring a protocol for iteration that did not involve using exceptions for normal flow control. Just eliminating `tryCatch` caused a 2x speedup for many generators, and the `iterors` package contains many other optimizations besides.
 
 ### Debugging
 

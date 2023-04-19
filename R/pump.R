@@ -16,7 +16,7 @@ assert <- function(condition,
 reset <- function(...) list(...)[[1]]
 
 add_class <- function(x, ...) {
-  attr(x, "class") <- c(..., attr(x, "class"))
+  class(x) <- c(..., class(x))
   x
 }
 
@@ -43,7 +43,7 @@ make_pump <- function(expr, ...,
 
   .contextName <- "pump"
   nonce <- (function(x) NULL)
-  list(expr, stp, rtn, trace, targetEnv)
+  list(expr, stp, rtn, trace, catch, targetEnv)
 
   if(getOption("async.verbose")) traceBinding("action", NULL)
   action <- "pause" # stopped, pause
@@ -74,13 +74,14 @@ make_pump <- function(expr, ...,
     x
   })
 
-  globalNode(getCont <- function() {
+  globalNode(getPumpState <- function() {
     # For display, return a string describing the current state.
-    g <- attr(pumpCont, "globalName")
-    if (is.null(g)) {
-      paste0(get0(".contextName", environment(pumpCont), ifnotfound="???"),
-             "__", attr(pumpCont, "localName"))
-    } else g
+    cont <- attr(pumpCont, "globalName")
+    if (is.null(cont)) {
+      cont <- paste0(get0(".contextName", environment(pumpCont), ifnotfound="???"),
+                  "__", attr(pumpCont, "localName"))
+    }
+    list(cont=cont, targetEnv=targetEnv, action=action)
   })
 
   node(pause_ <- function(cont) {
@@ -218,7 +219,7 @@ make_pump <- function(expr, ...,
                 stp=stop_, rtn=return_,
                 windup=windup_, unwind=unwind_,
                 pause=pause_, pause_val=pause_val_,
-                trace=trace, setDebug=setDebug, getCont=getCont,
+                trace=trace,
                 evl=evl_, sto=sto_,
                 registerExit=registerExit, addExit=addExit)
   pumpCont <- entry
@@ -248,7 +249,7 @@ make_pump <- function(expr, ...,
           stp=stop_, rtn=return_,
           windup=windup_, unwind=unwind_,
           pause=pause_, pause_val=pause_val_,
-          trace=trace, setDebug=setDebug, getCont=getCont,
+          trace=trace,
           evl=evl_, sto=sto_,
           addExit=addExit, registerExit=registerExit))
       assign(name, exit_fns[[i]])

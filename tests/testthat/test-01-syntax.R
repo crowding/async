@@ -291,3 +291,15 @@ test_that("find pausables", {
   length(unique(c(alist(dummy), x))) %is% length(x)
   length(unique(c(alist(async::yield), x))) %is% length(x)
 })
+
+test_that("can use nextOr with break", {
+
+  cps_translate(
+    quo({
+      nextOr(pr, return(0));
+      iterors::nextOr(pr, return(0));
+      async::nextOr(pr, return(0))
+    }),
+    gen_endpoints)
+
+})

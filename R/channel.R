@@ -220,6 +220,7 @@ channel <- function(impl, max_queue=500L, max_awaiting=500L,
                    break
                  }))
         listener$resolve(val)
+        odo <<- odo+1
       }, error=function(err) {
         warning("Unhandled channel error on send: ", err)
       })
@@ -237,7 +238,7 @@ channel <- function(impl, max_queue=500L, max_awaiting=500L,
     send()
   }
 
-  nextOr <- function(or) {
+  nextOr_ <- function(or) {
     #subscribe and return a promise.
     promise(function(resolve, reject) {
       nextThen(resolve, reject, function() reject("StopIteration"))
@@ -245,10 +246,9 @@ channel <- function(impl, max_queue=500L, max_awaiting=500L,
   }
 
   impl(emit, reject, close)
-  structure(list(nextThen=nextThen, nextOr=nextOr,
-                 formatChannel=formatChannel),
-            class=c("channel", "funiteror", "iteror", "iter"))
-
+  structure(add_class(iteror(nextOr_), "channel"),
+            methods=list(nextThen=nextThen, nextOr=nextOr,
+                         formatChannel=formatChannel))
 }
 
 #' @exportS3Method
@@ -258,7 +258,7 @@ print.channel <- function(x, ...) {
 
 #' @exportS3Method
 format.channel <- function(x, ...) {
-  x$formatChannel(...)
+  attr(x, "methods")$formatChannel(...)
 }
 
 #' Receive values from channels by callback.
@@ -278,7 +278,9 @@ format.channel <- function(x, ...) {
 #'   emitted value. For [subscribe], a function to be called with each
 #'   emitted value until the stream finishes.
 #' @param onError Function to be called if channel stops with an
-#'   error.
+#'   error. Note that if you call nextThen multiple times to register
+#'   multile callbacks, only the first will receive onError; the rest
+#'   will be called with onClose.
 #' @param onClose Function to be called if the channel finishes normally.
 #' @param ... Undocumented.
 #' @export
@@ -293,7 +295,7 @@ nextThen.channel <- function(x,
                                stop("Unhandled channel error: ", err),
                              onClose = function() NULL,
                              ...) {
-  x$nextThen(onNext, onError, onClose, ...)
+  attr(x, "methods")$nextThen(onNext, onError, onClose, ...)
 }
 
 #' @export
@@ -332,7 +334,7 @@ subscribe.channel <- function(x, onNext, onError, onClose, ...) {
 #'
 #' `combine(...)` takes any number of [promise] or [channel]
 #' objects. It awaits each one, and returns a [channel] object
-#' which re-emits every value from its target promises, in whatever
+#' which re-emits every value from its targets, in whatever
 #' order they are received.
 #' @param ... Each argument should be a [promise] or a [channel].
 #' @return a [channel] object.

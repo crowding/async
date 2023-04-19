@@ -15,6 +15,7 @@ print_pattern(repeats=4);
 
 ## -----------------------------------------------------------------------------
 library(async)
+library(iterors)
 counts <- c(3, 2, 1, 2)
 pattern <- gen({
   repeat {
@@ -45,7 +46,7 @@ gen_pattern <- gen(function(counts = c(3, 2, 1, 2)) {
 
 ## -----------------------------------------------------------------------------
 show_head <- function(x, n=24) {
-  x |> ilimit(n) |> as.list() |> deparse() |> cat(sep="\n")
+  x |> as.list(n=n) |> deparse() |> cat(sep="\n")
 }
 show_head(gen_pattern(), 24)
 

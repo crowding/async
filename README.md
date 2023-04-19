@@ -282,5 +282,5 @@ debugAsync(ctz, internal=TRUE)
     ## 
     ## $trace
     ## function(x) NULL
-    ## <bytecode: 0x55fcd8b49dc8>
-    ## <environment: namespace:async>
+    ## <bytecode: 0x55569895c108>
+    ## <environment: 0x55569afc7778>

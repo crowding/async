@@ -1,5 +1,5 @@
 `%is%` <- expect_equal
-
+q
 before_and_after <- function(expr, and_then, ...) {
   a <- nseval::arg(expr)
   list(nseval::do(a), and_then(nseval::do(a), ...))

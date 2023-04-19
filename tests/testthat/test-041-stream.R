@@ -86,10 +86,10 @@ test_that("channel", {
 
   wakeups <- 0
   mc <- mock_channel(wakeup = function(x) wakeups <<- wakeups + 1)
-  p1 <- nextOr(mc, NULL)
+  p1 <- nextOr(mc$ch, NULL)
   wait_for_it()
   wakeups %is% 1
-  p2 <- nextOr(mc, NULL)
+  p2 <- nextOr(mc$ch, NULL)
   wait_for_it()
   wakeups %is% 2
 
@@ -97,27 +97,27 @@ test_that("channel", {
   wakeups %is% 3
   expect_resolves_with(p2, "b", mc$emit("b"))
   wakeups %is% 3 # no more listeners
-  expect_emits(mc, "c", mc$emit("c"))
+  expect_emits(mc$ch, "c", mc$emit("c"))
   #wakeups %is% 4 #expect_emits causes a wakeup before "emit" is called?
 
   mc$emit("A")
   mc$emit("B")
   mc$emit("C")
 
-  expect_emits(mc, "A")
-  expect_emits(mc, "B")
-  expect_emits(mc, "C")
+  expect_emits(mc$ch, "A")
+  expect_emits(mc$ch, "B")
+  expect_emits(mc$ch, "C")
 
   #wakeups %is% 4
   mc$reject("sdfghj")
-  expect_channel_rejects(mc, "sdfghj")
+  expect_channel_rejects(mc$ch, "sdfghj")
 
   wakeups <- 0
   mc <- mock_channel(wakeup = function(x) wakeups <<- wakeups + 1)
-  expect_emits(mc, "c", mc$emit("c"))
+  expect_emits(mc$ch, "c", mc$emit("c"))
   wait_for_it()
   #wakeups %is% 1
-  expect_channel_closes(mc, mc$close())
+  expect_channel_closes(mc$ch, mc$close())
   wait_for_it()
   #wakeups %is% 2
 
@@ -126,21 +126,21 @@ test_that("channel", {
 
 test_that("awaitNext from async()", {
 
-  ch <- mock_channel()
+  mch <- mock_channel()
   as <- async({
     l <- 0
     for (i in 1:5) {
-      l <- awaitNext(ch) + l
+      l <- awaitNext(mch$ch) + l
     }
     l
   })
 
-  ch$emit(2)
-  ch$emit(4)
-  ch$emit(6)
-  ch$emit(8)
+  mch$emit(2)
+  mch$emit(4)
+  mch$emit(6)
+  mch$emit(8)
   wait_for_it()
-  expect_resolves_with(as, 30, ch$emit(10))
+  expect_resolves_with(as, 30, mch$emit(10))
 
 })
 
@@ -150,7 +150,7 @@ test_that("while/break loop over channel", {
   as <- async({
     l <- 0
     repeat {
-      l <- awaitNext(ch, break) + l
+      l <- awaitNext(ch$ch, break) + l
     }
     l
   })
@@ -168,7 +168,7 @@ test_that("async with for loop over channel", {
   ch <- mock_channel()
   as <- async({
     l <- 0
-    for (i in ch) l <- l + i
+    for (i in ch$ch) l <- l + i
     l
   })
   debugAsync(as, internal=FALSE)
@@ -185,7 +185,7 @@ test_that("async for loop handles channel error", {
   as <- async({
     tryCatch({
       l <- 0
-      for (i in ch) l <- l + i
+      for (i in ch$ch) l <- l + i
       l
     }, error=function(x) c(conditionMessage(x), l))
   })
@@ -202,10 +202,10 @@ test_that("async awaitNext with or", {
     repeat(l <- awaitNext(ch, break) + l)
     l
   })
-  as1 <- as(ch <- mock_channel())
-  ch$emit(10)
-  ch$emit(20)
-  expect_resolves_with(as1, c("finally", "30"), ch$reject("ASDFGHJK"))
+  as1 <- as((mch <- mock_channel())$ch)
+  mch$emit(10)
+  mch$emit(20)
+  expect_resolves_with(as1, c("finally", "30"), mch$reject("ASDFGHJK"))
 
 })
 
@@ -225,24 +225,24 @@ test_that("async awaitNext with handler", {
     l
   })
 
-  as1 <- as(ch <- mock_channel())
-  ch$emit(10)
-  expect_resolves_with(as1, "ASDFGHJK", ch$reject("ASDFGHJK"))
+  as1 <- as((mch <- mock_channel())$ch)
+  mch$emit(10)
+  expect_resolves_with(as1, "ASDFGHJK", mch$reject("ASDFGHJK"))
 
-  as2 <- as(ch <- mock_channel())
-  ch$emit(10)
-  expect_resolves_with(as2, 10, ch$close())
+  as2 <- as((mch <- mock_channel())$ch)
+  mch$emit(10)
+  expect_resolves_with(as2, 10, mch$close())
 
 })
 
 test_that("await a closed channel just calls close()", {
 
-  ch <- mock_channel()
+  mch <- mock_channel()
   as <- async({
-    for (i in 1:10) (awaitNext(ch, next))
+    for (i in 1:10) (awaitNext(mch$ch, next))
     i
   })
-  expect_resolves_with(as, 10, ch$close())
+  expect_resolves_with(as, 10, mch$close())
 
 })
 
@@ -275,7 +275,7 @@ test_that("lazy vs eager streams", {
   lazy <- stream(lazy=TRUE, {
     running <<- TRUE
     on.exit(running <<- FALSE)
-    for (i in ch2) {
+    for (i in ch2$ch) {
       yield(2*i)
       ct2 <<- ct2 + 1
     }
@@ -307,7 +307,7 @@ test_that("lazy vs eager streams", {
   eager <- stream(lazy=FALSE, {
     running <<- TRUE
     on.exit(running <<- FALSE)
-    for (i in ch1) {
+    for (i in ch1$ch) {
       yield(2*i)
       ct1 <<- ct1 + 1
     }
@@ -346,7 +346,7 @@ test_that("combining channels", {
   ch1 <- mock_channel()
   pr2 <- mock_promise()
 
-  out <- combine(pr1,ch1,pr2)
+  out <- combine(pr1,ch1$ch,pr2)
 
   expect_emits(out, "foo", pr1$resolve("foo"))
   expect_emits(out, "bar", ch1$emit("bar"))
@@ -359,14 +359,16 @@ test_that("combining channels", {
 test_that("stream function", {
 
   f <- stream(function(s, add=0) {
-    for (elem in s) yield(elem+add)
+    for (elem in s) {
+      yield(elem+add)
+    }
   })
 
   a <- mock_channel()
   b <- mock_channel()
-  fa <- f(a, 5)
-  fb <- f(b, 6)
-  ga <- gather(fa, 0)
+  fa <- f(a$ch, 5)
+  fb <- f(b$ch, 6)
+  ga <- gather(fa, 0) # why is this getting here
   gb <- gather(fb, 0)
 
   a$emit(1)
@@ -413,6 +415,38 @@ test_that("yieldFrom channel", {
   wait_for_it()
 
 })
+
+test_that("stream format", {
+
+  pr <- mock_promise()
+  st <- stream({yield(await(pr))})
+  expect_output(print(st), "stream\\(\\{")
+
+  expect_output(print(st), "\\[yielded")
+  expect_output(print(st), "<environment: ")
+  expect_output(print(st), "<Channel")
+  g <- gather(st)
+  wait_for_it()
+  expect_output(print(st), "1 awaiting, 0 sent")
+  pr$resolve(5)
+  wait_for_it()
+  expect_output(print(st), "resolved at `")
+  expect_output(print(g), "fulfilled: list")
+  expect_output(print(st), "0 awaiting, 1 sent")
+
+  pr <- mock_promise()
+  st <- stream({yield(await(pr))})
+  g <- gather(st)
+  capture.output({pr$reject("oops"); wait_for_it()},
+                 type="message")
+  expect_output(print(st), "rejected at `")
+  expect_output(print(st), "simpleError: oops")
+  expect_output(print(g), "rejected: simpleError")
+  expect_output(print(st), "0 awaiting, 1 sent")
+
+})
+
+
 
 options(async.sendLater = TRUE)
 options(async.compileLevel = 0)

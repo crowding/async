@@ -278,7 +278,7 @@ test_that("tryCatch", {
   # But it's not in nodeEdgeProperties?
   # For that matter neither is getErrHandler...
   # The compiled generator works, too.
-  seq <- ilimit(iseq(), 50)
+  seq <- iterors::ilimit(iterors::iseq(), 50)
   fizztry <- gen({
     tryCatch({
       repeat {
@@ -303,7 +303,7 @@ test_that("tryCatch", {
 
 test_that("nextOr", {
 
-  x <- iseq(1, 55)
+  x <- iterors::iseq(1, 55)
   incomplete <- gen(split_pipes=TRUE, {
     repeat {
       sum <- 0
@@ -441,6 +441,7 @@ test_that("fizzbuzz", {
       finally=yield("Goodnight")
     )
   })
+  
   expect_silent(graphAsync(nicebuzz, filename("nicebuzz"),
                           handlers=TRUE, vars=TRUE, envs=FALSE))
 
@@ -479,12 +480,12 @@ test_that("graph of switch with goto", {
 
 test_that("stream with on.exit", {
 
-  ch <- mock_channel()
+  mch <- mock_channel()
   fizzFilter <- stream({
     on.exit({
       yield("and that's all!")
     })
-    for (i in ch) {
+    for (i in mch$ch) {
       if(i %% 3 == 0) {
         if (i %% 5 == 0) {
           yield("FizzBuzz")

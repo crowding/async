@@ -17,7 +17,9 @@ emitted value. For \link{subscribe}, a function to be called with each
 emitted value until the stream finishes.}
 
 \item{onError}{Function to be called if channel stops with an
-error.}
+error. Note that if you call nextThen multiple times to register
+multile callbacks, only the first will receive onError; the rest
+will be called with onClose.}
 
 \item{onClose}{Function to be called if the channel finishes normally.}
 

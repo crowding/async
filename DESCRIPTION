@@ -1,6 +1,6 @@
 Package: async
 Title: Coroutines: Generators / Yield, Async / Await, and Streams
-Version: 0.3.1
+Version: 0.3.2
 Date: 2023-03-01
 Authors@R: 
     person(given = "Peter",
@@ -25,6 +25,7 @@ Encoding: UTF-8
 LazyData: true
 Depends: R (>= 4.1)
 Imports:
+        iterors,
         nseval (>= 0.4.3),
         later,
         promises,
@@ -34,14 +35,12 @@ Suggests:
     rmarkdown,
     knitr,
     magrittr,
-    iterators,
     audio,
     profvis,
     microbenchmark
 Collate:
   'async-package.R'
   'util.R'
-  'iteror.R'
   'cps.R'
   'signals.R'
   'syntax.R'

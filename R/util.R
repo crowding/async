@@ -7,10 +7,7 @@ mock_channel <- function(...) {
   ch <- channel(function(emit, reject, close) {
     e <<- environment()
   }, ...)
-  ch$emit <- e$emit
-  ch$reject <- e$reject
-  ch$close <- e$close
-  ch
+  list(emit=e$emit, reject=e$reject, close=e$close, ch=ch)
 }
 
 mock_promise <- function() {
