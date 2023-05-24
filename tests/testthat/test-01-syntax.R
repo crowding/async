@@ -292,14 +292,19 @@ test_that("find pausables", {
   length(unique(c(alist(async::yield), x))) %is% length(x)
 })
 
-test_that("can use nextOr with break", {
+test_that("can use nextOr with break/return", {
 
-  cps_translate(
+  exp <- cps_translate(
     quo({
       nextOr(pr, return(0));
       iterors::nextOr(pr, return(0));
       async::nextOr(pr, return(0))
     }),
     gen_endpoints)
+
+  expr(exp)[[3]][[1]] %is% quote(nextOr_cps)
+  expr(exp)[[3]][[4]][[1]] %is% quote(return_cps)
+  expr(exp)[[4]][[1]] %is% quote(async:::nextOr_cps) #hmm
+  expr(exp)[[5]][[1]] %is% quote(async:::nextOr_cps)
 
 })

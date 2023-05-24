@@ -58,6 +58,7 @@ Collate:
   'graph.R'
   'trans.R'
   'munge.R'
+  'inline.R'
 Roxygen: list(markdown=TRUE)
 RoxygenNote: 7.2.3
 VignetteBuilder: knitr

@@ -113,6 +113,7 @@ globalNode <- function(assignment) {
 
 # R() wraps a user-level R expression into an execution node
 R <- function(.contextName, x) {
+  list(.contextName)
   x <- arg_expr(x)
 
   function(cont, ..., evl) {

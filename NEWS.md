@@ -1,6 +1,7 @@
-# async 0.3.1
+# async 0.3.2
 
-* `iteror` and associated functions have been extracted to a new package [`iterors`](http://github.com/crowding/iterors), which includes 
+* The `iteror` class has been extracted to a new package [`iterors`](http://github.com/crowding/iterors), which also includes ports of all functionality from `iterators`, `itertools`, and `itertools2`
+* Improved memory usage: Coroutines which exit drop references to their evaluation environments, allowing them to be garbage collected.
 
 # async 0.3.1
 

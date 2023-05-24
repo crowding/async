@@ -278,7 +278,7 @@ test_that("tryCatch", {
   # But it's not in nodeEdgeProperties?
   # For that matter neither is getErrHandler...
   # The compiled generator works, too.
-  seq <- iterors::ilimit(iterors::iseq(), 50)
+  seq <- iterors::i_limit(iterors::iseq(), 50)
   fizztry <- gen({
     tryCatch({
       repeat {
@@ -441,7 +441,7 @@ test_that("fizzbuzz", {
       finally=yield("Goodnight")
     )
   })
-  
+
   expect_silent(graphAsync(nicebuzz, filename("nicebuzz"),
                           handlers=TRUE, vars=TRUE, envs=FALSE))
 

@@ -200,6 +200,10 @@ make_pump <- function(expr, ...,
 
   node(afterExit <- function() {
     trace(paste0("(exit: ", after_exit, ")\n"))
+    on.exit({
+      value <<- NULL
+      targetEnv <<- emptyenv()
+    })
     switch(after_exit,
            "return" = {action <<- "return"; rtn(value)},
            "stop" = {action <<- "stop"; stp(value)},
@@ -222,6 +226,7 @@ make_pump <- function(expr, ...,
                 trace=trace,
                 evl=evl_, sto=sto_,
                 registerExit=registerExit, addExit=addExit)
+  expr <- NULL
   pumpCont <- entry
 
   if (!using_onexit) {

@@ -119,7 +119,7 @@ is not legal, because \code{yield} appears in an argument to \code{+}, which
 does not have a pausable definition.
 }
 \examples{
-chain <- function(...) {
+i_chain <- function(...) {
   iterators <- list(...)
   gen(for (it in iterators) yieldFrom(it))
 }

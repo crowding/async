@@ -277,4 +277,3 @@ try_cps <- function(.contextName, expr,
     getOutfile
   }
 }
-

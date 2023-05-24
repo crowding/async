@@ -267,7 +267,7 @@ find_global_name <- function(fun, nameOverrides=emptyenv()) {
     name <- paste0(get0(".contextName", environment(fun)),
                    "__", find_local_name(fun))
   }
-  get0(name, nameOverrides, ifnotfound=name)
+  get0(name, nameOverrides, inherits=FALSE, ifnotfound=name)
 }
 
 has_global_name <- function(fun) {

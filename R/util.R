@@ -244,3 +244,8 @@ setCompileLevelFromFn <- function(fn) {
             async.paranoid=FALSE)
   }
 }
+
+# needed for test--inlining.R
+getStartSet.list <- function(obj, ...) obj
+summary.list <- function(obj) list(code=quote({}))
+

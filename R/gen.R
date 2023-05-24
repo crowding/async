@@ -90,7 +90,7 @@ gen <- function(expr, ..., split_pipes=FALSE,
   args_ <- c(cps_translate(expr_,
                            endpoints=gen_endpoints,
                            split_pipes=split_pipes),
-             orig=forced_quo(expr_),
+             orig=forced_quo(nseval::expr(expr_)),
              dots(...))
   set_dots(environment(), args_)
   gen <- make_generator(..., callingEnv=envir)
@@ -135,7 +135,7 @@ yield_cps <- function(.contextName, expr) {
 #' @param err An error handler
 #' @return yieldFrom returns NULL, invisibly.
 #' @examples
-#' chain <- function(...) {
+#' i_chain <- function(...) {
 #'   iterators <- list(...)
 #'   gen(for (it in iterators) yieldFrom(it))
 #' }
@@ -201,7 +201,7 @@ yieldFrom_cps <- function(.contextName, it) {
   }
 }
 
-make_generator <- function(expr, orig=arg(expr), ...,
+make_generator <- function(expr, orig=substitute(expr), ...,
                            local=TRUE, callingEnv) {
   list(expr, ..., orig)
   .contextName <- "gen"
@@ -269,10 +269,12 @@ make_generator <- function(expr, orig=arg(expr), ...,
   })
 
   pump <- make_pump(expr, ..., catch=FALSE,
-                    stp=stop_, yield=yield_, rtn=return_,
-                    targetEnv=targetEnv)
-  pause_val <- get("pause_val_", envir=environment(pump))
-
+                    stp = stop_, yield = yield_, rtn = return_,
+                    targetEnv = targetEnv)
+  expr <- NULL
+  pause_val <- get("pause_val_", envir = environment(pump))
+  targetEnv <- emptyenv()
+  callingEnv <- emptyenv()
   g <- add_class(iteror(nextOr_), "generator", "coroutine")
   g
 }
@@ -307,7 +309,7 @@ getPump.generator <- function(x) {
 #' generators that have finished normally.)
 #' @exportS3Method
 summary.generator <- function(object, ...) {
-  c(list(code=expr(get("orig", envir=environment(object)))),
+  c(list(code=get("orig", envir=environment(object))),
     environment(object)$getState(),
     NextMethod("summary"))
 }

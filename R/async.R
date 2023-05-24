@@ -126,7 +126,7 @@ await <- function(prom, error) {
 }
 
 await_cps <- function(.contextName, prom, error) {
-  list(prom, maybe(error))
+  list(.contextName, prom, maybe(error))
   function(cont, ..., pause, await, stp) {
     list(cont, pause, maybe(await), stp)
     if (missing(await)) stop("await used, but this is not an async")
@@ -165,7 +165,7 @@ await_cps <- function(.contextName, prom, error) {
 }
 
 #' @import promises
-make_async <- function(expr, orig = expr, ...,
+make_async <- function(expr, orig = substitute(expr), ...,
                        compileLevel = 0,
                        local = TRUE,
                        callingEnv,
@@ -218,6 +218,9 @@ make_async <- function(expr, orig = expr, ...,
                     rtn=return_, stp=stop_, await=await_,
                     awaitNext=awaitNext_,
                     targetEnv=targetEnv)
+  expr <- NULL
+  targetEnv <- NULL
+  callingEnv <- NULL
 
   pause <- environment(pump)$pause_
   bounce <- environment(pump)$bounce_

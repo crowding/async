@@ -60,6 +60,7 @@ iterors::nextOr
 #' @export
 iterors::iteror
 
+
 ## usethis namespace: start
 ## usethis namespace: end
 NULL

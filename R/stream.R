@@ -92,7 +92,7 @@ stream <- function(expr, ..., split_pipes=TRUE, lazy=TRUE,
   args_ <- c(cps_translate(expr_,
                            endpoints=stream_endpoints,
                            split_pipes=split_pipes),
-             orig=forced_quo(expr_),
+             orig=forced_quo(expr(expr_)),
              dots(...))
   set_dots(environment(), args_)
   strm <- make_stream(..., lazy=lazy,
@@ -102,7 +102,7 @@ stream <- function(expr, ..., split_pipes=TRUE, lazy=TRUE,
   strm
 }
 
-make_stream <- function(expr, orig=expr, ...,
+make_stream <- function(expr, orig=substitute(expr), ...,
                         trace=identity, callingEnv, compileLevel, lazy, local=TRUE) { #FIXME
   list(orig, expr, ..., trace, callingEnv, compileLevel, lazy, local)
   .contextName <- "stream"
@@ -228,7 +228,7 @@ getStartSet.stream <- function(x,...) {
 #'   "rejected", "running", "woken", "yielding", or "yielded".
 #' @exportS3Method
 summary.stream <- function(object, ...) {
-  c(list(code=nseval::expr(attr(object, "extra")$orig)),
+  c(list(code=attr(object, "extra")$orig),
     attr(object, "extra")$state$getState(),
     NextMethod("summary"))
 }
@@ -298,7 +298,7 @@ awaitNext_cps <- function(.contextName,
              "closed" = {state <<- "xxx"; or()},
              stp(paste0("awaitNext: unexpected state ", state))) # nocov
     })
-    
+
     node(await_ <- function(val) {
       state <<- "xxx"
       value <<- NULL

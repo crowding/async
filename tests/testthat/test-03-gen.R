@@ -49,7 +49,7 @@ test_that("a generator", {
 test_that("for loop over an iterator", {
   x <- gen(for (i in iterors::iseq(1)) {yield(i)})
 
-  as.numeric(as.list(iterors::ilimit(x, 10))) %is% 1:10
+  as.numeric(as.list(iterors::i_limit(x, 10))) %is% 1:10
 
   j <- gen(for(i in 1:10) if (i %% 7 == 0) stop("oops") else yield(i))
   x <- 0
@@ -83,7 +83,7 @@ test_that("nested for loops", {
       yield(0)
     }
   })
-  as.numeric(as.list(iterors::ilimit(x, 24))) %is%
+  as.numeric(as.list(iterors::i_limit(x, 24))) %is%
     c(1,1,1,0,1,1,0,1,0,1,1,0,1,1,1,0,1,1,0,1,0,1,1,0)
 })
 

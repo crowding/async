@@ -83,22 +83,20 @@ deque <- function(len=64) {
 #' to be determined. It is something like a combination of a [promise]
 #' and an [iteror].
 #'
-#' The channel interface could be used to represent and work with data
-#' coming in over a connection, data values being logged over time, a
-#' queue of incoming requests, and things of that nature.
+#' The channel interface is intended to represent and work with
+#' asynchronous, live data sources, for instance event logs,
+#' non-blocking connections, paginated query results, reactive values,
+#' and other processes that yield a sequence of values over time.
 #'
-#' The friendly way to create a channel and use it in asynchronous
-#' programming is to use a [stream] coroutine. Inside of `stream()`
-#' call [await] to wait on promises, [awaitNext] to wait on other
-#' streams and [yield] to yield values. To signal end of iteration
-#' use `return()` (which will discard its value) and to signal an
-#' error use `stop()`.
+#' `channel` is an S3 method and will attempt to convert the argument
+#' `obj` into a channel object according to its class. In particular
+#' [connection] objects will be wrapped with a connection.
 #'
-#' The friendly way to consume values from a channel is to use
-#' awaitNext within an `async` or `stream` coroutine.
+#' The friendly way to obtain values from a channel is to use
+#' `awaitNext` or `for` loops within an [async] or [stream] coroutine.
 #'
-#' The low-level interface to request values from a channel is to call
-#' [nextThen]`(ch, onNext=, onError=, onClose=)]`, providing callback
+#' The low-level interface to obtain values from a channel is to call
+#' [nextThen]`(ch, onNext=, onError=, onClose=, ...)]`, providing callback
 #' functions for at least `onNext(val)`. Those callbacks will be
 #' appended to an internal queue, and will be called as soon as data
 #' is available, in the order that requests were received.
@@ -108,7 +106,7 @@ deque <- function(len=64) {
 #' available value. Each promise created this way will be resolved in
 #' the order that data come in. Note that this way there is no special
 #' signal for end of iteration; a promise will reject with
-#' the sigil value `"StopIteration"` to signal end of iteration.
+#' a condition message `"StopIteration"` to signal end of iteration.
 #'
 #' Be careful with the iterator-over-promises interface though: if you
 #' call `as.list.iteror(pr)` you may get stuck in an infinite loop, as
@@ -116,17 +114,24 @@ deque <- function(len=64) {
 #' represent values that exist only hypothetically. This is one
 #' reason for the `max_listeners` limit.
 #'
-#' The low-level interface to _create_ a channel object is to call
-#' `channel(function(emit, reject, cancel) {...})`, providing your own
-#' function in its argument; your function will receive those three
-#' callback methods as arguments. Then use whatever means to arrange
-#' to call `emit(val)` some time in the future as data comes in. When
-#' you are done emitting values, call the `close()` callback. To
-#' report an error use the callback `reject(err)` The next requestor
-#' will receive the error. If there is more than one listener, other
-#' queued listeners will get a `close` signal.
+#' The friendly way to create a channel with custom behavior is to use
+#' a [stream] coroutine. Inside of `stream()` call [await] to wait on
+#' promises, [awaitNext] to wait on other streams and [yield] to yield
+#' values. To signal end of iteration use `return()` (which will
+#' discard its value) and to signal an error use `stop()`.
 #'
-#' @param impl A user-provided function; it will receive three
+#' The low-level interface to create a channel with custom behavior
+#' is to call `channel(function(emit, reject, cancel) {...})`,
+#' providing your own function definition; your function will
+#' receive those three callback methods as arguments. Then use
+#' whatever means to arrange to call `emit(val)` some time in the
+#' future as data comes in. When you are done emitting values, call
+#' the `close()` callback. To report an error call
+#' `reject(err)`; the next requestor will receive the error. If there
+#' is more than one listener, other queued listeners will get a
+#' `close` signal.
+#'
+#' @param obj A user-provided function; it will receive three
 #'   callback functions as arguments, in order, `emit(val)`,
 #'   `reject(err)` and `close()`
 #' @param max_queue The maximum number of outgoing values to store if
@@ -141,10 +146,25 @@ deque <- function(len=64) {
 #' @return a channel object, supporting methods "nextThen" and "nextElem"
 #'
 #' @author Peter Meilstrup
-channel <- function(impl, max_queue=500L, max_awaiting=500L,
-                    wakeup=function() NULL) {
+#' @export
+channel <- function(obj, ...) {
+  UseMethod("channel")
+}
+
+#' @exportS3Method
+channel.default <- function(obj, ...) {
+  if (is.function(obj))
+    channel.function(obj, ...)
+  else stop("Don't know how to make channel out of that")
+}
+
+#' @exportS3Method channel "function"
+#' @export
+#' @rdname channel
+channel.function <- function(obj, max_queue=500L, max_awaiting=500L,
+                             wakeup=function(...) NULL) {
   # list of callbacks waiting to be made having yet to be sent
-  # each is a list(resolve=, reject=, close=
+  # each is a list(resolve=, reject=, close= )
   outgoing <- deque()
   # list of values waiting for a callback
   awaiting <- deque()
@@ -203,22 +223,25 @@ channel <- function(impl, max_queue=500L, max_awaiting=500L,
       tryCatch({
         val <- outgoing$getFirst(
           or=switch(state,
-                 "error" = {
-                   state <<- "stopped"
-                   listener$reject(errorValue)
-                   odo <<- odo+1
-                   break
-                 },
-                 "stopped",
-                 "closed" = {
-                   listener$close()
-                   break
-                 },
-                 "running" = {
-                   awaiting$prepend(listener)
-                   wakeup()
-                   break
-                 }))
+                    "error" = {
+                      state <<- "stopped"
+                      listener$reject(errorValue)
+                      odo <<- odo+1
+                      break
+                    },
+                    "stopped",
+                    "closed" = {
+                      listener$close()
+                      break
+                    },
+                    "running" = {
+                      awaiting$prepend(listener)
+                      # pass along arguments...
+                      if (length(listener$args) > 0)
+                        do.call(wakeup, listener$args)
+                      else wakeup()
+                      break
+                    }))
         listener$resolve(val)
         odo <<- odo+1
       }, error=function(err) {
@@ -230,25 +253,26 @@ channel <- function(impl, max_queue=500L, max_awaiting=500L,
   }
 
   nextThen <- function(onNext,
-                       onError=function(err)
-                         warning("Unhandled promise_iter error ", err),
-                       onClose) {
+                       onError = function(err)
+                         warning("Unhandled channel error ", err),
+                       onClose, ...) {
     if (awaiting$length() > max_awaiting) stop("Channel has too many listeners")
-    awaiting$append(list(resolve=onNext, reject=onError, close=onClose))
+    awaiting$append(list(resolve = onNext, reject = onError,
+                         close = onClose, args = list(...)))
     send()
   }
 
-  nextOr_ <- function(or) {
+  nextOr_ <- function(or, ...) {
     #subscribe and return a promise.
     promise(function(resolve, reject) {
-      nextThen(resolve, reject, function() reject("StopIteration"))
+      nextThen(resolve, reject, function() reject(simpleError("StopIteration")), ...)
     })
   }
 
-  impl(emit, reject, close)
+  obj(emit, reject, close)
   structure(add_class(iteror(nextOr_), "channel"),
-            methods=list(nextThen=nextThen, nextOr=nextOr,
-                         formatChannel=formatChannel))
+            methods=list(nextThen = nextThen, nextOr = nextOr,
+                         formatChannel = formatChannel))
 }
 
 #' @exportS3Method
@@ -370,4 +394,69 @@ combine <- function(...) {
     if (remaining == 0) close()
     else running <- TRUE
   })
+}
+
+# The channel method for connections wraps a connection object
+# (which should be opened in non-blocking mode).
+channel.connection <- function(obj, ...,
+                               read = {
+                                 if (summary(obj)$text == "text")
+                                   c("lines", "char")
+                                   else c("bin", "lines", "char")
+                               },
+                               read_params = {
+                                 switch(read,
+                                        lines = list(n = 1),
+                                        char = list(nchar = 1),
+                                        bin = list(what = "raw", n = 1))
+                               },
+                               loop = current_loop()) {
+  if (!isOpen(obj, "read"))
+    stop("Need to open the connection for reading before making a channel")
+
+  read <- match.arg(read)
+  readMethod <- switch(read,
+                       lines=readLines,
+                       char=readChar,
+                       bin=readBin)
+
+  emit <- identity
+  reject <- identity
+  close <- function() NULL
+
+  arguments <- read_params |> names() |> lapply(as.name) |> structure(names=names(read_params))
+  readCall <- function_(
+    c(list(...), read_params),
+    bquote(splice=TRUE, {
+      readMethod(obj, ..(arguments), ...)
+    },
+    environment()
+    ))
+
+  doRead <- function(...) {
+    fn <- function() {
+      tryCatch({
+        result <- readCall(...)
+        if (length(result) == 0) {
+          cat("no results...\n")
+          later(fn, 1)
+        } else {
+          if (isIncomplete(obj)) {
+            cat("incomplete results...\n")
+            later(fn, 1)
+          } else {
+            emit(result)
+          }
+        }}, error=function(x) {
+          close(obj);
+          stop(x)
+        })
+    }
+    fn()
+  }
+
+  channel(\(emit, reject, close) {
+    emit <<- emit; reject <<- reject; close <<- close
+  }, wakeup = doRead)
+
 }
