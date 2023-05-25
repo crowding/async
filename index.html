@@ -43,7 +43,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="index.html">async</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.1</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.2</span>
       </span>
     </div>
 
@@ -67,6 +67,9 @@
     </li>
     <li>
       <a href="articles/language.html">The Coroutine Language</a>
+    </li>
+    <li>
+      <a href="articles/spider.html">Scraping the web quickly using async/await</a>
     </li>
   </ul>
 </li>
@@ -140,22 +143,22 @@
 <span>    <span class="kw">else</span> <span class="fu"><a href="reference/gen.html">yield</a></span><span class="op">(</span><span class="va">x</span> <span class="op">&lt;-</span> <span class="fl">3L</span> <span class="op">*</span> <span class="va">x</span> <span class="op">+</span> <span class="fl">1</span><span class="op">)</span></span>
 <span>  <span class="op">}</span></span>
 <span><span class="op">}</span><span class="op">)</span></span></code></pre></div>
-<p>The call to <code>gen</code> produces a generator. You can get values one at a time with <code><a href="reference/iteror.html">nextOr()</a></code>.</p>
+<p>The call to <code>gen</code> produces a generator. You can get values one at a time with <code><a href="https://crowding.github.io/iterors/reference/nextOr.html" class="external-link">nextOr()</a></code>.</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">ctz</span> <span class="op">&lt;-</span> <span class="fu">collatz</span><span class="op">(</span><span class="fl">12</span><span class="op">)</span></span>
-<span><span class="fu"><a href="reference/iteror.html">nextOr</a></span><span class="op">(</span><span class="va">ctz</span>, <span class="cn">NA</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="https://crowding.github.io/iterors/reference/nextOr.html" class="external-link">nextOr</a></span><span class="op">(</span><span class="va">ctz</span>, <span class="cn">NA</span><span class="op">)</span></span></code></pre></div>
 <div class="sourceCode" id="cb3"><pre class="sourceCode R"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="do">## [1] 12</span></span></code></pre></div>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="reference/iteror.html">nextOr</a></span><span class="op">(</span><span class="va">ctz</span>, <span class="cn">NA</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu"><a href="https://crowding.github.io/iterors/reference/nextOr.html" class="external-link">nextOr</a></span><span class="op">(</span><span class="va">ctz</span>, <span class="cn">NA</span><span class="op">)</span></span></code></pre></div>
 <div class="sourceCode" id="cb5"><pre class="sourceCode R"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="do">## [1] 6</span></span></code></pre></div>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="reference/iteror.html">nextOr</a></span><span class="op">(</span><span class="va">ctz</span>, <span class="cn">NA</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu"><a href="https://crowding.github.io/iterors/reference/nextOr.html" class="external-link">nextOr</a></span><span class="op">(</span><span class="va">ctz</span>, <span class="cn">NA</span><span class="op">)</span></span></code></pre></div>
 <div class="sourceCode" id="cb7"><pre class="sourceCode R"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="do">## [1] 3</span></span></code></pre></div>
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="reference/iteror.html">nextOr</a></span><span class="op">(</span><span class="va">ctz</span>, <span class="cn">NA</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu"><a href="https://crowding.github.io/iterors/reference/nextOr.html" class="external-link">nextOr</a></span><span class="op">(</span><span class="va">ctz</span>, <span class="cn">NA</span><span class="op">)</span></span></code></pre></div>
 <div class="sourceCode" id="cb9"><pre class="sourceCode R"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="do">## [1] 10</span></span></code></pre></div>
 <div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="reference/iteror.html">nextOr</a></span><span class="op">(</span><span class="va">ctz</span>, <span class="cn">NA</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu"><a href="https://crowding.github.io/iterors/reference/nextOr.html" class="external-link">nextOr</a></span><span class="op">(</span><span class="va">ctz</span>, <span class="cn">NA</span><span class="op">)</span></span></code></pre></div>
 <div class="sourceCode" id="cb11"><pre class="sourceCode R"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="do">## [1] 5</span></span></code></pre></div>
 <p>You can also use any other method that applies to an iterator, like <code>as.list</code>.</p>
 <div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
@@ -218,9 +221,9 @@
 <span>  <span class="va">data</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/async.html">await</a></span><span class="op">(</span><span class="fu">future</span><span class="op">(</span><span class="op">{</span></span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Parsing\n"</span><span class="op">)</span></span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/utils/read.table.html" class="external-link">read.csv</a></span><span class="op">(</span><span class="va">dest</span><span class="op">)</span> <span class="op">|&gt;</span></span>
-<span>    <span class="fu">mutate</span><span class="op">(</span>time <span class="op">=</span> <span class="fu">hms</span><span class="fu">::</span><span class="fu">trunc_hms</span><span class="op">(</span><span class="va">time</span>, <span class="fl">60</span><span class="op">*</span><span class="fl">60</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span></span>
-<span>    <span class="fu">group_by</span><span class="op">(</span><span class="va">time</span><span class="op">)</span> <span class="op">|&gt;</span></span>
-<span>    <span class="fu">summarize</span><span class="op">(</span>sales<span class="op">=</span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">amount</span><span class="op">)</span><span class="op">)</span></span>
+<span>    <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>time <span class="op">=</span> <span class="fu">hms</span><span class="fu">::</span><span class="fu">trunc_hms</span><span class="op">(</span><span class="va">time</span>, <span class="fl">60</span><span class="op">*</span><span class="fl">60</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>    <span class="fu"><a href="https://dplyr.tidyverse.org/reference/group_by.html" class="external-link">group_by</a></span><span class="op">(</span><span class="va">time</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>    <span class="fu"><a href="https://dplyr.tidyverse.org/reference/summarise.html" class="external-link">summarize</a></span><span class="op">(</span>sales<span class="op">=</span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">amount</span><span class="op">)</span><span class="op">)</span></span>
 <span>  <span class="op">}</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">}</span><span class="op">)</span></span>
 <span></span>
@@ -272,7 +275,7 @@
 <div class="figure">
 <img src="ctz.svg" alt=""><p class="caption">Graph of the Collatz generator.</p>
 </div>
-<p>Since each step in the program’s execution corresponds to a function call, when execution reaches a <code>yield</code>, the program’s state is just the “next function” that would have been called (that is, a <a href="https://en.wikipedia.org/wiki/Continuation" class="external-link">continuation</a>.) To pause and resume execution, a generator saves that “next function” until the next time <code><a href="reference/iteror.html">nextOr()</a></code> is called.</p>
+<p>Since each step in the program’s execution corresponds to a function call, when execution reaches a <code>yield</code>, the program’s state is just the “next function” that would have been called (that is, a <a href="https://en.wikipedia.org/wiki/Continuation" class="external-link">continuation</a>.) To pause and resume execution, a generator saves that “next function” until the next time <code><a href="https://crowding.github.io/iterors/reference/nextOr.html" class="external-link">nextOr()</a></code> is called.</p>
 <p>You can also enable single-stepping at the graph level by calling:</p>
 <div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="reference/debugAsync.html">debugAsync</a></span><span class="op">(</span><span class="va">ctz</span>, internal<span class="op">=</span><span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
@@ -284,8 +287,8 @@
 <span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a><span class="do">## </span></span>
 <span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a><span class="do">## $trace</span></span>
 <span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a><span class="do">## function(x) NULL</span></span>
-<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a><span class="do">## &lt;bytecode: 0x55fcd8b49dc8&gt;</span></span>
-<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a><span class="do">## &lt;environment: namespace:async&gt;</span></span></code></pre></div>
+<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a><span class="do">## &lt;bytecode: 0x5643ae7cf540&gt;</span></span>
+<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a><span class="do">## &lt;environment: 0x5643b1a17558&gt;</span></span></code></pre></div>
 </div>
 
   </div>

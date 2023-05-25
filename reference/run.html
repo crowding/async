@@ -18,7 +18,7 @@ expression as a coroutine, but then run it without pausing."><!-- mathjax --><sc
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">async</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.1</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.2</span>
       </span>
     </div>
 
@@ -40,6 +40,9 @@ expression as a coroutine, but then run it without pausing."><!-- mathjax --><sc
     </li>
     <li>
       <a href="../articles/language.html">The Coroutine Language</a>
+    </li>
+    <li>
+      <a href="../articles/spider.html">Scraping the web quickly using async/await</a>
     </li>
   </ul></li>
 <li>
@@ -145,7 +148,7 @@ performance.</p>
     <h2>Examples</h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="fu">run</span><span class="op">(</span>type<span class="op">=</span><span class="fl">0</span>, <span class="op">{</span></span></span>
-<span class="r-in"><span>  <span class="kw">for</span> <span class="op">(</span><span class="va">i</span> <span class="kw">in</span> <span class="fu"><a href="iseq.html">iseq</a></span><span class="op">(</span><span class="fl">2</span>, <span class="cn">Inf</span>, by<span class="op">=</span><span class="fl">5</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span></span>
+<span class="r-in"><span>  <span class="kw">for</span> <span class="op">(</span><span class="va">i</span> <span class="kw">in</span> <span class="fu">iterors</span><span class="fu">::</span><span class="fu"><a href="https://crowding.github.io/iterors/reference/iseq.html" class="external-link">iseq</a></span><span class="op">(</span><span class="fl">2</span>, <span class="cn">Inf</span>, by<span class="op">=</span><span class="fl">5</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span></span>
 <span class="r-in"><span>    <span class="kw">if</span> <span class="op">(</span><span class="va">i</span> <span class="op"><a href="https://rdrr.io/r/base/Arithmetic.html" class="external-link">%%</a></span> <span class="fl">37</span> <span class="op">==</span> <span class="fl">0</span><span class="op">)</span> <span class="kw">break</span></span></span>
 <span class="r-in"><span>    <span class="kw">else</span> <span class="fu"><a href="gen.html">yield</a></span><span class="op">(</span><span class="va">i</span><span class="op">)</span></span></span>
 <span class="r-in"><span>  <span class="op">}</span></span></span>

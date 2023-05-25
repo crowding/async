@@ -20,7 +20,7 @@ streams (experimental as of async 0.3)."><!-- mathjax --><script src="https://cd
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">async</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.1</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.2</span>
       </span>
     </div>
 
@@ -42,6 +42,9 @@ streams (experimental as of async 0.3)."><!-- mathjax --><script src="https://cd
     </li>
     <li>
       <a href="../articles/language.html">The Coroutine Language</a>
+    </li>
+    <li>
+      <a href="../articles/spider.html">Scraping the web quickly using async/await</a>
     </li>
   </ul></li>
 <li>
@@ -80,8 +83,8 @@ streams (experimental as of async 0.3).</p>
     <p>A generator runs until it yields a value and then stops, returning
 control to R until another value is requested. An async block can
 pause and return control to R until some data is available, then
-resume. Generators implement the <a href="iteror.html">iteror</a> interface (which is
-back-compatible with <a href="https://rdrr.io/pkg/iterators/man/iterators-package.html" class="external-link">iterator</a>
+resume. Generators implement the <a href="https://crowding.github.io/iterors/reference/iteror.html" class="external-link">iteror</a> interface (which is
+back-compatible with iterator
 package.) Async blocks implement the <a href="https://rstudio.github.io/promises//reference/promise.html" class="external-link">promise</a>
 interface. The new <a href="stream.html">stream</a> construct implements the <a href="channel.html">channel</a>
 interface, which is defined in this package.</p><ul><li><p><code><a href="gen.html">gen(...)</a></code> creates a generator (an iterator); within a generator use

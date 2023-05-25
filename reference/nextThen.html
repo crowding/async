@@ -21,7 +21,7 @@ available."><!-- mathjax --><script src="https://cdnjs.cloudflare.com/ajax/libs/
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">async</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.1</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.2</span>
       </span>
     </div>
 
@@ -43,6 +43,9 @@ available."><!-- mathjax --><script src="https://cdnjs.cloudflare.com/ajax/libs/
     </li>
     <li>
       <a href="../articles/language.html">The Coroutine Language</a>
+    </li>
+    <li>
+      <a href="../articles/spider.html">Scraping the web quickly using async/await</a>
     </li>
   </ul></li>
 <li>
@@ -96,7 +99,9 @@ emitted value until the stream finishes.</p></dd>
 
 <dt>onError</dt>
 <dd><p>Function to be called if channel stops with an
-error.</p></dd>
+error. Note that if you call nextThen multiple times to register
+multile callbacks, only the first will receive onError; the rest
+will be called with onClose.</p></dd>
 
 
 <dt>onClose</dt>

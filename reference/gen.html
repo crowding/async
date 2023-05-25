@@ -24,7 +24,7 @@ iteror until it is exhausted, then continue."><!-- mathjax --><script src="https
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">async</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.1</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.2</span>
       </span>
     </div>
 
@@ -46,6 +46,9 @@ iteror until it is exhausted, then continue."><!-- mathjax --><script src="https
     </li>
     <li>
       <a href="../articles/language.html">The Coroutine Language</a>
+    </li>
+    <li>
+      <a href="../articles/spider.html">Scraping the web quickly using async/await</a>
     </li>
   </ul></li>
 <li>
@@ -78,7 +81,7 @@ generator, an object which computes an indefinite sequence.</p>
 generator to return the given value, then pause until the next value is
 requested.</p>
 <p>When running in a generator expression, <code>yieldFrom(it))</code>, given
-a list or <a href="iteror.html">iteror</a> in its argument, will yield successive values from that
+a list or <a href="https://crowding.github.io/iterors/reference/iteror.html" class="external-link">iteror</a> in its argument, will yield successive values from that
 iteror until it is exhausted, then continue.</p>
     </div>
 
@@ -116,7 +119,7 @@ appears in chained calls. See <a href="async.html">async</a>.</p></dd>
 
 
 <dt>it</dt>
-<dd><p>A list, <a href="iteror.html">iteror</a> or compatible object.</p></dd>
+<dd><p>A list, <a href="https://crowding.github.io/iterors/reference/iteror.html" class="external-link">iteror</a> or compatible object.</p></dd>
 
 
 <dt>err</dt>
@@ -127,7 +130,7 @@ appears in chained calls. See <a href="async.html">async</a>.</p></dd>
     <h2>Value</h2>
     
 
-<p>`gen(...) returns an <a href="iteror.html">iteror</a>.</p>
+<p>`gen(...) returns an <a href="https://crowding.github.io/iterors/reference/iteror.html" class="external-link">iteror</a>.</p>
 
 
 <p><code>yield(x)</code> returns the same value x.</p>
@@ -186,7 +189,7 @@ does not have a pausable definition.</p>
 
     <div id="ref-examples">
     <h2>Examples</h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="va">chain</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">...</span><span class="op">)</span> <span class="op">{</span></span></span>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="va">i_chain</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">...</span><span class="op">)</span> <span class="op">{</span></span></span>
 <span class="r-in"><span>  <span class="va">iterators</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">...</span><span class="op">)</span></span></span>
 <span class="r-in"><span>  <span class="fu">gen</span><span class="op">(</span><span class="kw">for</span> <span class="op">(</span><span class="va">it</span> <span class="kw">in</span> <span class="va">iterators</span><span class="op">)</span> <span class="fu">yieldFrom</span><span class="op">(</span><span class="va">it</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span></span></span>

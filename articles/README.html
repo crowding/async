@@ -33,7 +33,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">async</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.1</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.2</span>
       </span>
     </div>
 
@@ -57,6 +57,9 @@
     </li>
     <li>
       <a href="../articles/language.html">The Coroutine Language</a>
+    </li>
+    <li>
+      <a href="../articles/spider.html">Scraping the web quickly using async/await</a>
     </li>
   </ul>
 </li>
@@ -171,22 +174,22 @@ The following generator produces the Collatz sequence, starting from
 <span>  <span class="op">}</span></span>
 <span><span class="op">}</span><span class="op">)</span></span></code></pre></div>
 <p>The call to <code>gen</code> produces a generator. You can get values
-one at a time with <code><a href="../reference/iteror.html">nextOr()</a></code>.</p>
+one at a time with <code><a href="https://crowding.github.io/iterors/reference/nextOr.html" class="external-link">nextOr()</a></code>.</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">ctz</span> <span class="op">&lt;-</span> <span class="fu">collatz</span><span class="op">(</span><span class="fl">12</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/iteror.html">nextOr</a></span><span class="op">(</span><span class="va">ctz</span>, <span class="cn">NA</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="https://crowding.github.io/iterors/reference/nextOr.html" class="external-link">nextOr</a></span><span class="op">(</span><span class="va">ctz</span>, <span class="cn">NA</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## [1] 12</span></span></code></pre>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/iteror.html">nextOr</a></span><span class="op">(</span><span class="va">ctz</span>, <span class="cn">NA</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu"><a href="https://crowding.github.io/iterors/reference/nextOr.html" class="external-link">nextOr</a></span><span class="op">(</span><span class="va">ctz</span>, <span class="cn">NA</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## [1] 6</span></span></code></pre>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/iteror.html">nextOr</a></span><span class="op">(</span><span class="va">ctz</span>, <span class="cn">NA</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu"><a href="https://crowding.github.io/iterors/reference/nextOr.html" class="external-link">nextOr</a></span><span class="op">(</span><span class="va">ctz</span>, <span class="cn">NA</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## [1] 3</span></span></code></pre>
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/iteror.html">nextOr</a></span><span class="op">(</span><span class="va">ctz</span>, <span class="cn">NA</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu"><a href="https://crowding.github.io/iterors/reference/nextOr.html" class="external-link">nextOr</a></span><span class="op">(</span><span class="va">ctz</span>, <span class="cn">NA</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## [1] 10</span></span></code></pre>
 <div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/iteror.html">nextOr</a></span><span class="op">(</span><span class="va">ctz</span>, <span class="cn">NA</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu"><a href="https://crowding.github.io/iterors/reference/nextOr.html" class="external-link">nextOr</a></span><span class="op">(</span><span class="va">ctz</span>, <span class="cn">NA</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## [1] 5</span></span></code></pre>
 <p>You can also use any other method that applies to an iterator, like
 <code>as.list</code>.</p>
@@ -270,9 +273,9 @@ in background processes like this:</p>
 <span>  <span class="va">data</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/async.html">await</a></span><span class="op">(</span><span class="fu">future</span><span class="op">(</span><span class="op">{</span></span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Parsing\n"</span><span class="op">)</span></span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/utils/read.table.html" class="external-link">read.csv</a></span><span class="op">(</span><span class="va">dest</span><span class="op">)</span> <span class="op">|&gt;</span></span>
-<span>    <span class="fu">mutate</span><span class="op">(</span>time <span class="op">=</span> <span class="fu">hms</span><span class="fu">::</span><span class="fu">trunc_hms</span><span class="op">(</span><span class="va">time</span>, <span class="fl">60</span><span class="op">*</span><span class="fl">60</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span></span>
-<span>    <span class="fu">group_by</span><span class="op">(</span><span class="va">time</span><span class="op">)</span> <span class="op">|&gt;</span></span>
-<span>    <span class="fu">summarize</span><span class="op">(</span>sales<span class="op">=</span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">amount</span><span class="op">)</span><span class="op">)</span></span>
+<span>    <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>time <span class="op">=</span> <span class="fu">hms</span><span class="fu">::</span><span class="fu">trunc_hms</span><span class="op">(</span><span class="va">time</span>, <span class="fl">60</span><span class="op">*</span><span class="fl">60</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>    <span class="fu"><a href="https://dplyr.tidyverse.org/reference/group_by.html" class="external-link">group_by</a></span><span class="op">(</span><span class="va">time</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>    <span class="fu"><a href="https://dplyr.tidyverse.org/reference/summarise.html" class="external-link">summarize</a></span><span class="op">(</span>sales<span class="op">=</span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">amount</span><span class="op">)</span><span class="op">)</span></span>
 <span>  <span class="op">}</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">}</span><span class="op">)</span></span>
 <span></span>
@@ -343,7 +346,7 @@ this graph with <code>graphAsync(g)</code>. (You will need Graphviz
 call, when execution reaches a <code>yield</code>, the program’s state
 is just the “next function” that would have been called (that is, a <a href="https://en.wikipedia.org/wiki/Continuation" class="external-link">continuation</a>.) To
 pause and resume execution, a generator saves that “next function” until
-the next time <code><a href="../reference/iteror.html">nextOr()</a></code> is called.</p>
+the next time <code><a href="https://crowding.github.io/iterors/reference/nextOr.html" class="external-link">nextOr()</a></code> is called.</p>
 <p>You can also enable single-stepping at the graph level by
 calling:</p>
 <div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
@@ -357,8 +360,8 @@ calling:</p>
 <span><span class="co">## $trace</span></span>
 <span><span class="co">## function (x) </span></span>
 <span><span class="co">## NULL</span></span>
-<span><span class="co">## &lt;bytecode: 0x5615274a63d8&gt;</span></span>
-<span><span class="co">## &lt;environment: 0x5615274b5920&gt;</span></span></code></pre>
+<span><span class="co">## &lt;bytecode: 0x55969e45dee0&gt;</span></span>
+<span><span class="co">## &lt;environment: 0x55969e46d188&gt;</span></span></code></pre>
 </div>
   </div>
 

@@ -22,7 +22,7 @@ gen is a coroutine sitting behind an iteror interface."><!-- mathjax --><script 
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">async</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.1</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.2</span>
       </span>
     </div>
 
@@ -44,6 +44,9 @@ gen is a coroutine sitting behind an iteror interface."><!-- mathjax --><script 
     </li>
     <li>
       <a href="../articles/language.html">The Coroutine Language</a>
+    </li>
+    <li>
+      <a href="../articles/spider.html">Scraping the web quickly using async/await</a>
     </li>
   </ul></li>
 <li>
@@ -75,7 +78,7 @@ object, i.e. an asynchronous iterator, which will compute and
 return values according to sequential code written in <code>expr</code>. A
 <code>stream</code> is a coroutine wearing a <a href="channel.html">channel</a> interface in the same
 way that <code>async</code> is a coroutine wearing a <a href="https://rdrr.io/r/base/delayedAssign.html" class="external-link">promise</a> interface, and a
-<a href="gen.html">gen</a> is a coroutine sitting behind an <a href="iteror.html">iteror</a> interface.</p>
+<a href="gen.html">gen</a> is a coroutine sitting behind an <a href="https://crowding.github.io/iterors/reference/iteror.html" class="external-link">iteror</a> interface.</p>
     </div>
 
     <div id="ref-usage">
@@ -186,7 +189,7 @@ expression, like <code>stream(function(...)  ...)</code>, it will return a
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="fu">count_to</span><span class="op">(</span><span class="fl">10</span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu">accumulate</span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu">print_each</span><span class="op">(</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> async(for (i in st) print(i))</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x5587a0a18b00&gt;</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> &lt;environment: 0x55c29a7270b0&gt;</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> &lt;async [pending at `.for__received`]&gt;</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> &lt;Promise [pending]&gt;</span>
 <span class="r-in"><span></span></span>

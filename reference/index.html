@@ -17,7 +17,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">async</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.1</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.2</span>
       </span>
     </div>
 
@@ -39,6 +39,9 @@
     </li>
     <li>
       <a href="../articles/language.html">The Coroutine Language</a>
+    </li>
+    <li>
+      <a href="../articles/spider.html">Scraping the web quickly using async/await</a>
     </li>
   </ul></li>
 <li>
@@ -75,13 +78,13 @@
         </td>
         <td><p>Wait for the next value from a channel or stream.</p></td>
       </tr><tr><td>
-          <p><code><a href="channel.html">channel()</a></code> <code><a href="channel.html">is.channel()</a></code> </p>
+          <p><code><a href="channel.html">channel</a></code> <code><a href="channel.html">channel.function</a></code> <code><a href="channel.html">is.channel</a></code> </p>
         </td>
         <td><p>An object representing a sequence of future values.</p></td>
       </tr><tr><td>
-          <p><code><a href="collect.html">as.list(<i>&lt;iteror&gt;</i>)</a></code> <code><a href="collect.html">as.vector(<i>&lt;iteror&gt;</i>)</a></code> <code><a href="collect.html">gather()</a></code> <code><a href="collect.html">as.promise(<i>&lt;channel&gt;</i>)</a></code> <code><a href="collect.html">collect()</a></code> <code><a href="collect.html">collector()</a></code> </p>
+          <p><code><a href="collect.html">gather()</a></code> <code><a href="collect.html">as.promise(<i>&lt;channel&gt;</i>)</a></code> <code><a href="collect.html">collect()</a></code> <code><a href="collect.html">collector()</a></code> </p>
         </td>
-        <td><p>Gather all values emitted by iterators and channels.</p></td>
+        <td><p>Collect iterator / channel items into a vector.</p></td>
       </tr><tr><td>
           <p><code><a href="combine.html">combine()</a></code> </p>
         </td>
@@ -106,18 +109,6 @@
           <p><code><a href="graphAsync.html">graphAsync()</a></code> </p>
         </td>
         <td><p>Draw a graph representation of a coroutine.</p></td>
-      </tr><tr><td>
-          <p><code><a href="ilimit.html">ilimit()</a></code> </p>
-        </td>
-        <td><p>Limit the number of elements emitted by an iterator.</p></td>
-      </tr><tr><td>
-          <p><code><a href="iseq.html">iseq()</a></code> </p>
-        </td>
-        <td><p>Iterator equivalent of <a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a>.</p></td>
-      </tr><tr><td>
-          <p><code><a href="iteror.html">iteror</a></code> <code><a href="iteror.html">iteror.function</a></code> <code><a href="iteror.html">iteror.default</a></code> <code><a href="iteror.html">nextOr</a></code> </p>
-        </td>
-        <td><p>An efficient and compact iteration protocol.</p></td>
       </tr><tr><td>
           <p><code><a href="nextThen.html">nextThen()</a></code> <code><a href="nextThen.html">subscribe()</a></code> </p>
         </td>

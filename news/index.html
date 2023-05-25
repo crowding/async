@@ -17,7 +17,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">async</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.1</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.2</span>
       </span>
     </div>
 
@@ -39,6 +39,9 @@
     </li>
     <li>
       <a href="../articles/language.html">The Coroutine Language</a>
+    </li>
+    <li>
+      <a href="../articles/spider.html">Scraping the web quickly using async/await</a>
     </li>
   </ul></li>
 <li>
@@ -64,7 +67,13 @@
     </div>
 
     <div class="section level2">
-<h2 class="page-header" data-toc-text="0.3.1" id="async-031">async 0.3.1<a class="anchor" aria-label="anchor" href="#async-031"></a></h2>
+<h2 class="page-header" data-toc-text="0.3.2" id="async-032">async 0.3.2<a class="anchor" aria-label="anchor" href="#async-032"></a></h2>
+<ul><li>The <code>iteror</code> class has been extracted to a new package <a href="http://github.com/crowding/iterors" class="external-link"><code>iterors</code></a>, which also includes ports of all functionality from <code>iterators</code>, <code>itertools</code>, and <code>itertools2</code>.</li>
+<li>New vignette <code><a href="../articles/spider.html">vignette("spider")</a></code> shows how to control several concurrent downloads using <code>async</code>/<code>await</code>.</li>
+<li>Improved memory usage: Coroutines which exit drop references to their evaluation environments, allowing them to be garbage collected.</li>
+</ul></div>
+    <div class="section level2">
+<h2 class="page-header" data-toc-text="0.3.1" id="async-031">async 0.3.1<small>2023-03-22</small><a class="anchor" aria-label="anchor" href="#async-031"></a></h2>
 <ul><li>
 <code>debugAsync</code> now accepts a <code>trace</code> argument to control printing of execution traces to console. Execution traces now print node addresses.</li>
 <li>Various inspection methods <code>getNode</code>, <code>getState</code>, <code>getEnv</code>, <code>getOrig</code> have been consolidated into the method <code>summary.coroutine</code>.</li>

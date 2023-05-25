@@ -19,7 +19,7 @@ and an iteror."><!-- mathjax --><script src="https://cdnjs.cloudflare.com/ajax/l
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">async</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.1</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.2</span>
       </span>
     </div>
 
@@ -41,6 +41,9 @@ and an iteror."><!-- mathjax --><script src="https://cdnjs.cloudflare.com/ajax/l
     </li>
     <li>
       <a href="../articles/language.html">The Coroutine Language</a>
+    </li>
+    <li>
+      <a href="../articles/spider.html">Scraping the web quickly using async/await</a>
     </li>
   </ul></li>
 <li>
@@ -69,21 +72,34 @@ and an iteror."><!-- mathjax --><script src="https://cdnjs.cloudflare.com/ajax/l
     <div class="ref-description">
     <p>A <code>channel</code> is an object that represents a sequence of values yet
 to be determined. It is something like a combination of a <a href="https://rdrr.io/r/base/delayedAssign.html" class="external-link">promise</a>
-and an <a href="iteror.html">iteror</a>.</p>
+and an <a href="https://crowding.github.io/iterors/reference/iteror.html" class="external-link">iteror</a>.</p>
     </div>
 
     <div id="ref-usage">
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">channel</span><span class="op">(</span><span class="va">impl</span>, max_queue <span class="op">=</span> <span class="fl">500L</span>, max_awaiting <span class="op">=</span> <span class="fl">500L</span>, wakeup <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="op">)</span> <span class="cn">NULL</span><span class="op">)</span></span>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">channel</span><span class="op">(</span><span class="va">obj</span>, <span class="va">...</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># S3 method for `function`</span></span>
+<span><span class="fu">channel</span><span class="op">(</span></span>
+<span>  <span class="va">obj</span>,</span>
+<span>  <span class="va">...</span>,</span>
+<span>  max_queue <span class="op">=</span> <span class="fl">500L</span>,</span>
+<span>  max_awaiting <span class="op">=</span> <span class="fl">500L</span>,</span>
+<span>  wakeup <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">...</span><span class="op">)</span> <span class="cn">NULL</span></span>
+<span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu">is.channel</span><span class="op">(</span><span class="va">x</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div id="arguments">
     <h2>Arguments</h2>
-    <dl><dt>impl</dt>
+    <dl><dt>obj</dt>
 <dd><p>A user-provided function; it will receive three
 callback functions as arguments, in order, <code>emit(val)</code>,
 <code>reject(err)</code> and <code><a href="https://rdrr.io/r/base/connections.html" class="external-link">close()</a></code></p></dd>
+
+
+<dt>...</dt>
+<dd><p>Specialized channel methods may take other arguments.</p></dd>
 
 
 <dt>max_queue</dt>
@@ -112,49 +128,53 @@ one listener/outstanding promise.</p></dd>
     <h2>Value</h2>
     
 
-<p>a channel object, supporting methods "nextThen" and "nextElem"</p>
+<p>a channel object, supporting methods "nextThen" and "nextOr"</p>
 
 
 <p><code>is.channel(x)</code> returns TRUE if its argument is a channel object.</p>
     </div>
     <div id="details">
     <h2>Details</h2>
-    <p>The channel interface could be used to represent and work with data
-coming in over a connection, data values being logged over time, a
-queue of incoming requests, and things of that nature.</p>
-<p>The friendly way to create a channel and use it in asynchronous
-programming is to use a <a href="stream.html">stream</a> coroutine. Inside of <code><a href="stream.html">stream()</a></code>
-call <a href="async.html">await</a> to wait on promises, <a href="awaitNext.html">awaitNext</a> to wait on other
-streams and <a href="gen.html">yield</a> to yield values. To signal end of iteration
-use <code><a href="https://rdrr.io/r/base/function.html" class="external-link">return()</a></code> (which will discard its value) and to signal an
-error use <code><a href="https://rdrr.io/r/base/stop.html" class="external-link">stop()</a></code>.</p>
-<p>The friendly way to consume values from a channel is to use
-awaitNext within an <code>async</code> or <code>stream</code> coroutine.</p>
-<p>The low-level interface to request values from a channel is to call
-<a href="nextThen.html">nextThen</a><code>(ch, onNext=, onError=, onClose=)]</code>, providing callback
+    <p>The channel interface is intended to represent and work with
+asynchronous, live data sources, for instance event logs,
+non-blocking connections, paginated query results, reactive values,
+and other processes that yield a sequence of values over time.</p>
+<p><code>channel</code> is an S3 method and will attempt to convert the argument
+<code>obj</code> into a channel object according to its class. In particular
+<a href="https://rdrr.io/r/base/connections.html" class="external-link">connection</a> objects will be wrapped with a connection.</p>
+<p>The friendly way to obtain values from a channel is to use
+<code>awaitNext</code> or <code>for</code> loops within an <a href="async.html">async</a> or <a href="stream.html">stream</a> coroutine.</p>
+<p>The low-level interface to obtain values from a channel is to call
+<a href="nextThen.html">nextThen</a><code>(ch, onNext=, onError=, onClose=, ...)]</code>, providing callback
 functions for at least <code>onNext(val)</code>. Those callbacks will be
 appended to an internal queue, and will be called as soon as data
 is available, in the order that requests were received.</p>
-<p>You can also treat a channel as an <a href="iteror.html">iteror</a> over promises, calling
+<p>You can also treat a channel as an <a href="https://crowding.github.io/iterors/reference/iteror.html" class="external-link">iteror</a> over promises, calling
 <code>nextOr(pri)</code> to return a <a href="https://rdrr.io/r/base/delayedAssign.html" class="external-link">promise</a> representing the next
 available value. Each promise created this way will be resolved in
 the order that data come in. Note that this way there is no special
 signal for end of iteration; a promise will reject with
-the sigil value <code>"StopIteration"</code> to signal end of iteration.</p>
+a condition message <code>"StopIteration"</code> to signal end of iteration.</p>
 <p>Be careful with the iterator-over-promises interface though: if you
 call <code>as.list.iteror(pr)</code> you may get stuck in an infinite loop, as
 <code>as.list</code> keeps calling <code>nextElem</code> and receives more promises to
 represent values that exist only hypothetically. This is one
 reason for the <code>max_listeners</code> limit.</p>
-<p>The low-level interface to <em>create</em> a channel object is to call
-<code>channel(function(emit, reject, cancel) {...})</code>, providing your own
-function in its argument; your function will receive those three
-callback methods as arguments. Then use whatever means to arrange
-to call <code>emit(val)</code> some time in the future as data comes in. When
-you are done emitting values, call the <code><a href="https://rdrr.io/r/base/connections.html" class="external-link">close()</a></code> callback. To
-report an error use the callback <code>reject(err)</code> The next requestor
-will receive the error. If there is more than one listener, other
-queued listeners will get a <code>close</code> signal.</p>
+<p>The friendly way to create a channel with custom behavior is to use
+a <a href="stream.html">stream</a> coroutine. Inside of <code><a href="stream.html">stream()</a></code> call <a href="async.html">await</a> to wait on
+promises, <a href="awaitNext.html">awaitNext</a> to wait on other streams and <a href="gen.html">yield</a> to yield
+values. To signal end of iteration use <code><a href="https://rdrr.io/r/base/function.html" class="external-link">return()</a></code> (which will
+discard its value) and to signal an error use <code><a href="https://rdrr.io/r/base/stop.html" class="external-link">stop()</a></code>.</p>
+<p>The low-level interface to create a channel with custom behavior
+is to call <code>channel(function(emit, reject, cancel) {...})</code>,
+providing your own function definition; your function will
+receive those three callback methods as arguments. Then use
+whatever means to arrange to call <code>emit(val)</code> some time in the
+future as data comes in. When you are done emitting values, call
+the <code><a href="https://rdrr.io/r/base/connections.html" class="external-link">close()</a></code> callback. To report an error call
+<code>reject(err)</code>; the next requestor will receive the error. If there
+is more than one listener, other queued listeners will get a
+<code>close</code> signal.</p>
     </div>
     <div id="author">
     <h2>Author</h2>

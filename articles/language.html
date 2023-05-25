@@ -33,7 +33,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">async</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.1</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.2</span>
       </span>
     </div>
 
@@ -57,6 +57,9 @@
     </li>
     <li>
       <a href="../articles/language.html">The Coroutine Language</a>
+    </li>
+    <li>
+      <a href="../articles/spider.html">Scraping the web quickly using async/await</a>
     </li>
   </ul>
 </li>
@@ -368,7 +371,7 @@ outgoing values until it reaches an <code>await</code>.</li>
 execution until the given promise resolves.</li>
 <li>
 <code>yield(val)</code> in a generator pauses execution, returns the
-given value as the result of <code><a href="../reference/iteror.html">nextOr()</a></code>.</li>
+given value as the result of <code><a href="https://crowding.github.io/iterors/reference/nextOr.html" class="external-link">nextOr()</a></code>.</li>
 <li>
 <code>yield(val)</code> in a stream, resolves the next listener with
 the value given. It may or may not pause depending on whether
@@ -485,7 +488,7 @@ that reads a file one line at a time:</p>
 <span>  <span class="kw">while</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">line</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/readLines.html" class="external-link">readLines</a></span><span class="op">(</span><span class="va">f</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span> <span class="op">&gt;</span> <span class="fl">0</span><span class="op">)</span> <span class="fu"><a href="../reference/gen.html">yield</a></span><span class="op">(</span><span class="va">line</span><span class="op">)</span></span>
 <span><span class="op">}</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">as.list</a></span><span class="op">(</span><span class="fu">fileLines</span><span class="op">(</span><span class="st">"language.Rmd"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## [1] 317</span></span></code></pre>
+<pre><code><span><span class="co">## [1] 304</span></span></code></pre>
 <p>It is possible (but rather strange) to call <code><a href="https://rdrr.io/r/base/stop.html" class="external-link">stop()</a></code> or
 <code><a href="https://rdrr.io/r/base/function.html" class="external-link">return()</a></code> from inside an <code>on.exit</code> handler. In
 that case the new value and disposition overrides the old one.</p>
@@ -536,11 +539,11 @@ of iteration.</p>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/on.exit.html" class="external-link">on.exit</a></span><span class="op">(</span><span class="va">finished</span> <span class="op">&lt;&lt;-</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span>  <span class="kw">for</span> <span class="op">(</span><span class="va">i</span> <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fl">10</span><span class="op">)</span> <span class="fu"><a href="../reference/gen.html">yield</a></span><span class="op">(</span><span class="va">i</span><span class="op">)</span></span>
 <span><span class="op">}</span><span class="op">)</span></span>
-<span><span class="kw">for</span> <span class="op">(</span><span class="va">j</span> <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fl">10</span><span class="op">)</span> <span class="fu"><a href="../reference/iteror.html">nextOr</a></span><span class="op">(</span><span class="va">g</span>, <span class="kw">break</span><span class="op">)</span></span>
+<span><span class="kw">for</span> <span class="op">(</span><span class="va">j</span> <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fl">10</span><span class="op">)</span> <span class="fu"><a href="https://crowding.github.io/iterors/reference/nextOr.html" class="external-link">nextOr</a></span><span class="op">(</span><span class="va">g</span>, <span class="kw">break</span><span class="op">)</span></span>
 <span><span class="va">finished</span></span></code></pre></div>
 <pre><code><span><span class="co">## [1] FALSE</span></span></code></pre>
 <div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/iteror.html">nextOr</a></span><span class="op">(</span><span class="va">g</span>, <span class="st">"stop"</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu"><a href="https://crowding.github.io/iterors/reference/nextOr.html" class="external-link">nextOr</a></span><span class="op">(</span><span class="va">g</span>, <span class="st">"stop"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## [1] "stop"</span></span></code></pre>
 <div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">finished</span></span></code></pre></div>
@@ -563,25 +566,11 @@ the stack and then resume. If there is a a <code>yield</code> or
 from its tryCatch and re-establish it when execution resumes.</p>
 <p>This means that yielding from inside a tryCatch can be more costly,
 performance-wise, than a regular yield. This is part of what motivated
-the development of the [iteror] class; desiring a protocol for iteration
-that did not involve using exceptions for normal flow control.</p>
-<p>For instance compare the performance of iterating over an
-<code>iterator::iter</code> versus an [iteror].</p>
-<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">bench</span> <span class="op">&lt;-</span> <span class="fu">microbenchmark</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/microbenchmark/man/microbenchmark.html" class="external-link">microbenchmark</a></span><span class="op">(</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">as.list</a></span><span class="op">(</span><span class="fu"><a href="../reference/gen.html">gen</a></span><span class="op">(</span><span class="kw">for</span> <span class="op">(</span><span class="va">i</span> <span class="kw">in</span> <span class="fu">iterators</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/iterators/man/iter.html" class="external-link">iter</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">1000</span><span class="op">)</span><span class="op">)</span> <span class="fu"><a href="../reference/gen.html">yield</a></span><span class="op">(</span><span class="va">i</span><span class="op">)</span><span class="op">)</span><span class="op">)</span>,</span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">as.list</a></span><span class="op">(</span><span class="fu"><a href="../reference/gen.html">gen</a></span><span class="op">(</span><span class="kw">for</span> <span class="op">(</span><span class="va">i</span> <span class="kw">in</span> <span class="fu"><a href="../reference/iteror.html">iteror</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">1000</span><span class="op">)</span><span class="op">)</span> <span class="fu"><a href="../reference/gen.html">yield</a></span><span class="op">(</span><span class="va">i</span><span class="op">)</span><span class="op">)</span><span class="op">)</span>,</span>
-<span>  times<span class="op">=</span><span class="fl">10</span></span>
-<span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">bench</span><span class="op">)</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"expr"</span>, <span class="st">"median"</span><span class="op">)</span><span class="op">]</span></span></code></pre></div>
-<pre><code><span><span class="co">##                                                        expr   median</span></span>
-<span><span class="co">## 1 as.list(gen(for (i in iterators::iter(1:1000)) yield(i))) 68.24225</span></span>
-<span><span class="co">## 2          as.list(gen(for (i in iteror(1:1000)) yield(i))) 40.38090</span></span></code></pre>
-<p>Part of the difference comes from the fact that <code>gen</code> must
-use a <code>tryCatch</code> for each time to calls <code>nextElem</code>
-on an <code>iterator</code>. Whereas calling <code>nextOr</code> on an
-<code>iteror</code> does not involve many calls to
-<code>tryCatch</code>.</p>
+the development of the [iterors package][iterors::iteror-package];
+desiring a protocol for iteration that did not involve using exceptions
+for normal flow control. Just eliminating <code>tryCatch</code> caused a
+2x speedup for many generators, and the <code>iterors</code> package
+contains many other optimizations besides.</p>
 </div>
 </div>
 <div class="section level3">

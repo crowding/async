@@ -33,7 +33,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">async</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.1</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.3.2</span>
       </span>
     </div>
 
@@ -57,6 +57,9 @@
     </li>
     <li>
       <a href="../articles/language.html">The Coroutine Language</a>
+    </li>
+    <li>
+      <a href="../articles/spider.html">Scraping the web quickly using async/await</a>
     </li>
   </ul>
 </li>
@@ -97,9 +100,9 @@
 <p>What a generator allows you to do is to take code that is writen in a
 sequential, looping style, and then treat that code’s output as a
 collection to be iterated over.</p>
-<p>To illustrate what this means, and the the generators package in
-general, I will use R to perform a suitable piece of music, specifically
-Steve Reich’s “Clapping Music.”</p>
+<p>To illustrate what this means, and the generators package in general,
+I will use R to perform a suitable piece of music, specifically Steve
+Reich’s “Clapping Music.”</p>
 <p>The piece starts with a loop counting out groups of 3, 2, 1, 2, 3, 2,
 1, 2, 3… with each group separated by one rest. This adds up to a
 12-note loop:</p>
@@ -129,14 +132,15 @@ it’s hard to manipulate the output of a program that only prints. The
 calls to <code>cat</code> produce output on the terminal, but they don’t
 produce data that we can easily manipulate with more programming – we
 need to make this pattern into data, rather than terminal output.</p>
-<p>The <code>generators</code> package allows us to enclose a
-data-generating process into an object.</p>
+<p>The <code>async</code> package allows us to enclose a data-generating
+process into an object.</p>
 <p>To make a generator for this pattern, we just enclose the body of the
 function in a call to <code><a href="../reference/gen.html">gen()</a></code>, and change each
 <code><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat()</a></code> to <code><a href="../reference/gen.html">yield()</a></code>. We can also move the outer
 loop into the <code>recycle</code> argument of an [iteror].</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://crowding.github.io/async/" class="external-link">async</a></span><span class="op">)</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/crowding/iterors" class="external-link">iterors</a></span><span class="op">)</span></span>
 <span><span class="va">counts</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">3</span>, <span class="fl">2</span>, <span class="fl">1</span>, <span class="fl">2</span><span class="op">)</span></span>
 <span><span class="va">pattern</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/gen.html">gen</a></span><span class="op">(</span><span class="op">{</span></span>
 <span>  <span class="kw">repeat</span> <span class="op">{</span></span>
@@ -157,15 +161,15 @@ do to signal the end of iteration. So we can get out our pattern like
 this:</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw">for</span> <span class="op">(</span><span class="va">i</span> <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fl">24</span><span class="op">)</span> <span class="op">{</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="../reference/iteror.html">nextOr</a></span><span class="op">(</span><span class="va">pattern</span>, <span class="kw">break</span><span class="op">)</span><span class="op">)</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://crowding.github.io/iterors/reference/nextOr.html" class="external-link">nextOr</a></span><span class="op">(</span><span class="va">pattern</span>, <span class="kw">break</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">}</span></span></code></pre></div>
 <pre><code><span><span class="co">## 111011010110111011010110</span></span></code></pre>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"\n"</span><span class="op">)</span></span></code></pre></div>
-<p>When <code><a href="../reference/iteror.html">nextOr()</a></code> is called on a generator, the generator
+<p>When <code><a href="https://crowding.github.io/iterors/reference/nextOr.html" class="external-link">nextOr()</a></code> is called on a generator, the generator
 runs its code only up to where <code>yield</code> is called. The
 generator returns this value, and saves its state, pausing until the
-next call to <code><a href="../reference/iteror.html">nextOr()</a></code>.</p>
+next call to <code><a href="https://crowding.github.io/iterors/reference/nextOr.html" class="external-link">nextOr()</a></code>.</p>
 <p>We’ll have to create a few copies of this kind of generator, so we
 can reuse it by making a function. You can wrap <code>gen</code> around
 a function expression; this will define a <em>generator function</em> (a
@@ -182,10 +186,10 @@ function that constructs a generator.)</p>
 <span><span class="op">}</span><span class="op">)</span></span></code></pre></div>
 <p>Because <code>gen(...)</code> builds an [iteror][], you you can apply
 iteror methods to it. For instance you can collect just the first 24
-items with <code><a href="../reference/ilimit.html">ilimit()</a></code>:</p>
+items with <code><a href="https://crowding.github.io/iterors/reference/i_limit.html" class="external-link">i_limit()</a></code>:</p>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">show_head</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">x</span>, <span class="va">n</span><span class="op">=</span><span class="fl">24</span><span class="op">)</span> <span class="op">{</span></span>
-<span>  <span class="va">x</span> <span class="op">|&gt;</span> <span class="fu"><a href="../reference/ilimit.html">ilimit</a></span><span class="op">(</span><span class="va">n</span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">as.list</a></span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://rdrr.io/r/base/deparse.html" class="external-link">deparse</a></span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span>sep<span class="op">=</span><span class="st">"\n"</span><span class="op">)</span></span>
+<span>  <span class="va">x</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">as.list</a></span><span class="op">(</span>n<span class="op">=</span><span class="va">n</span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://rdrr.io/r/base/deparse.html" class="external-link">deparse</a></span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span>sep<span class="op">=</span><span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="op">}</span></span>
 <span><span class="fu">show_head</span><span class="op">(</span><span class="fu">gen_pattern</span><span class="op">(</span><span class="op">)</span>, <span class="fl">24</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## list(1, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 1, 0, </span></span>
@@ -220,7 +224,7 @@ that’s more accurate than <code><a href="https://rdrr.io/r/base/Sys.sleep.html
 <span>  <span class="va">interval</span> <span class="op">&lt;-</span> <span class="fl">60</span> <span class="op">/</span> <span class="va">bpm</span></span>
 <span>  <span class="va">target</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Sys.time.html" class="external-link">Sys.time</a></span><span class="op">(</span><span class="op">)</span></span>
 <span>    <span class="kw">repeat</span> <span class="op">{</span></span>
-<span>      <span class="va">x</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/iteror.html">nextOr</a></span><span class="op">(</span><span class="va">g</span>, <span class="kw">break</span><span class="op">)</span></span>
+<span>      <span class="va">x</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://crowding.github.io/iterors/reference/nextOr.html" class="external-link">nextOr</a></span><span class="op">(</span><span class="va">g</span>, <span class="kw">break</span><span class="op">)</span></span>
 <span>      <span class="va">target</span> <span class="op">&lt;-</span> <span class="va">target</span> <span class="op">+</span> <span class="va">interval</span></span>
 <span>      <span class="kw">while</span><span class="op">(</span><span class="op">{</span><span class="va">now</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Sys.time.html" class="external-link">Sys.time</a></span><span class="op">(</span><span class="op">)</span>; <span class="fu"><a href="https://rdrr.io/r/base/Sys.time.html" class="external-link">Sys.time</a></span><span class="op">(</span><span class="op">)</span> <span class="op">-</span> <span class="va">now</span> <span class="op">&gt;</span> <span class="fl">0.15</span><span class="op">}</span><span class="op">)</span></span>
 <span>        <span class="fu"><a href="https://rdrr.io/r/base/Sys.sleep.html" class="external-link">Sys.sleep</a></span><span class="op">(</span><span class="va">target</span> <span class="op">-</span> <span class="va">now</span> <span class="op">-</span> <span class="fl">0.15</span><span class="op">)</span></span>
@@ -235,16 +239,17 @@ that’s more accurate than <code><a href="https://rdrr.io/r/base/Sys.sleep.html
 <span><span class="op">}</span></span></code></pre></div>
 <p>So we should hear our pattern now:</p>
 <div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu">gen_pattern</span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu"><a href="../reference/ilimit.html">ilimit</a></span><span class="op">(</span><span class="fl">36</span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu">iplay</span><span class="op">(</span><span class="va">claps</span>, <span class="fl">360</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu">gen_pattern</span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://crowding.github.io/iterors/reference/i_limit.html" class="external-link">i_limit</a></span><span class="op">(</span><span class="fl">36</span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu">iplay</span><span class="op">(</span><span class="va">claps</span>, <span class="fl">360</span><span class="op">)</span></span></code></pre></div>
 <div class="section level3">
 <h3 id="some-iteror-iterator-functions">Some iteror (iterator) functions<a class="anchor" aria-label="anchor" href="#some-iteror-iterator-functions"></a>
 </h3>
 <p>The object constructed by <code>gen</code> has class
-<code>iteror</code>. Iterors are an iteration construct included in this
-package. Iterors are cross compatible with iterators from the
-<code>iterators</code> package and its <code>nextElem</code> method, but
-using their preferred method <code>nextOr</code> can lead to better
-performance and more compact code.</p>
+<code>iteror</code>. Iterors are an iteration construct included in the
+companion package <code>iterors</code>. Iterors are cross compatible
+with iterators from the <code>iterators</code> package and its
+<code>nextElem</code> method, but using their preferred method
+<code>nextOr</code> can lead to better performance and more compact
+code.</p>
 <p>We can work with generators using iteror methods. Here are two
 methods that will come in handy. One is an iteror equivalent of
 <code>lapply</code>, which I’ll call <code>iapply</code>. The other one
@@ -252,13 +257,13 @@ is <code>isink</code> which just consumes and throws away all elements
 from an iteror.</p>
 <div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">iapply</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">it</span>, <span class="va">f</span>, <span class="va">...</span><span class="op">)</span> <span class="op">{</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="va">it</span>, <span class="va">f</span>, <span class="va">...</span><span class="op">)</span></span>
-<span>  <span class="fu"><a href="../reference/iteror.html">iteror</a></span><span class="op">(</span><span class="kw">function</span><span class="op">(</span><span class="va">or</span><span class="op">)</span> <span class="op">{</span></span>
-<span>    <span class="fu">f</span><span class="op">(</span><span class="fu"><a href="../reference/iteror.html">nextOr</a></span><span class="op">(</span><span class="va">it</span>, <span class="kw"><a href="https://rdrr.io/r/base/function.html" class="external-link">return</a></span><span class="op">(</span><span class="va">or</span><span class="op">)</span><span class="op">)</span>, <span class="va">...</span><span class="op">)</span></span>
+<span>  <span class="fu"><a href="https://crowding.github.io/iterors/reference/iteror.html" class="external-link">iteror</a></span><span class="op">(</span><span class="kw">function</span><span class="op">(</span><span class="va">or</span><span class="op">)</span> <span class="op">{</span></span>
+<span>    <span class="fu">f</span><span class="op">(</span><span class="fu"><a href="https://crowding.github.io/iterors/reference/nextOr.html" class="external-link">nextOr</a></span><span class="op">(</span><span class="va">it</span>, <span class="kw"><a href="https://rdrr.io/r/base/function.html" class="external-link">return</a></span><span class="op">(</span><span class="va">or</span><span class="op">)</span><span class="op">)</span>, <span class="va">...</span><span class="op">)</span></span>
 <span>  <span class="op">}</span><span class="op">)</span></span>
 <span><span class="op">}</span></span>
 <span></span>
 <span><span class="va">isink</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">it</span>, <span class="va">then</span><span class="op">=</span><span class="fu"><a href="https://rdrr.io/r/base/invisible.html" class="external-link">invisible</a></span><span class="op">(</span><span class="cn">NULL</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
-<span>  <span class="kw">repeat</span> <span class="fu"><a href="../reference/iteror.html">nextOr</a></span><span class="op">(</span><span class="va">it</span>, <span class="kw">break</span><span class="op">)</span></span>
+<span>  <span class="kw">repeat</span> <span class="fu"><a href="https://crowding.github.io/iterors/reference/nextOr.html" class="external-link">nextOr</a></span><span class="op">(</span><span class="va">it</span>, <span class="kw">break</span><span class="op">)</span></span>
 <span>  <span class="va">then</span></span>
 <span><span class="op">}</span></span></code></pre></div>
 <p>Note that the second argument to <code>nextOr</code> is only lazily
@@ -268,7 +273,7 @@ control flow operators like <code><a href="https://rdrr.io/r/base/Control.html" 
 <code>iapply</code>ing <code>cat</code> and throwing away the
 results:</p>
 <div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">g</span> <span class="op">&lt;-</span> <span class="fu">gen_pattern</span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu"><a href="../reference/ilimit.html">ilimit</a></span><span class="op">(</span><span class="fl">24</span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu">iapply</span><span class="op">(</span><span class="va">cat</span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu">isink</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"\n"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="va">g</span> <span class="op">&lt;-</span> <span class="fu">gen_pattern</span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu"><a href="https://crowding.github.io/iterors/reference/i_limit.html" class="external-link">i_limit</a></span><span class="op">(</span><span class="fl">24</span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu">iapply</span><span class="op">(</span><span class="va">cat</span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu">isink</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"\n"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## 111011010110111011010110</span></span></code></pre>
 </div>
 <div class="section level3">
@@ -300,16 +305,16 @@ it:</p>
 <div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">drop_one_after</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/gen.html">gen</a></span><span class="op">(</span><span class="kw">function</span><span class="op">(</span><span class="va">g</span>, <span class="va">n</span>, <span class="va">sep</span><span class="op">=</span><span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">character</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="kw">repeat</span> <span class="op">{</span></span>
-<span>    <span class="kw">for</span> <span class="op">(</span><span class="va">i</span> <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="va">n</span><span class="op">)</span> <span class="fu"><a href="../reference/gen.html">yield</a></span><span class="op">(</span><span class="fu"><a href="../reference/iteror.html">nextOr</a></span><span class="op">(</span><span class="va">g</span>, <span class="kw">break</span><span class="op">)</span><span class="op">)</span></span>
-<span>    <span class="fu"><a href="../reference/iteror.html">nextOr</a></span><span class="op">(</span><span class="va">g</span>, <span class="kw">break</span><span class="op">)</span> <span class="co">#drop</span></span>
+<span>    <span class="kw">for</span> <span class="op">(</span><span class="va">i</span> <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="va">n</span><span class="op">)</span> <span class="fu"><a href="../reference/gen.html">yield</a></span><span class="op">(</span><span class="fu"><a href="https://crowding.github.io/iterors/reference/nextOr.html" class="external-link">nextOr</a></span><span class="op">(</span><span class="va">g</span>, <span class="kw">break</span><span class="op">)</span><span class="op">)</span></span>
+<span>    <span class="fu"><a href="https://crowding.github.io/iterors/reference/nextOr.html" class="external-link">nextOr</a></span><span class="op">(</span><span class="va">g</span>, <span class="kw">break</span><span class="op">)</span> <span class="co">#drop</span></span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="va">sep</span><span class="op">)</span> <span class="co"># print a seperator after every skip</span></span>
 <span>  <span class="op">}</span></span>
 <span><span class="op">}</span><span class="op">)</span></span></code></pre></div>
 <p>Here’s what 12 loops look like, where you after three (i.e. skipping
 every fourth):</p>
 <div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/iseq.html">iseq</a></span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span></span>
-<span><span class="fu"><a href="../reference/ilimit.html">ilimit</a></span><span class="op">(</span><span class="fl">12</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<code class="sourceCode R"><span><span class="fu"><a href="https://crowding.github.io/iterors/reference/iseq.html" class="external-link">iseq</a></span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span><span class="fu"><a href="https://crowding.github.io/iterors/reference/i_limit.html" class="external-link">i_limit</a></span><span class="op">(</span><span class="fl">12</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span><span class="fu">drop_one_after</span><span class="op">(</span><span class="fl">3</span>, <span class="st">"\n"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span><span class="fu">iapply</span><span class="op">(</span><span class="va">cat</span>, <span class="st">""</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span><span class="fu">isink</span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
@@ -329,8 +334,8 @@ every step, playing the louder sample for a value of 2.</p>
 <span>  <span class="va">b</span> <span class="op">&lt;-</span> <span class="fu">gen_pattern</span><span class="op">(</span><span class="va">counts</span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu">drop_one_after</span><span class="op">(</span><span class="va">n</span><span class="op">*</span><span class="va">cell</span>, <span class="va">sep</span><span class="op">)</span></span>
 <span>  <span class="co"># add them together and limit the output</span></span>
 <span>  <span class="fu"><a href="../reference/gen.html">gen</a></span><span class="op">(</span><span class="kw">for</span> <span class="op">(</span><span class="va">i</span> <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="op">(</span><span class="va">n</span><span class="op">*</span><span class="op">(</span><span class="va">cell</span><span class="op">+</span><span class="fl">1</span><span class="op">)</span><span class="op">*</span><span class="va">cell</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
-<span>    <span class="va">x</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/iteror.html">nextOr</a></span><span class="op">(</span><span class="va">a</span>, <span class="kw">break</span><span class="op">)</span></span>
-<span>    <span class="va">y</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/iteror.html">nextOr</a></span><span class="op">(</span><span class="va">b</span>, <span class="kw">break</span><span class="op">)</span></span>
+<span>    <span class="va">x</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://crowding.github.io/iterors/reference/nextOr.html" class="external-link">nextOr</a></span><span class="op">(</span><span class="va">a</span>, <span class="kw">break</span><span class="op">)</span></span>
+<span>    <span class="va">y</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://crowding.github.io/iterors/reference/nextOr.html" class="external-link">nextOr</a></span><span class="op">(</span><span class="va">b</span>, <span class="kw">break</span><span class="op">)</span></span>
 <span>    <span class="fu"><a href="../reference/gen.html">yield</a></span><span class="op">(</span><span class="va">x</span><span class="op">+</span><span class="va">y</span><span class="op">)</span></span>
 <span>  <span class="op">}</span><span class="op">)</span></span>
 <span><span class="op">}</span></span></code></pre></div>

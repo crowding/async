@@ -16,6 +16,9 @@
     <loc>/articles/language.html</loc>
   </url>
   <url>
+    <loc>/articles/spider.html</loc>
+  </url>
+  <url>
     <loc>/authors.html</loc>
   </url>
   <url>
@@ -58,22 +61,16 @@
     <loc>/reference/graphAsync.html</loc>
   </url>
   <url>
-    <loc>/reference/ilimit.html</loc>
-  </url>
-  <url>
     <loc>/reference/index.html</loc>
-  </url>
-  <url>
-    <loc>/reference/iseq.html</loc>
-  </url>
-  <url>
-    <loc>/reference/iteror.html</loc>
   </url>
   <url>
     <loc>/reference/nextThen.html</loc>
   </url>
   <url>
     <loc>/reference/pausables.html</loc>
+  </url>
+  <url>
+    <loc>/reference/reexports.html</loc>
   </url>
   <url>
     <loc>/reference/run.html</loc>
