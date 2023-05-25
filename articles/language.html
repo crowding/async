@@ -292,17 +292,18 @@ read an input file that might be in a few different formats.</p>
 <span>          <span class="kw"><a href="https://rdrr.io/r/base/conditions.html" class="external-link">tryCatch</a></span><span class="op">(</span><span class="fu">read_json</span><span class="op">(</span><span class="va">filename</span><span class="op">)</span>, error<span class="op">=</span><span class="fu"><a href="../reference/switch.html">goto</a></span><span class="op">(</span><span class="st">"txt"</span><span class="op">)</span><span class="op">)</span></span>
 <span>      <span class="op">}</span>,</span>
 <span>      <span class="st">"zip"</span><span class="op">=</span> <span class="op">{</span></span>
-<span>          <span class="va">unzipped</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/utils/unzip.html" class="external-link">unzip</a></span><span class="op">(</span><span class="va">filename</span><span class="op">)</span></span>
-<span>          <span class="fu"><a href="https://rdrr.io/r/base/on.exit.html" class="external-link">on.exit</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/unlink.html" class="external-link">unlink</a></span><span class="op">(</span><span class="va">unzipped</span><span class="op">)</span><span class="op">)</span></span>
-<span>          <span class="fu"><a href="https://rdrr.io/r/utils/unzip.html" class="external-link">unzip</a></span><span class="op">(</span><span class="va">filename</span><span class="op">)</span></span>
-<span>          <span class="fu"><a href="../reference/switch.html">goto</a></span><span class="op">(</span><span class="op">)</span> <span class="co"># i.e. run getExtension on the new filename</span></span>
+<span>        <span class="va">unzipped</span> <span class="op">&lt;-</span> <span class="fu">unzip_async</span><span class="op">(</span><span class="va">filename</span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu"><a href="../reference/async.html">await</a></span><span class="op">(</span><span class="op">)</span></span>
+<span>        <span class="va">filename</span> <span class="op">&lt;-</span> <span class="va">unzipped</span></span>
+<span>        <span class="fu"><a href="https://rdrr.io/r/base/on.exit.html" class="external-link">on.exit</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/unlink.html" class="external-link">unlink</a></span><span class="op">(</span><span class="va">unzipped</span><span class="op">)</span><span class="op">)</span></span>
+<span>        <span class="fu"><a href="../reference/switch.html">goto</a></span><span class="op">(</span><span class="fu">getExtension</span><span class="op">(</span><span class="va">unzipped</span><span class="op">)</span><span class="op">)</span></span>
 <span>      <span class="op">}</span></span>
 <span>  <span class="op">)</span></span>
 <span><span class="op">}</span><span class="op">)</span></span></code></pre></div>
 <p>Here, if there is an error in reading a <code>.csv</code> or
 <code>.json</code> file we re-try ingesting it as a text file; on
 encountering a <code>zip</code> file we unzip it and try again with the
-new filename. If a <code>goto</code> appears inside of a
+new filename.</p>
+<p>Note that if a <code>goto</code> appears inside of a
 <code>try(..., finally={...})</code> call, which is itself inside a
 branch, the <code>finally</code> clause will be executed <em>before</em>
 jumping to the new branch.</p>
@@ -488,7 +489,7 @@ that reads a file one line at a time:</p>
 <span>  <span class="kw">while</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">line</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/readLines.html" class="external-link">readLines</a></span><span class="op">(</span><span class="va">f</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span> <span class="op">&gt;</span> <span class="fl">0</span><span class="op">)</span> <span class="fu"><a href="../reference/gen.html">yield</a></span><span class="op">(</span><span class="va">line</span><span class="op">)</span></span>
 <span><span class="op">}</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">as.list</a></span><span class="op">(</span><span class="fu">fileLines</span><span class="op">(</span><span class="st">"language.Rmd"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## [1] 304</span></span></code></pre>
+<pre><code><span><span class="co">## [1] 306</span></span></code></pre>
 <p>It is possible (but rather strange) to call <code><a href="https://rdrr.io/r/base/stop.html" class="external-link">stop()</a></code> or
 <code><a href="https://rdrr.io/r/base/function.html" class="external-link">return()</a></code> from inside an <code>on.exit</code> handler. In
 that case the new value and disposition overrides the old one.</p>

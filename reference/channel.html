@@ -140,8 +140,7 @@ asynchronous, live data sources, for instance event logs,
 non-blocking connections, paginated query results, reactive values,
 and other processes that yield a sequence of values over time.</p>
 <p><code>channel</code> is an S3 method and will attempt to convert the argument
-<code>obj</code> into a channel object according to its class. In particular
-<a href="https://rdrr.io/r/base/connections.html" class="external-link">connection</a> objects will be wrapped with a connection.</p>
+<code>obj</code> into a channel object according to its class.</p>
 <p>The friendly way to obtain values from a channel is to use
 <code>awaitNext</code> or <code>for</code> loops within an <a href="async.html">async</a> or <a href="stream.html">stream</a> coroutine.</p>
 <p>The low-level interface to obtain values from a channel is to call
