@@ -137,13 +137,14 @@ deque <- function(len=64) {
 #' @param max_queue The maximum number of outgoing values to store if
 #'   there are no listeners. Beyond this, calling `emit` will return
 #'   an error.
+#' @param ... Specialized channel methods may take other arguments.
 #' @param max_awaiting The maximum number of pending requests. If
 #'   there are this many outstanding requests, for values, calling
 #'   `nextThen(ch, ...)` or `nextElem(ch)` will raise an error.
 #' @param wakeup You may optionally provide a callback function here.
 #'   It will be called when the queue is empty and there is at least
 #'   one listener/outstanding promise.
-#' @return a channel object, supporting methods "nextThen" and "nextElem"
+#' @return a channel object, supporting methods "nextThen" and "nextOr"
 #'
 #' @author Peter Meilstrup
 #' @export
@@ -161,8 +162,9 @@ channel.default <- function(obj, ...) {
 #' @exportS3Method channel "function"
 #' @export
 #' @rdname channel
-channel.function <- function(obj, max_queue=500L, max_awaiting=500L,
+channel.function <- function(obj, ..., max_queue=500L, max_awaiting=500L,
                              wakeup=function(...) NULL) {
+  stop_unused(...)
   # list of callbacks waiting to be made having yet to be sent
   # each is a list(resolve=, reject=, close= )
   outgoing <- deque()

@@ -30,6 +30,7 @@ inline_expr <- function(expr, graph, nodeName, inTail) {
          expr)
 }
 
+#' @importFrom methods substituteDirect
 inline_call <- function(expr, graph, nodeName, inTail) {
   head <- expr[[1]]
   switch(

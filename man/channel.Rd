@@ -10,6 +10,7 @@ channel(obj, ...)
 
 \method{channel}{`function`}(
   obj,
+  ...,
   max_queue = 500L,
   max_awaiting = 500L,
   wakeup = function(...) NULL
@@ -21,6 +22,8 @@ is.channel(x)
 \item{obj}{A user-provided function; it will receive three
 callback functions as arguments, in order, \code{emit(val)},
 \code{reject(err)} and \code{close()}}
+
+\item{...}{Specialized channel methods may take other arguments.}
 
 \item{max_queue}{The maximum number of outgoing values to store if
 there are no listeners. Beyond this, calling \code{emit} will return
@@ -37,7 +40,7 @@ one listener/outstanding promise.}
 \item{x}{an object.}
 }
 \value{
-a channel object, supporting methods "nextThen" and "nextElem"
+a channel object, supporting methods "nextThen" and "nextOr"
 
 \code{is.channel(x)} returns TRUE if its argument is a channel object.
 }

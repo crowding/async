@@ -249,3 +249,4 @@ setCompileLevelFromFn <- function(fn) {
 getStartSet.list <- function(obj, ...) obj
 summary.list <- function(obj) list(code=quote({}))
 
+stop_unused <- function() NULL

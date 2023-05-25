@@ -67,17 +67,4 @@ test_that("translating munged names in function bodies", {
              hork(fff, where) +
              f::g(what, quote(y)) ))
 
-  if(FALSE) {
-
-    microbenchmark(
-    trans( body(tryCatch),
-#      quote( f(g, x) + g(f, y) + f::g(x, quote(y)) ),
-      callTranslations, varTranslations),
-    transX( body(tryCatch),
- #     quote( f(g, x) + g(f, y) + f::g(x, quote(y)) ),
-      callTranslations, varTranslations)
-    )
-
-  }
-
 })

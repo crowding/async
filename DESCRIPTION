@@ -1,7 +1,7 @@
 Package: async
 Title: Coroutines: Generators / Yield, Async / Await, and Streams
 Version: 0.3.2
-Date: 2023-03-01
+Date: 2023-05-24
 Authors@R: 
     person(given = "Peter",
            family = "Meilstrup",
@@ -30,14 +30,17 @@ Imports:
         later,
         promises,
         testthat (>= 3.0.0),
-        stringr
+        stringr,
+        methods
 Suggests:
     rmarkdown,
     knitr,
-    magrittr,
+    dplyr,
+    curl,
     audio,
     profvis,
-    microbenchmark
+    ggplot2,
+    XML
 Collate:
   'async-package.R'
   'util.R'

@@ -109,7 +109,7 @@ gen_pattern <- gen(function(counts = c(3, 2, 1, 2)) {
 
 Because `gen(...)` builds an [iteror][], you you can apply iteror
 methods to it. For instance you can collect just the first 24 items
-with `ilimit()`:
+with `i_limit()`:
 
 ```{R}
 show_head <- function(x, n=24) {
@@ -171,7 +171,7 @@ iplay <- function(g, samples, bpm) {
 So we should hear our pattern now:
 
 ```{R, eval=FALSE}
-gen_pattern() |> ilimit(36) |> iplay(claps, 360)
+gen_pattern() |> i_limit(36) |> iplay(claps, 360)
 ```
 
 ### Some iteror (iterator) functions
@@ -209,7 +209,7 @@ For example, we can print the contents of a generator by `iapply`ing
 `cat` and throwing away the results:
 
 ```{R}
-g <- gen_pattern() |> ilimit(24) |> iapply(cat) |> isink(cat("\n"))
+g <- gen_pattern() |> i_limit(24) |> iapply(cat) |> isink(cat("\n"))
 ```
 
 
@@ -252,7 +252,7 @@ Here's what 12 loops look like, where you after three (i.e. skipping every fourt
 
 ```{R}
 iseq() |>
-ilimit(12) |>
+i_limit(12) |>
 drop_one_after(3, "\n") |>
 iapply(cat, "") |>
 isink()
