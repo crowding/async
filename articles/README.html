@@ -98,7 +98,8 @@ async/await, and asynchronous streams for R</h1>
 
     
     
-<p><a href="https://cran.r-project.org/package=async" class="external-link"><img src="https://www.r-pkg.org/badges/version/async?color=purple" alt="cran-version"></a><a href="https://github.com/crowding/async/actions/workflows/check-standard.yaml" class="external-link"><img src="https://github.com/crowding/async/actions/workflows/check-standard.yaml/badge.svg" alt="check-standard"></a> <a href="https://github.com/crowding/async/actions/workflows/test-coverage.yaml" class="external-link"><img src="https://github.com/crowding/async/actions/workflows/test-coverage.yaml/badge.svg" alt="test-coverage"></a></p>
+<!-- badges: start -->
+<p><a href="https://CRAN.R-project.org/package=async" class="external-link"><img src="https://www.r-pkg.org/badges/version/async" alt="CRAN status"></a> <a href="https://github.com/crowding/async/actions/workflows/check-standard.yaml" class="external-link"><img src="https://github.com/crowding/async/actions/workflows/check-standard.yaml/badge.svg" alt="R-CMD-check"></a> <a href="https://crowding.github.io/async/" class="external-link"><img src="https://github.com/crowding/async/actions/workflows/pkgdown.yaml/badge.svg" alt="pkgdown"></a> <a href="https://app.codecov.io/gh/crowding/async" class="external-link"><img src="https://codecov.io/gh/crowding/async/branch/main/graph/badge.svg?token=kqLgHxP1Gh" alt="codecov"></a> <!-- badges: end --></p>
 <p>This is an R package implementing <em>generators</em>, <em>async</em>
 blocks, and <em>streams</em> (collectively known as “coroutines.”)</p>
 <div class="section level2">
@@ -250,6 +251,14 @@ is a version of the <a href="https://github.com/crowding/cranwhales-await" class
 app using async/await.</a>.</p>
 </div>
 <div class="section level4">
+<h4 id="web-scraping">Web scraping<a class="anchor" aria-label="anchor" href="#web-scraping"></a>
+</h4>
+<p><code><a href="../reference/async.html">async()</a></code> allows you to naturally keep track of more than
+one concurrent process. The <a href="https://crowding.github.io/async/articles/spider.html" class="external-link">web spider
+vignette</a> shows how this can improve the speed of web scraping using
+concurrent connections.</p>
+</div>
+<div class="section level4">
 <h4 id="background-processing">Background processing<a class="anchor" aria-label="anchor" href="#background-processing"></a>
 </h4>
 <p><code>async</code> can also work with <code>future</code> objects to
@@ -317,7 +326,7 @@ and chew gum concurrently:”</p>
 <span><span class="op">}</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">all</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/combine.html">combine</a></span><span class="op">(</span><span class="va">walk</span>, <span class="va">chewGum</span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu">printEach</span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## left, chew, right, chew, left, right, chew, left, chew, right, left, chew, right, chew, left, right, chew, left, right, chew, left, chew, right, left, chew, right, chew, left, right, chew, left, right,</span></span></code></pre>
+<pre><code><span><span class="co">## left, chew, right, chew, left, right, chew, left, chew, right, left, chew, right, chew, left, right, chew, left, right, chew, left, chew, right, left, chew, right, left, chew, right, chew, left, right,</span></span></code></pre>
 </div>
 <div class="section level2">
 <h2 id="how-does-this-work-anyway">How does this work anyway?<a class="anchor" aria-label="anchor" href="#how-does-this-work-anyway"></a>
@@ -351,17 +360,6 @@ the next time <code><a href="https://crowding.github.io/iterors/reference/nextOr
 calling:</p>
 <div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/debugAsync.html">debugAsync</a></span><span class="op">(</span><span class="va">ctz</span>, internal<span class="op">=</span><span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## $R</span></span>
-<span><span class="co">## [1] FALSE</span></span>
-<span><span class="co">## </span></span>
-<span><span class="co">## $internal</span></span>
-<span><span class="co">## [1] TRUE</span></span>
-<span><span class="co">## </span></span>
-<span><span class="co">## $trace</span></span>
-<span><span class="co">## function (x) </span></span>
-<span><span class="co">## NULL</span></span>
-<span><span class="co">## &lt;bytecode: 0x55969e45dee0&gt;</span></span>
-<span><span class="co">## &lt;environment: 0x55969e46d188&gt;</span></span></code></pre>
 </div>
   </div>
 

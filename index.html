@@ -98,9 +98,8 @@
   <div class="contents col-md-9">
 
 <p>The <code>async</code> package: Generators, async/await, and asynchronous streams for R ================</p>
-<p>
-<a href="https://cran.r-project.org/package=async" class="external-link"><img src="https://www.r-pkg.org/badges/version/async?color=purple" alt="cran-version"></a><a href="https://github.com/crowding/async/actions/workflows/check-standard.yaml" class="external-link"><img src="https://github.com/crowding/async/actions/workflows/check-standard.yaml/badge.svg" alt="check-standard"></a> <a href="https://github.com/crowding/async/actions/workflows/test-coverage.yaml" class="external-link"><img src="https://github.com/crowding/async/actions/workflows/test-coverage.yaml/badge.svg" alt="test-coverage"></a>
-</p>
+<!-- badges: start -->
+
 <p>This is an R package implementing <em>generators</em>, <em>async</em> blocks, and <em>streams</em> (collectively known as “coroutines.”)</p>
 <div class="section level2">
 <h2 id="new-features-in-version-03">New features in version 0.3<a class="anchor" aria-label="anchor" href="#new-features-in-version-03"></a>
@@ -200,6 +199,11 @@
 <p><code><a href="reference/async.html">async()</a></code> can be used in Shiny apps! For an example, here is a version of the <a href="https://github.com/crowding/cranwhales-await" class="external-link">“Cranwhales” demo app using async/await.</a>.</p>
 </div>
 <div class="section level4">
+<h4 id="web-scraping">Web scraping<a class="anchor" aria-label="anchor" href="#web-scraping"></a>
+</h4>
+<p><code><a href="reference/async.html">async()</a></code> allows you to naturally keep track of more than one concurrent process. The <a href="https://crowding.github.io/async/articles/spider.html" class="external-link">web spider vignette</a> shows how this can improve the speed of web scraping using concurrent connections.</p>
+</div>
+<div class="section level4">
 <h4 id="background-processing">Background processing<a class="anchor" aria-label="anchor" href="#background-processing"></a>
 </h4>
 <p><code>async</code> can also work with <code>future</code> objects to run computations in parallel. Download, parse, and summarize a dataset in background processes like this:</p>
@@ -279,16 +283,6 @@
 <p>You can also enable single-stepping at the graph level by calling:</p>
 <div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="reference/debugAsync.html">debugAsync</a></span><span class="op">(</span><span class="va">ctz</span>, internal<span class="op">=</span><span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
-<div class="sourceCode" id="cb21"><pre class="sourceCode R"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="do">## $R</span></span>
-<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a><span class="do">## [1] FALSE</span></span>
-<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a><span class="do">## </span></span>
-<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a><span class="do">## $internal</span></span>
-<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a><span class="do">## [1] TRUE</span></span>
-<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a><span class="do">## </span></span>
-<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a><span class="do">## $trace</span></span>
-<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a><span class="do">## function(x) NULL</span></span>
-<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a><span class="do">## &lt;bytecode: 0x5643ae7cf540&gt;</span></span>
-<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a><span class="do">## &lt;environment: 0x5643b1a17558&gt;</span></span></code></pre></div>
 </div>
 
   </div>
@@ -325,7 +319,15 @@
 </ul>
 </div>
 
-
+<div class="dev-status">
+<h2 data-toc-skip>Dev status</h2>
+<ul class="list-unstyled">
+<li><a href="https://CRAN.R-project.org/package=async" class="external-link"><img src="https://www.r-pkg.org/badges/version/async" alt="CRAN status"></a></li>
+<li><a href="https://github.com/crowding/async/actions/workflows/check-standard.yaml" class="external-link"><img src="https://github.com/crowding/async/actions/workflows/check-standard.yaml/badge.svg" alt="R-CMD-check"></a></li>
+<li><a href="https://crowding.github.io/async/" class="external-link"><img src="https://github.com/crowding/async/actions/workflows/pkgdown.yaml/badge.svg" alt="pkgdown"></a></li>
+<li><a href="https://app.codecov.io/gh/crowding/async" class="external-link"><img src="https://codecov.io/gh/crowding/async/branch/main/graph/badge.svg?token=kqLgHxP1Gh" alt="codecov"></a></li>
+</ul>
+</div>
 
   </div>
 </div>
