@@ -9,10 +9,13 @@ vignette: >
   %\VignetteIndexEntry{The `async` package: Generators, async/await, and asynchronous streams for R}
   %\VignetteEncoding{UTF-8}
 ---
-
-```{=html}
-<p><a href="https://cran.r-project.org/package=async"><img src="https://www.r-pkg.org/badges/version/async?color=purple" alt="cran-version" /></a><a href="https://github.com/crowding/async/actions/workflows/check-standard.yaml"><img src="https://github.com/crowding/async/actions/workflows/check-standard.yaml/badge.svg" alt="check-standard" /></a> <a href="https://github.com/crowding/async/actions/workflows/test-coverage.yaml"><img src="https://github.com/crowding/async/actions/workflows/test-coverage.yaml/badge.svg" alt="test-coverage" /></a></p>
-```
+<!-- badges: start -->
+[![CRAN
+status](https://www.r-pkg.org/badges/version/async)](https://CRAN.R-project.org/package=async)
+[![R-CMD-check](https://github.com/crowding/async/actions/workflows/check-standard.yaml/badge.svg)](https://github.com/crowding/async/actions/workflows/check-standard.yaml)
+[![pkgdown](https://github.com/crowding/async/actions/workflows/pkgdown.yaml/badge.svg)](https://crowding.github.io/async/)
+[![codecov](https://codecov.io/gh/crowding/async/branch/main/graph/badge.svg?token=kqLgHxP1Gh)](https://app.codecov.io/gh/crowding/async)
+<!-- badges: end -->
 
 This is an R package implementing *generators*, *async* blocks, and *streams* (collectively known as "coroutines.")
 
@@ -132,6 +135,12 @@ async({
 `async()` can be used in Shiny apps! For an example, here is a version
 of the ["Cranwhales" demo app using async/await.][cranwhales].
 
+#### Web scraping
+
+`async()` allows you to naturally keep track of more than one concurrent process. The [web spider vignette][spider] shows how this can improve the speed of web scraping using concurrent connections.
+
+[spider]: https://crowding.github.io/async/articles/spider.html
+
 #### Background processing
 
 `async` can also work with `future` objects to run computations in parallel.
@@ -221,6 +230,6 @@ Since each step in the program's execution corresponds to a function call, when 
 
 You can also enable single-stepping at the graph level by calling:
 
-```{R}
+```{R eval=FALSE}
 debugAsync(ctz, internal=TRUE)
 ```

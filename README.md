@@ -2,7 +2,14 @@ The `async` package: Generators, async/await, and asynchronous streams
 for R
 ================
 
-<p><a href="https://cran.r-project.org/package=async"><img src="https://www.r-pkg.org/badges/version/async?color=purple" alt="cran-version" /></a><a href="https://github.com/crowding/async/actions/workflows/check-standard.yaml"><img src="https://github.com/crowding/async/actions/workflows/check-standard.yaml/badge.svg" alt="check-standard" /></a> <a href="https://github.com/crowding/async/actions/workflows/test-coverage.yaml"><img src="https://github.com/crowding/async/actions/workflows/test-coverage.yaml/badge.svg" alt="test-coverage" /></a></p>
+<!-- badges: start -->
+
+[![CRAN
+status](https://www.r-pkg.org/badges/version/async)](https://CRAN.R-project.org/package=async)
+[![R-CMD-check](https://github.com/crowding/async/actions/workflows/check-standard.yaml/badge.svg)](https://github.com/crowding/async/actions/workflows/check-standard.yaml)
+[![pkgdown](https://github.com/crowding/async/actions/workflows/pkgdown.yaml/badge.svg)](https://crowding.github.io/async/)
+[![codecov](https://codecov.io/gh/crowding/async/branch/main/graph/badge.svg?token=kqLgHxP1Gh)](https://app.codecov.io/gh/crowding/async)
+<!-- badges: end -->
 
 This is an R package implementing *generators*, *async* blocks, and
 *streams* (collectively known as “coroutines.”)
@@ -167,6 +174,14 @@ async({
 of the [“Cranwhales” demo app using
 async/await.](https://github.com/crowding/cranwhales-await).
 
+#### Web scraping
+
+`async()` allows you to naturally keep track of more than one concurrent
+process. The [web spider
+vignette](https://crowding.github.io/async/articles/spider.html) shows
+how this can improve the speed of web scraping using concurrent
+connections.
+
 #### Background processing
 
 `async` can also work with `future` objects to run computations in
@@ -273,14 +288,3 @@ You can also enable single-stepping at the graph level by calling:
 ``` r
 debugAsync(ctz, internal=TRUE)
 ```
-
-    ## $R
-    ## [1] FALSE
-    ## 
-    ## $internal
-    ## [1] TRUE
-    ## 
-    ## $trace
-    ## function(x) NULL
-    ## <bytecode: 0x5643ae7cf540>
-    ## <environment: 0x5643b1a17558>

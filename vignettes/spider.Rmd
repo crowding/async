@@ -16,7 +16,7 @@ This document explores building a simple web spider and shows how its performanc
 
 For a simple case, say you wanted to gather the graph of a site -- every URL linked to from every page. You could use the `curl` package to fetch web pages, and the `XML` package to parse the links out of their content. Without using any asynchronous processing, a simple web spider might look like this:
 
-```{R results=FALSE}
+```{R results=FALSE, message=FALSE}
 library(curl)
 library(XML)
 ```
@@ -89,7 +89,7 @@ spider_site <- function(
 
 To narrate the above: The outer function `spider_site` holds a hash table of all known pages, and that table is filled out by calling inner function `visit_page`. In `visit_page` we request and receive the web page, extract all the links, and recursively follow any links that fall within the site regexp -- as long as those URLs haven't been seen before
 
-To spider a site, here, give it a starting function and a filtering regexp, like so: 
+To spider a site, here, give it a starting function and a filtering regexp, like so:
 
 ```{R eval=FALSE}
 spidered <- spider_site("https://mysite.example/webapp", "mysite\\.example/")
@@ -104,7 +104,7 @@ saveRDS(spidered, file="spidered.rds")
 spidered <- readRDS("spidered.rds")
 ```
 
-The above spider is _synchronous;_ when it requests a web page, it waits for the entire page to be retrieved before continuing. For `curl_fetch_memory` to return a value, it needs to open a TCP connection to the remote server, send the request, wait for the network to carry the request to the server; then the server must process the request and send the result back over the network, then the client must wait for the whole page to come over the network we can process a list of links out of it. 
+The above spider is _synchronous;_ when it requests a web page, it waits for the entire page to be retrieved before continuing. For `curl_fetch_memory` to return a value, it needs to open a TCP connection to the remote server, send the request, wait for the network to carry the request to the server; then the server must process the request and send the result back over the network, then the client must wait for the whole page to come over the network we can process a list of links out of it.
 
 Along the way we recorded "start" and "end" times, before we sent the request and after we received the results. So we can visualize the time course of our web spidering thus:
 
@@ -137,7 +137,7 @@ So, to use concurrent connections, the above program could be rewritten to. To s
 
   * `visit_page` needs to have inner functions, say `process_page` and `process_error`, to serve as callbacks.
   * `spider_site` would need to be built around a loop that calls `multi_run` until all pages have been downloaded, rather than a recursive function.
-  
+
 This would amount  to some restructuring of our program. But rather than rewrite the whole logical flow of our spider, there's a way to abstract away most of the needed changes, That's where the `async` package comes in.
 
 ## Wiring up `curl` to `promises`
@@ -200,7 +200,7 @@ poll_curl <- function() {
 
 This calls curl's `multi_run` which, given `poll=TRUE` will do what it's been tasked with -- opening, sending requests, and reading whatever data has been received. We give a short timeout in case something else wants to use the event loop. And finally we use `later` to do this again the next time through the loop.
 
-The global flag `curl_is_active` is used to keep from cluttering up the event loop with multiple concurrent checks, and to make sure we stop polling `curl` once all requests have been filled. 
+The global flag `curl_is_active` is used to keep from cluttering up the event loop with multiple concurrent checks, and to make sure we stop polling `curl` once all requests have been filled.
 
 ## An Asynchronous Spider
 
@@ -277,7 +277,7 @@ To unpack the phrase `lapply(visit_page) |> promise_all() |> await()`: As `visit
 
 [promise_all]: https://rstudio.github.io/promises/reference/promise_all.html
 
-When the outer function pauses, R will then be free to move to the next task in the event loop, namely to start running the first of those `visit_page` calls. It calls `curl_fetch_async` and pauses, causing a new task is added to the queue: call `poll_curl`. Each of the other calls to `visit_page` do so in turn. 
+When the outer function pauses, R will then be free to move to the next task in the event loop, namely to start running the first of those `visit_page` calls. It calls `curl_fetch_async` and pauses, causing a new task is added to the queue: call `poll_curl`. Each of the other calls to `visit_page` do so in turn.
 
 Then the event loop gets to `poll_curl`, which calls `multi_run` which finally allows libcurl to get to work, opening connections and sending requests. When the first received page is complete, `curl_fetch_async`'s promise resolves, allowing the calling `visit_page` to resume; it now can run and extract the links from the page. Having done so, it adds a few more `visit_page` calls to the event queue, and so on we go recursively.
 
@@ -306,7 +306,7 @@ spidered_async_data <- readRDS("spidered_async.rds")
 
 Let's look at the elapsed time for both runs on the same chart:
 
-```{R results=FALSE}
+```{R results=FALSE, message=FALSE}
 library(dplyr)
 ```
 ```{R fig.width=7}

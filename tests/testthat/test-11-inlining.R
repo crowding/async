@@ -1,7 +1,11 @@
 # make up some fake graphs and see that they inline properly
 
 getStartSet.list <- function(obj, ...) obj
-summary.list <- function(obj) list(code=quote({}))
+summary.list <- function(obj, ...) list(code=quote({}))
+
+# dynamically register just for the sake of this test...
+s3_register("async::getStartSet", "list", getStartSet.list)
+s3_register("base::summary", "list", getStartSet.list)
 
 toy_graph <- function() {
  storage <- NULL
