@@ -56,8 +56,7 @@ non-blocking connections, paginated query results, reactive values,
 and other processes that yield a sequence of values over time.
 
 \code{channel} is an S3 method and will attempt to convert the argument
-\code{obj} into a channel object according to its class. In particular
-\link{connection} objects will be wrapped with a connection.
+\code{obj} into a channel object according to its class.
 
 The friendly way to obtain values from a channel is to use
 \code{awaitNext} or \code{for} loops within an \link{async} or \link{stream} coroutine.

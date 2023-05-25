@@ -142,7 +142,7 @@ This would amount  to some restructuring of our program. But rather than rewrite
 
 ## Wiring up `curl` to `promises`
 
-Many things with asynchronous interfaces have their own ad-hoc APIs for calling them; here `libcurl` uses `curl_fetch_multi` and `multi_run`. The `async` package relies on the `promise` class, from package "[promises][]," as a unifying abstraction for asynchronous requests. To use an ad hoc asynchronous API with the `async` package, the first step is often to make a shim presenting that  that API in terms of promises.
+Lots of software supporting asynchronous processing does so with an ad-hoc API; here `libcurl` uses `curl_fetch_multi` and `multi_run`. The `async` package relies on the `promise` class, from package "[promises][]," as a unifying abstraction for asynchronous requests. To use an ad hoc asynchronous API with the `async` package, the first step is often to make a shim presenting that  API in terms of promises.
 
 [promises]: https://rstudio.github.io/promises/
 
@@ -183,9 +183,9 @@ R's event loop runs while R is otherwise idle or awaiting input. R enters the ev
 
 For example, the builtin HTTP server `help.start()` uses the event loop; when it is active the event loop will periodically check for and handle incoming HTTP connections. The Shiny web server also does this. When a graphics window is open, the event loop is where R checks for mouse clicks or window resizes. And the `promises` package, and by extension `async` uses the event loop to schedule processing.
 
-The [later]() package provides a simple interface for us to to use R's event loop to check in things. Above, in `curl_fetch_async` we called `later(poll_curl)`, which arranges for `poll_curl` to be called on the next run through R's event loop. Here is the definition of `poll_curl`:
+The [later][] package provides a simple interface for us to to use R's event loop to check in things. Above, in `curl_fetch_async` we called `later(poll_curl)`, which arranges for `poll_curl` to be called on the next run through R's event loop. Here is the definition of `poll_curl`:
 
-[later]: https://github.com/r-lib/later
+[later]: https://r-lib.github.io/later/
 
 ```{R}
 poll_curl <- function() {
@@ -204,7 +204,7 @@ The global flag `curl_is_active` is used to keep from cluttering up the event lo
 
 ## An Asynchronous Spider
 
-Interfacing `curl` with `async` was the hard part. Now that this is accomplished, making our spider asynchronous is simple. Here is the asynchronous version of our web spider:
+Interfacing `curl` with `async` was the hard part. Now that this is accomplished, we can make our web spider operate concurrently. Here is the asynchronous version of our web spider:
 
 ```{R}
 library(async)
@@ -269,7 +269,9 @@ For the most part, this is almost identical to the non-asynchronous version. In 
 
 Wrapping a function definition in `async` creates an async function. This is effectively a function that can pause and resume. Calling an async function does not execute the function immediately, but returns a promise, that will be resolved with the function's eventual return value. The function will actually begin executing the next time R runs the event loop.
 
-When an async function reaches a call to `await(x)`, it pauses, allowing R's event loop to continue. The argument to `await` should be a promise. After that promise resolves, the awaiting function will then resume with that value.
+When an async function reaches a call to `await(x)`, it pauses, allowing R's event loop to continue. The argument to `await` should be a [promise][]. After that promise resolves, the awaiting function will then resume with that value.
+
+[promise]:
 
 ### A single thread, dividing attention between tasks
 

@@ -135,16 +135,18 @@ file_dataset <- async({
           tryCatch(read_json(filename), error=goto("txt"))
       },
       "zip"= {
-          unzipped <- unzip(filename)
-          on.exit(unlink(unzipped))
-          unzip(filename)
-          goto() # i.e. run getExtension on the new filename
+        unzipped <- unzip_async(filename) |> await()
+        filename <- unzipped
+        on.exit(unlink(unzipped))
+        goto(getExtension(unzipped))
       }
   )
 })
 ```
 
-Here, if there is an error in reading a `.csv` or `.json` file we re-try ingesting it as a text file; on encountering a `zip` file we unzip it and try again with the new filename. If a  `goto` appears inside of a `try(..., finally={...})` call, which is itself inside a branch, the `finally` clause will be executed _before_ jumping to the new branch.
+Here, if there is an error in reading a `.csv` or `.json` file we re-try ingesting it as a text file; on encountering a `zip` file we unzip it and try again with the new filename. 
+
+Note that if a  `goto` appears inside of a `try(..., finally={...})` call, which is itself inside a branch, the `finally` clause will be executed _before_ jumping to the new branch.
 
 ### What's under the hood? Coroutines are state machines, which are graphs
 

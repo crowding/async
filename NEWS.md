@@ -1,6 +1,6 @@
 # async 0.3.2
 
-* The `iteror` class has been extracted to a new package [`iterors`](http://github.com/crowding/iterors), which also includes ports of all functionality from `iterators`, `itertools`, and `itertools2`.
+* The `iteror` class has been extracted to a new package [`iterors`](https://github.com/crowding/iterors), which also includes ports of all functionality from `iterators`, `itertools`, and `itertools2`.
 * New vignette `vignette("spider")` shows how to control several concurrent downloads using `async`/`await`.
 * Improved memory usage: Coroutines which exit drop references to their evaluation environments, allowing them to be garbage collected.
 

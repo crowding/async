@@ -89,8 +89,7 @@ deque <- function(len=64) {
 #' and other processes that yield a sequence of values over time.
 #'
 #' `channel` is an S3 method and will attempt to convert the argument
-#' `obj` into a channel object according to its class. In particular
-#' [connection] objects will be wrapped with a connection.
+#' `obj` into a channel object according to its class.
 #'
 #' The friendly way to obtain values from a channel is to use
 #' `awaitNext` or `for` loops within an [async] or [stream] coroutine.
@@ -398,9 +397,10 @@ combine <- function(...) {
   })
 }
 
+# (not ready for prime time...)
 # The channel method for connections wraps a connection object
 # (which should be opened in non-blocking mode).
-channel.connection <- function(obj, ...,
+channel_connection <- function(obj, ...,
                                read = {
                                  if (summary(obj)$text == "text")
                                    c("lines", "char")
