@@ -133,7 +133,7 @@ downloaded web page.</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">spider_site</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span></span>
 <span>                        <span class="va">start_pages</span>, <span class="co">#starting URLs</span></span>
-<span>                        <span class="va">regexp</span>,    <span class="co"># Linked URLs must match this to be</span></span>
+<span>                        <span class="va">regexp</span>,    <span class="co"># Linked URLs must match this to be included</span></span>
 <span>                        <span class="va">limit</span><span class="op">=</span><span class="fl">500</span><span class="op">)</span> <span class="op">{</span> <span class="co"># maximum number of pages to collect</span></span>
 <span></span>
 <span>  <span class="co">#all encountered pages will be collected in this hash table</span></span>
@@ -362,7 +362,7 @@ concurrently. Here is the asynchronous version of our web spider:</p>
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://crowding.github.io/async/" class="external-link">async</a></span><span class="op">)</span></span>
 <span><span class="va">spider_site_async</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/async.html">async</a></span><span class="op">(</span><span class="kw">function</span><span class="op">(</span></span>
 <span>                        <span class="va">start_pages</span>, <span class="co">#starting URLs</span></span>
-<span>                        <span class="va">regexp</span>,    <span class="co"># Linked URLs must match this to be</span></span>
+<span>                        <span class="va">regexp</span>,    <span class="co"># Linked URLs must match this to be included</span></span>
 <span>                        <span class="va">limit</span><span class="op">=</span><span class="fl">500</span><span class="op">)</span> <span class="op">{</span> <span class="co"># maximum number of pages to collect</span></span>
 <span></span>
 <span>  <span class="co">#all encountered pages will be collected in this hash table</span></span>
@@ -430,9 +430,9 @@ return value. The function will actually begin executing the next time R
 runs the event loop.</p>
 <p>When an async function reaches a call to <code>await(x)</code>, it
 pauses, allowing R’s event loop to continue. The argument to
-<code>await</code> should be a <a href="">promise</a>. After that
-promise resolves, the awaiting function will then resume with that
-value.</p>
+<code>await</code> should be a <a href="https://rstudio.github.io/promises/articles/overview.html" class="external-link">promise</a>.
+After that promise resolves, the awaiting function will then resume with
+that value.</p>
 <div class="section level4">
 <h4 id="a-single-thread-dividing-attention-between-tasks">A single thread, dividing attention between tasks<a class="anchor" aria-label="anchor" href="#a-single-thread-dividing-attention-between-tasks"></a>
 </h4>
