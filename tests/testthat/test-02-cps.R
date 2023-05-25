@@ -246,7 +246,7 @@ test_that("for", {
 
 test_that("for over iterator", {
   x <- 0
-  pump(for_cps("", R("", i), R("", iseq(1,10)), R("", x <- x + i)),
+  pump(for_cps("", R("", i), R("", iterors::iseq(1,10)), R("", x <- x + i)),
        targetEnv=environment())
   x %is% 55
 })
@@ -335,7 +335,7 @@ test_that("Makes fully qualified names when async package not attached", {
 
   xout <- async:::cps_translate(xin, endpoints=c("yield", "next", "break"))
 
-  expect_identical(expr(xout), target)
+  expect_identical(nseval::expr(xout), target)
 
 })
 

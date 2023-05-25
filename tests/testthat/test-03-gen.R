@@ -29,9 +29,9 @@ test_that("generator loop", {
 test_that("further nextElems will error with stopIteration", {
 
   g <- gen(yield(1))
-  iterators::nextElem(g) %is% 1
-  expect_error(iterators::nextElem(g), "StopIteration")
-  expect_error(iterators::nextElem(g), "StopIteration")
+  nextOr(g) %is% 1
+  expect_error(nextOr(g, stop("StopIteration")), "StopIteration")
+  expect_error(nextOr(g, stop("StopIteration")), "StopIteration")
   g <- gen({
     yield(1)
     stop("foo")
@@ -47,9 +47,9 @@ test_that("a generator", {
 })
 
 test_that("for loop over an iterator", {
-  x <- gen(for (i in iseq(1)) {yield(i)})
+  x <- gen(for (i in iterors::iseq(1)) {yield(i)})
 
-  as.numeric(as.list(ilimit(x, 10))) %is% 1:10
+  as.numeric(as.list(iterors::i_limit(x, 10))) %is% 1:10
 
   j <- gen(for(i in 1:10) if (i %% 7 == 0) stop("oops") else yield(i))
   x <- 0
@@ -60,7 +60,7 @@ test_that("for loop over an iterator", {
 test_that("yieldFrom", {
 
   a <- list("foo", "bar", "baz")
-  b <- iseq(1, 3)
+  b <- iterors::iseq(1, 3)
   gchain <- function(its) {
     itors <- iteror(its)
     gen(for (it in itors) yieldFrom(it))
@@ -71,25 +71,25 @@ test_that("yieldFrom", {
   }
 
   as.list(gchain(list(a, b))) %is% list("foo", "bar", "baz", 1, 2, 3)
-  b <- iseq(1, 3)
+  b <- iterors::iseq(1, 3)
 
 })
 
 test_that("nested for loops", {
   x <- gen({
-    for (i in iterators::iter(c(3,2,1,2), recycle=TRUE)) {
+    for (i in iteror(c(3,2,1,2), recycle=TRUE)) {
       for (j in 1:i)
         yield(1)
       yield(0)
     }
   })
-  as.numeric(as.list(ilimit(x, 24))) %is%
+  as.numeric(as.list(iterors::i_limit(x, 24))) %is%
     c(1,1,1,0,1,1,0,1,0,1,1,0,1,1,1,0,1,1,0,1,0,1,1,0)
 })
 
 test_that("generator with split pipes", {
 
-  x <- iseq(1, 55)
+  x <- iterors::iseq(1, 55)
   incomplete <- gen(split_pipes=TRUE, {
     repeat {
       sum <- 0
@@ -173,14 +173,14 @@ test_that("run", {
 
   total <- 0
   output <- run(
-    for (i in iseq(2, 48, by=7))
+    for (i in iterors::iseq(2, 48, by=7))
       total <- yield(total+i))
 
   total %is% total_
   output %is% output_
 
   expect_error(
-    for (i in iseq(2, 2400, by=7))
+    for (i in iterors::iseq(2, 2400, by=7))
       total <- yield(total+i))
 
   run(if(TRUE) yield(1) else 5) %is% list(1)
@@ -188,12 +188,12 @@ test_that("run", {
   run(if(FALSE) return(0) else 5) %is% 5
 
   expect_error(
-    run(for (i in iseq(1, 1000, by=23))
+    run(for (i in iterors::iseq(1, 1000, by=23))
       if (i%%37 == 0) stop("oops") else yield(i)),
     "oops")
 
   expect_error(
-    run(for (i in iseq(1, 1000, by=23))
+    run(for (i in iterors::iseq(1, 1000, by=23))
       if (i%%37 == 0) yield(sOmE+nOnSeNsE) else yield(i)),
     "not found")
 
@@ -201,16 +201,16 @@ test_that("run", {
   run(for (i in a) yieldFrom(i), 0) %is% c(1:2, 1:3, 1:4)
   expect_error(run(yieldFrom(a), 0), "replace")
 
-  b1 <- run(for (i in 1:10) for(j in iseq(1, i)) yield(j), 0)
+  b1 <- run(for (i in 1:10) for(j in iterors::iseq(1, i)) yield(j), 0)
   expect_length(b1, sum(1:10))
-  b2 <- run(for (i in 1:10) yieldFrom(iseq(1, i)), 0)
+  b2 <- run(for (i in 1:10) yieldFrom(iterors::iseq(1, i)), 0)
   b1 %is% b2
 
 })
 
 test_that("run-function", {
 
-  colon <- run(function(from, to) for(i in iseq(from, to)) yield(i), type=0)
+  colon <- run(function(from, to) for(i in iterors::iseq(from, to)) yield(i), type=0)
   colon(5, 10) %is% 5:10
 
 })

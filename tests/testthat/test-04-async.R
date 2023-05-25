@@ -109,6 +109,7 @@ test_that("async grammar", {
 })
 
 test_that("async format", {
+
   pr <- mock_promise()
   as <- suppressMessages(async({x <- await(pr); x + 5}))
   expect_output(print(as), "pending")
@@ -125,6 +126,7 @@ test_that("async format", {
   capture.output({pr$reject("oops"); wait_for_it()}, type="message")
   wait_for_it()
   expect_output(print(as), "rejected")
+  expect_output(print(as), "oops")
 })
 
 test_that("async splits pipes by default", {

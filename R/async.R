@@ -126,7 +126,7 @@ await <- function(prom, error) {
 }
 
 await_cps <- function(.contextName, prom, error) {
-  list(prom, maybe(error))
+  list(.contextName, prom, maybe(error))
   function(cont, ..., pause, await, stp) {
     list(cont, pause, maybe(await), stp)
     if (missing(await)) stop("await used, but this is not an async")
@@ -165,7 +165,7 @@ await_cps <- function(.contextName, prom, error) {
 }
 
 #' @import promises
-make_async <- function(expr, orig = expr, ...,
+make_async <- function(expr, orig = substitute(expr), ...,
                        compileLevel = 0,
                        local = TRUE,
                        callingEnv,
@@ -179,10 +179,11 @@ make_async <- function(expr, orig = expr, ...,
   nonce <- (function() function() NULL)()
   state <- "pending" #print method uses this
   value <- nonce
+  err <- NULL
   resolve_ <- NULL
   reject_ <- NULL
 
-  node(getState <- function() state)
+  node(getState <- function() list(state=state, err=err))
 
   node(return_ <- function(val) {
     state <<- "resolved"
@@ -192,7 +193,7 @@ make_async <- function(expr, orig = expr, ...,
   })
 
   node(stop_ <- function(val) {
-    value <<- val
+    err <<- val
     state <<- "rejected"
     reject_(val)
     val
@@ -217,6 +218,9 @@ make_async <- function(expr, orig = expr, ...,
                     rtn=return_, stp=stop_, await=await_,
                     awaitNext=awaitNext_,
                     targetEnv=targetEnv)
+  expr <- NULL
+  targetEnv <- NULL
+  callingEnv <- NULL
 
   pause <- environment(pump)$pause_
   bounce <- environment(pump)$bounce_
@@ -313,10 +317,8 @@ getStartSet.async <- function(x, ...) {
 #' "rejected".
 #' @exportS3Method
 summary.async <- function(object, ...) {
-  c(list(code=object$orig,
-         state=object$state$getState(),
-         node=environment(object$state$pump)$getCont(),
-         envir=environment(object$state$pump)$targetEnv),
+  c(list(code=object$orig),
+    object$state$getState(),
     NextMethod("summary"))
 }
 

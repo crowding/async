@@ -1,38 +1,4 @@
-#' Gather all values emitted by iterators and channels.
-#'
-#' @description These functions help collect values from generators, streams or
-#' other processes into lists. Note that you can also generate a list
-#' of values using [run].
-#'
-#' @description `as.list.iteror` and `as.vector.iteror` convert iterable
-#' objects into vectors of the given mode.
-#'
-#' @exportS3Method as.list iteror
-#' @param ... Undocumented.
-#' @return `as.list.iteror` returns a `[list]`.
-#' @author Peter Meilstrup
-#' @rdname collect
-#' @examples
-#'
-#' as.list(iseq(1,10, by=3))
-as.list.iteror <- function(x, ...) {
-  collect(function(emit) repeat emit(nextOr(x, break)), type=list())
-}
-
-#' @param x An [iteror]
-#' @param mode The mode of the output; taking the same modes as `vector`.
-#' @return `as.vector.iteror(x, mode)` returns a vector of the given mode.
-#' @exportS3Method as.vector iteror
-#' @rdname collect
-#' @examples
-#'
-#' as.vector(gen(for (i in 1:10) if (i %% 3 != 0) yield(i)), "numeric")
-as.vector.iteror <- function(x, mode) {
-  collect(function(emit)
-    repeat(emit(nextOr(x, break))),
-    vector(mode, 0))
-}
-
+#' Collect iterator / channel items into a vector.
 #' @rdname collect
 #' @description `gather` takes a [channel] as argument and returns a
 #'   [promise]. All values emitted by the channel will be collected
@@ -68,6 +34,7 @@ gather <- function(ch, type=list()) {
 #' @rdname collect
 #' @description Method `as.promise.channel` is a synonym for `gather`.
 #' @exportS3Method promises::as.promise channel
+#' @param x a [channel].
 as.promise.channel <- function(x) gather(x)
 
 #' @rdname collect
@@ -100,6 +67,7 @@ as.promise.channel <- function(x) gather(x)
 #' as.list.iteror <- function(it) {
 #'   collect(\(yield) repeat yield(nextOr(it, break)))
 #' }
+#' @export
 collect <- function(fn, type=list()) {
   collector(function(emit, extract) {fn(emit); extract(TRUE)}, type)
 }

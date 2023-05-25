@@ -1,7 +1,7 @@
 Package: async
 Title: Coroutines: Generators / Yield, Async / Await, and Streams
-Version: 0.3.1
-Date: 2023-03-01
+Version: 0.3.2
+Date: 2023-05-24
 Authors@R: 
     person(given = "Peter",
            family = "Meilstrup",
@@ -25,23 +25,25 @@ Encoding: UTF-8
 LazyData: true
 Depends: R (>= 4.1)
 Imports:
+        iterors,
         nseval (>= 0.4.3),
         later,
         promises,
         testthat (>= 3.0.0),
-        stringr
+        stringr,
+        methods
 Suggests:
     rmarkdown,
     knitr,
-    magrittr,
-    iterators,
+    dplyr,
+    curl,
     audio,
     profvis,
-    microbenchmark
+    ggplot2,
+    XML
 Collate:
   'async-package.R'
   'util.R'
-  'iteror.R'
   'cps.R'
   'signals.R'
   'syntax.R'
@@ -59,6 +61,7 @@ Collate:
   'graph.R'
   'trans.R'
   'munge.R'
+  'inline.R'
 Roxygen: list(markdown=TRUE)
 RoxygenNote: 7.2.3
 VignetteBuilder: knitr

@@ -15,7 +15,7 @@ a \link{channel} object.
 \description{
 \code{combine(...)} takes any number of \link{promise} or \link{channel}
 objects. It awaits each one, and returns a \link{channel} object
-which re-emits every value from its target promises, in whatever
+which re-emits every value from its targets, in whatever
 order they are received.
 }
 \author{

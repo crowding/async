@@ -164,29 +164,34 @@ visit_function <- function(fn, yield, nonTail=TRUE, forGraph=FALSE) {
                visit_weird_call(expr, inTail, NULL, yield)
              } else if (exists(head, env, inherits=FALSE)) {
                peek <- get0(head, envir=env, ifnotfound=NULL, inherits=FALSE)
-               if (!all(c("cont") %in% names(formals(peek)))) {
+               if (is.function(peek)) {
+                 if (!all(c("cont") %in% names(formals(peek)))) {
+                   visit_ordinary_call(expr, inTail, orig, yield)
+                 } else {
+                   # A trampoline-indirect call! Register both the
+                   # target and the indirect.
+                   handl <- match.call(peek, expr, expand.dots=FALSE,
+                                       envir=as.environment(list(`...`=NULL)))
+                   if ("winding" %in% names(handl)) {
+                     # windup takes TWO function pointers
+                     woundup <- as.call(list(handl$winding))
+                     windup <- TRUE
+                     handl$winding <- NULL
+                     yield(as.character(woundup[[1]]), "wind")
+                     yield(c(list(woundup, expr), orig), "windup")
+                     visit_weird_call(woundup, inTail, c(list(expr), orig), yield)}
+                   trampoline_args <- names(handl) %in% c("cont", "val")
+                   trampolined <- as.call(handl[trampoline_args])
+                   handl <- handl[!trampoline_args]
+                   yield(as.character(trampolined[[1]]), "tramp")
+                   yield(as.character(expr[[1]]), "hand")
+                   yield(c(list(handl, expr), orig), "handler")
+                   yield(c(list(trampolined, expr), orig), "trampoline")
+                   visit_weird_call(handl, FALSE, c(list(expr), orig), yield)
+                 }
+               } else { # not a function?
+                 #This comes up if it's an ieration variable, which you write to...
                  visit_ordinary_call(expr, inTail, orig, yield)
-               } else {
-                 # A trampoline-indirect call! Register both the
-                 # target and the indirect.
-                 handl <- match.call(peek, expr, expand.dots=FALSE,
-                                     envir=as.environment(list(`...`=NULL)))
-                 if ("winding" %in% names(handl)) {
-                   # windup takes TWO function pointers
-                   woundup <- as.call(list(handl$winding))
-                   windup <- TRUE
-                   handl$winding <- NULL
-                   yield(as.character(woundup[[1]]), "wind")
-                   yield(c(list(woundup, expr), orig), "windup")
-                   visit_weird_call(woundup, inTail, c(list(expr), orig), yield)}
-                 trampoline_args <- names(handl) %in% c("cont", "val")
-                 trampolined <- as.call(handl[trampoline_args])
-                 handl <- handl[!trampoline_args]
-                 yield(as.character(trampolined[[1]]), "tramp")
-                 yield(as.character(expr[[1]]), "hand")
-                 yield(c(list(handl, expr), orig), "handler")
-                 yield(c(list(trampolined, expr), orig), "trampoline")
-                 visit_weird_call(handl, FALSE, c(list(expr), orig), yield)
                }
              } else {
                # something that isn't bound in the immediately

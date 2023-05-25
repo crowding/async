@@ -50,9 +50,16 @@ trace_ <- function(x) if(getOption("async.verbose")) cat(x)
   options(async.compileLevel=getOption("async.compileLevel") %||% 0,
           async.paranoid=getOption("async.paranoid") %||% FALSE,
           async.verbose=getOption("async.verbose") %||% FALSE,
-          async.destructive=getOption("async.verbose") %||% TRUE,
-          async.sendLater=getOption("async.verbose") %||% TRUE)
+          async.destructive=getOption("async.destructive") %||% TRUE,
+          async.sendLater=getOption("async.sendLater") %||% TRUE)
 }
+
+#' @export
+iterors::nextOr
+
+#' @export
+iterors::iteror
+
 
 ## usethis namespace: start
 ## usethis namespace: end

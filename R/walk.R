@@ -95,6 +95,13 @@ nullish <- function(x) length(x)==0
 #                 data is TRUE
 # * `nodeContexts`: hash by node ID, data is context ID
 # * `orig`: the original call to async/gen
+
+## samefun <- function() {
+##   identical(x, y) || (identical(formals(x), formals(y)))
+##     && identical(environment(x), environment(y))
+##     && identical(body(x), body(y))
+## }
+
 walk <- function(gen, forGraph=FALSE) {
   nodes <- getStartSet(gen)
   # override the apparent global names e.g. for "entry" and "return"
@@ -104,7 +111,6 @@ walk <- function(gen, forGraph=FALSE) {
   nodeOrder <- names(nodes)
   nodes <- list2env(nodes, parent=emptyenv())
   orig <- summary(gen)$code
-  iter <- iseq()
   nodeProperties <- new.env(parent=emptyenv())
   reverseEdges <- new.env(parent=emptyenv())
   nodeEdgeProperties <- new.env(parent=emptyenv())
@@ -261,7 +267,7 @@ find_global_name <- function(fun, nameOverrides=emptyenv()) {
     name <- paste0(get0(".contextName", environment(fun)),
                    "__", find_local_name(fun))
   }
-  get0(name, nameOverrides, ifnotfound=name)
+  get0(name, nameOverrides, inherits=FALSE, ifnotfound=name)
 }
 
 has_global_name <- function(fun) {

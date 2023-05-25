@@ -113,6 +113,7 @@ globalNode <- function(assignment) {
 
 # R() wraps a user-level R expression into an execution node
 R <- function(.contextName, x) {
+  list(.contextName)
   x <- arg_expr(x)
 
   function(cont, ..., evl) {
@@ -454,6 +455,7 @@ break_cps <- function(.contextName) {
   }
 }
 
+#' @importFrom iterors nextOr
 nextOr_cps <- function(.contextName, expr, or) {
   list(.contextName, expr, or)
   function(cont, ...) {
@@ -464,7 +466,7 @@ nextOr_cps <- function(.contextName, expr, or) {
     node(getNext <- function(val) {
       stopping <- FALSE
       #when munged we had a name collision vs 'nextOr' in gen.r
-      val <- async::nextOr(val, stopping <- TRUE)
+      val <- iterors::nextOr(val, or=stopping <- TRUE)
       if (stopping) or_() else cont(val)
     })
 
@@ -527,7 +529,7 @@ while_cps <- function(.contextName, cond, expr) {
   }
 }
 
-
+#' @importFrom iterors iteror
 for_cps <- function(.contextName, var, seq, expr) {
   list(.contextName, var, seq, expr)
   function(cont, ..., bounce, bounce_val, nxt, brk, awaitNext, sto, stp) {
@@ -584,7 +586,7 @@ for_cps <- function(.contextName, var, seq, expr) {
     })
     node(do_ <- function() {
       stopping <- FALSE
-      val <- async::nextOr(seq_, stopping <- TRUE)
+      val <- seq_(or = stopping <- TRUE)
       if (stopping) {
         cont(invisible(NULL))
       } else {
@@ -593,7 +595,7 @@ for_cps <- function(.contextName, var, seq, expr) {
     })
     if (is_missing(awaitNext)) {
       node(for_ <- function(val) {
-        seq_ <<- async::iteror(val)
+        seq_ <<- iteror(val)
         do_()
       })
     } else {
@@ -603,7 +605,7 @@ for_cps <- function(.contextName, var, seq, expr) {
           seq_ <<- val
           await_()
         } else {
-          seq_ <<- async::iteror(val)
+          seq_ <<- iteror(val)
           do_()
         }
       })

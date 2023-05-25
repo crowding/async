@@ -72,6 +72,7 @@
 #' @return `gen({...}) returns an [iteror].
 #' @param compileLevel Current levels are 0 (no compilation) or
 #' -1 (name munging only).
+#' @importFrom iterors nextOr
 #' @export
 gen <- function(expr, ..., split_pipes=FALSE,
                 compileLevel=getOption("async.compileLevel")) {
@@ -89,7 +90,7 @@ gen <- function(expr, ..., split_pipes=FALSE,
   args_ <- c(cps_translate(expr_,
                            endpoints=gen_endpoints,
                            split_pipes=split_pipes),
-             orig=forced_quo(expr_),
+             orig=forced_quo(nseval::expr(expr_)),
              dots(...))
   set_dots(environment(), args_)
   gen <- make_generator(..., callingEnv=envir)
@@ -134,7 +135,7 @@ yield_cps <- function(.contextName, expr) {
 #' @param err An error handler
 #' @return yieldFrom returns NULL, invisibly.
 #' @examples
-#' chain <- function(...) {
+#' i_chain <- function(...) {
 #'   iterators <- list(...)
 #'   gen(for (it in iterators) yieldFrom(it))
 #' }
@@ -142,6 +143,7 @@ yieldFrom <- function(it, err) {
   stop("yieldFrom() called outside a generator")
 }
 
+#' @importFrom iterors iteror
 yieldFrom_cps <- function(.contextName, it) {
   list(.contextName, it)
   function(cont, ..., stp, yield, registerYield, awaitNext) {
@@ -170,7 +172,7 @@ yieldFrom_cps <- function(.contextName, it) {
 
     node(yieldFrom_ <- function(val) {
       stopping <- FALSE
-      val <- nextOr(iter, stopping <- TRUE)
+      val <- iter(or=stopping <- TRUE)
       if (stopping) {
         cont(invisible(NULL))
       } else {
@@ -199,17 +201,17 @@ yieldFrom_cps <- function(.contextName, it) {
   }
 }
 
-make_generator <- function(expr, orig=arg(expr), ...,
+make_generator <- function(expr, orig=substitute(expr), ...,
                            local=TRUE, callingEnv) {
   list(expr, ..., orig)
   .contextName <- "gen"
   targetEnv <- if(local) new.env(parent=callingEnv) else callingEnv
   nonce <- function() NULL
   yielded <- nonce
-  err <- nonce
+  err <- NULL
   state <- "yielded"
 
-  node(getState <- function() state)
+  node(getState <- function() list(state=state, err=err))
 
   node(return_ <- function(val) {
     force(val)
@@ -267,10 +269,12 @@ make_generator <- function(expr, orig=arg(expr), ...,
   })
 
   pump <- make_pump(expr, ..., catch=FALSE,
-                    stp=stop_, yield=yield_, rtn=return_,
-                    targetEnv=targetEnv)
-  pause_val <- get("pause_val_", envir=environment(pump))
-
+                    stp = stop_, yield = yield_, rtn = return_,
+                    targetEnv = targetEnv)
+  expr <- NULL
+  pause_val <- get("pause_val_", envir = environment(pump))
+  targetEnv <- emptyenv()
+  callingEnv <- emptyenv()
   g <- add_class(iteror(nextOr_), "generator", "coroutine")
   g
 }
@@ -278,21 +282,23 @@ make_generator <- function(expr, orig=arg(expr), ...,
 #' @exportS3Method
 getStartSet.generator <- function(x) {
   c(NextMethod(x), list(
-    nextOr_=  x$nextOr,
+    #note that this can be different from "x" because
+    #"x" had extra classes/attributes tacked on
+    nextOr_ =  environment(x)$nextOr_,
     #doWindup = environment(getPump(x))$doWindup),
-    getState = environment(x$nextOr)$getState))
+    getState = environment(x)$getState))
 }
 
 #' @exportS3Method
 reconstitute.generator <- function(orig, munged) {
-  environment(munged$nextOr_)$orig <- environment(orig$nextOr)$orig
+  environment(munged$nextOr_)$orig <- environment(orig)$orig
   new <- add_class(iteror(munged$nextOr_), "generator", "coroutine")
   new
 }
 
 #' @exportS3Method
 getPump.generator <- function(x) {
-  get("pump", environment(x$nextOr))
+  get("pump", environment(x))
 }
 
 #' @exportS3Method
@@ -303,7 +309,7 @@ getPump.generator <- function(x) {
 #' generators that have finished normally.)
 #' @exportS3Method
 summary.generator <- function(object, ...) {
-  c(list(code=expr(get("orig", envir=environment(object$nextOr))),
-         state=environment(object$nextOr)$getState()),
+  c(list(code=get("orig", envir=environment(object))),
+    environment(object)$getState(),
     NextMethod("summary"))
 }

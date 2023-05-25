@@ -34,20 +34,20 @@ test_that("tracing execution", {
   })
   expect_equal(length(grep("\\(pause\\)", op)), 1)
 
-  ch <- mock_channel()
+  mch <- mock_channel()
   st <- stream({
     x <- 0
-    for (i in ch) {
+    for (i in mch$ch) {
       yield(x <- x + 1)
     }
   }, trace=cat)
-  ch$emit(1)
-  ch$emit(2)
+  mch$emit(1)
+  mch$emit(2)
   op <- capture.output({
     res <- gather(st)
     wait_for_it()
-    ch$emit(3)
-    ch$close()
+    mch$emit(3)
+    mch$close()
     wait_for_it()
   })
 

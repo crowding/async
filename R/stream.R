@@ -92,7 +92,7 @@ stream <- function(expr, ..., split_pipes=TRUE, lazy=TRUE,
   args_ <- c(cps_translate(expr_,
                            endpoints=stream_endpoints,
                            split_pipes=split_pipes),
-             orig=forced_quo(expr_),
+             orig=forced_quo(expr(expr_)),
              dots(...))
   set_dots(environment(), args_)
   strm <- make_stream(..., lazy=lazy,
@@ -102,9 +102,9 @@ stream <- function(expr, ..., split_pipes=TRUE, lazy=TRUE,
   strm
 }
 
-make_stream <- function(expr, orig=expr, ...,
+make_stream <- function(expr, orig=substitute(expr), ...,
                         trace=identity, callingEnv, compileLevel, lazy, local=TRUE) { #FIXME
-  list(orig, expr, ..., trace, callingEnv, compileLevel, lazy)
+  list(orig, expr, ..., trace, callingEnv, compileLevel, lazy, local)
   .contextName <- "stream"
   targetEnv <- if (local) new.env(parent=callingEnv) else callingEnv
   nonce <- (function() function() NULL)()
@@ -121,7 +121,7 @@ make_stream <- function(expr, orig=expr, ...,
   pause_val <- NULL
   pause <- NULL
 
-  globalNode(getState <- function() state)
+  globalNode(getState <- function() list(state=state, err=err))
 
   node(return_ <- function(val) {
     state <<- "resolved"
@@ -179,11 +179,10 @@ make_stream <- function(expr, orig=expr, ...,
     close_ <<- close
   })
 
-  ch <- add_class(channel(replace, wakeup=wakeup), "stream", "coroutine")
-
-  ch$orig <- orig
-  ch$state <- environment()
-  ch$wakeup <- wakeup
+  ch <- add_class(channel(replace, wakeup=wakeup), c("stream", "coroutine"))
+  attr(ch, "extra") <- list(orig=orig,
+                            state=environment(),
+                            wakeup=wakeup)
   if (lazy) {
     state <- "yielded"
   } else {
@@ -193,33 +192,35 @@ make_stream <- function(expr, orig=expr, ...,
   if (compileLevel != 0) {
     ch <- compile(ch, level=compileLevel)
   }
-  if (!tmp) ch$state$pump()
+  if (!tmp) attr(ch, "extra")$state$pump()
   ch
 }
 
 #' @exportS3Method
 reconstitute.stream <- function(orig, munged) {
-  st <- add_class(channel(munged$replace, wakeup=munged$wakeup),
+  #munged is an environment
+  st <- add_class(channel(munged$replace,
+                          wakeup=munged$wakeup),
                   "stream", "coroutine")
-  st$orig <- orig$orig
-  st$state <- munged
-  st$wakeup <- munged$wakeup
+  attr(st, "extra") <- list(orig=attr(orig, "extra")$orig,
+                            state=munged,
+                            wakeup=munged$wakeup)
   st
 }
 
 #' @exportS3Method
-getPump.stream <- function(x, ...) x$state$pump
+getPump.stream <- function(x, ...) attr(x, "extra")$state$pump
 #' @exportS3Method
-getReturn.stream <- function(x, ...) x$state$return_
+getReturn.stream <- function(x, ...) attr(x, "extra")$state$return_
 #' @exportS3Method
-getStop.stream <- function(x, ...) x$state$stop_
+getStop.stream <- function(x, ...) attr(x, "extra")$state$stop_
 
 #' @exportS3Method
 getStartSet.stream <- function(x,...) {
   c(NextMethod(), list(
-    replace = x$state$replace,
-    getState = x$state$getState,
-    wakeup = x$state$wakeup))
+    replace = attr(x, "extra")$state$replace,
+    getState = attr(x, "extra")$state$getState,
+    wakeup = attr(x, "extra")$state$wakeup))
 }
 
 #' @rdname format
@@ -227,8 +228,8 @@ getStartSet.stream <- function(x,...) {
 #'   "rejected", "running", "woken", "yielding", or "yielded".
 #' @exportS3Method
 summary.stream <- function(object, ...) {
-  c(list(code=object$orig,
-         state=object$state$getState()),
+  c(list(code=attr(object, "extra")$orig),
+    attr(object, "extra")$state$getState(),
     NextMethod("summary"))
 }
 
@@ -297,6 +298,7 @@ awaitNext_cps <- function(.contextName,
              "closed" = {state <<- "xxx"; or()},
              stp(paste0("awaitNext: unexpected state ", state))) # nocov
     })
+
     node(await_ <- function(val) {
       state <<- "xxx"
       value <<- NULL
