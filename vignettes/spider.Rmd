@@ -37,7 +37,7 @@ Then the meat of the task is covered in this function:
 ```{R}
 spider_site <- function(
                         start_pages, #starting URLs
-                        regexp,    # Linked URLs must match this to be
+                        regexp,    # Linked URLs must match this to be included
                         limit=500) { # maximum number of pages to collect
 
   #all encountered pages will be collected in this hash table
@@ -210,7 +210,7 @@ Interfacing `curl` with `async` was the hard part. Now that this is accomplished
 library(async)
 spider_site_async <- async(function(
                         start_pages, #starting URLs
-                        regexp,    # Linked URLs must match this to be
+                        regexp,    # Linked URLs must match this to be included
                         limit=500) { # maximum number of pages to collect
 
   #all encountered pages will be collected in this hash table
@@ -271,7 +271,7 @@ Wrapping a function definition in `async` creates an async function. This is eff
 
 When an async function reaches a call to `await(x)`, it pauses, allowing R's event loop to continue. The argument to `await` should be a [promise][]. After that promise resolves, the awaiting function will then resume with that value.
 
-[promise]:
+[promise]: https://rstudio.github.io/promises/articles/overview.html
 
 ### A single thread, dividing attention between tasks
 
