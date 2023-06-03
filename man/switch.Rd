@@ -13,11 +13,11 @@ jumps back to re-evaluate the switch argument.}
 \description{
 The \code{switch} function implemented for coroutines in the \code{async}
 package is more strict than the one in base R. In a coroutine,
-\code{switch} will always either take one of the given branches or throw
-an error, whereas base R \code{switch} will silently return NULL if no
-branch matches switch argument. Otherwise, the same conventions
-apply as \code{\link[base:switch]{base::switch()}} (e.g. empty switch branches fall through;
-a character switch may have one unnamed argument as a default.)
+\code{switch} will throw an error if there is no matching branch,
+whereas base R \code{switch} silently returns NULL in that
+situation. Otherwise, the same conventions apply as
+\code{\link[base:switch]{base::switch()}}: empty switch branches fall through, and a
+character switch may have one unnamed argument as a default.
 }
 \details{
 Coroutine \code{switch} also supports a delimited form of \code{goto}. Within
@@ -28,11 +28,19 @@ arguments will jump back to re-evaluate the switch expression.
 If a \code{goto} appears in a try-finally call, as in:
 
 \if{html}{\out{<div class="sourceCode">}}\preformatted{switch("branch",
-   branch=tryCatch(\{...; goto("otherBranch")\},
-                   finally=\{cleanup()\}),
-   otherBranch=\{...\}
+   branch = \{
+     tryCatch(\{
+       doStuff()
+       goto("other_branch")
+     \}, finally = \{
+       cleanup()
+     \})
+   \},
+   other_branch = \{
+     doOtherStuff()
+   \}
 )
 }\if{html}{\out{</div>}}
 
-the \code{finally} clause will be executed \emph{before} switching to the new branch.
+the \code{finally} clause will be executed \emph{before} jumping to the new branch.
 }

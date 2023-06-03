@@ -31,3 +31,10 @@
     )
 
   }
+
+
+checkme <- function(...) {
+  function() c("foo", ...)
+}
+
+checkme("one", "two")()

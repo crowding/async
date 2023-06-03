@@ -48,7 +48,7 @@ deque <- function(len=64) {
 
   append <- function(val) {
     if ((i.open %% length(data)) + 1 == i.first) expand()
-    data[[i.open]] <<- val
+    data[i.open] <<- list(val)
     i.open <<- (i.open %% length(data)) + 1
   }
 
@@ -56,7 +56,7 @@ deque <- function(len=64) {
     if ((i.open %% length(data)) + 1 == i.first) expand()
     if (i.first == 1) i.first <<- length(data)
     else i.first <<- i.first-1
-    data[[i.first]] <<- val
+    data[i.first] <<- list(val)
   }
 
   getLength <- function() {
@@ -69,11 +69,10 @@ deque <- function(len=64) {
 
   structure(list(append=append,
                  prepend=prepend,
-                 nextOr=getFirst,
                  getFirst=getFirst,
                  getLast=getLast,
                  length=getLength),
-            class=c("deque", "funiteror", "iteror", "iter"))
+            class=c("deque"))
 }
 
 
@@ -95,7 +94,7 @@ deque <- function(len=64) {
 #' `awaitNext` or `for` loops within an [async] or [stream] coroutine.
 #'
 #' The low-level interface to obtain values from a channel is to call
-#' [nextThen]`(ch, onNext=, onError=, onClose=, ...)]`, providing callback
+#' [nextThen]`(ch, onNext=, onError=, onFinish=, ...)]`, providing callback
 #' functions for at least `onNext(val)`. Those callbacks will be
 #' appended to an internal queue, and will be called as soon as data
 #' is available, in the order that requests were received.
@@ -125,14 +124,14 @@ deque <- function(len=64) {
 #' receive those three callback methods as arguments. Then use
 #' whatever means to arrange to call `emit(val)` some time in the
 #' future as data comes in. When you are done emitting values, call
-#' the `close()` callback. To report an error call
+#' the `finish()` callback. To report an error call
 #' `reject(err)`; the next requestor will receive the error. If there
 #' is more than one listener, other queued listeners will get a
-#' `close` signal.
+#' `finish` signal.
 #'
 #' @param obj A user-provided function; it will receive three
 #'   callback functions as arguments, in order, `emit(val)`,
-#'   `reject(err)` and `close()`
+#'   `reject(err)` and `finish()`
 #' @param max_queue The maximum number of outgoing values to store if
 #'   there are no listeners. Beyond this, calling `emit` will return
 #'   an error.
@@ -152,20 +151,36 @@ channel <- function(obj, ...) {
 }
 
 #' @exportS3Method
+channel.channel <- function(obj, ...) {
+  stop_unused(...)
+  obj
+}
+
+#' @exportS3Method
 channel.default <- function(obj, ...) {
   if (is.function(obj))
     channel.function(obj, ...)
   else stop("Don't know how to make channel out of that")
 }
 
+check_channel_function_args <- function(obj) {
+  args <- formals(obj)
+  if (length(args) < 3 || any(names(args[1:3]) == "...")) {
+    stop("Channel function must have three named arguments")
+  }
+}
+
 #' @exportS3Method channel "function"
 #' @export
 #' @rdname channel
 channel.function <- function(obj, ..., max_queue=500L, max_awaiting=500L,
+                             onFinish=function(...) NULL,
                              wakeup=function(...) NULL) {
   stop_unused(...)
+  check_channel_function_args(obj)
+
   # list of callbacks waiting to be made having yet to be sent
-  # each is a list(resolve=, reject=, close= )
+  # each is a list(resolve=, reject=, finish= )
   outgoing <- deque()
   # list of values waiting for a callback
   awaiting <- deque()
@@ -192,19 +207,22 @@ channel.function <- function(obj, ..., max_queue=500L, max_awaiting=500L,
     } else {
       errorValue <<- simpleError(...)
     }
+    onFinish()
     send()
   }
 
-  close <- function() {
-    state <<- "closed"
+  finish <- function() {
+    state <<- "finished"
+    onFinish()
     send()
   }
 
-  formatChannel <- function(...) {
-    paste0("<Channel: ",
-           outgoing$length(), " queued, ",
-           awaiting$length(), " awaiting, ",
-           odo, " sent>")
+  summaryChannel <- function(...) {
+    list(
+      state = state,
+      outgoing = outgoing$length(),
+      awaiting = awaiting$length(),
+      sent = odo)
   }
 
   willSend <- FALSE
@@ -231,8 +249,8 @@ channel.function <- function(obj, ..., max_queue=500L, max_awaiting=500L,
                       break
                     },
                     "stopped",
-                    "closed" = {
-                      listener$close()
+                    "finished" = {
+                      listener$finish()
                       break
                     },
                     "running" = {
@@ -256,10 +274,10 @@ channel.function <- function(obj, ..., max_queue=500L, max_awaiting=500L,
   nextThen <- function(onNext,
                        onError = function(err)
                          warning("Unhandled channel error ", err),
-                       onClose, ...) {
+                       onFinish, ...) {
     if (awaiting$length() > max_awaiting) stop("Channel has too many listeners")
     awaiting$append(list(resolve = onNext, reject = onError,
-                         close = onClose, args = list(...)))
+                         finish = onFinish, args = list(...)))
     send()
   }
 
@@ -270,10 +288,12 @@ channel.function <- function(obj, ..., max_queue=500L, max_awaiting=500L,
     })
   }
 
-  obj(emit, reject, close)
+  obj(emit, reject, finish)
   structure(add_class(iteror(nextOr_), "channel"),
-            methods=list(nextThen = nextThen, nextOr = nextOr,
-                         formatChannel = formatChannel))
+            methods=list(nextThen = nextThen,
+                         nextOr = nextOr,
+                         summaryChannel = summaryChannel,
+                         close = close))
 }
 
 #' @exportS3Method
@@ -283,10 +303,20 @@ print.channel <- function(x, ...) {
 
 #' @exportS3Method
 format.channel <- function(x, ...) {
-  attr(x, "methods")$formatChannel(...)
+  s <- attr(x, "methods")$summaryChannel(...)
+  c(paste0("<Channel (", s$state, "): ",
+           s$outgoing, " outgoing, ",
+           s$awaiting, " awaiting, ",
+           s$sent, " sent>"))
 }
 
-#' Receive values from channels by callback.
+#' @exportS3Method
+summary.channel <- function(object, ...) {
+  c(attr(object, "methods")$summaryChannel(...))
+}
+
+
+#' Receive a vaue from a channel by callback.
 #'
 #' `nextThen` is the callback-oriented interface to work with
 #' [channel] objects. Provide the channel callback functions to
@@ -305,11 +335,13 @@ format.channel <- function(x, ...) {
 #' @param onError Function to be called if channel stops with an
 #'   error. Note that if you call nextThen multiple times to register
 #'   multile callbacks, only the first will receive onError; the rest
-#'   will be called with onClose.
-#' @param onClose Function to be called if the channel finishes normally.
-#' @param ... Undocumented.
+#'   will be called with onFinish.
+#' @param onFinish Function to be called if the channel finishes
+#'   normally.
+#' @param ... Depending on the channel, extra arguments may apply; for
+#'   example see [channel.sockconn].
 #' @export
-nextThen <- function(x, onNext, onError, onClose, ...) {
+nextThen <- function(x, onNext, onError, onFinish, ...) {
   UseMethod("nextThen")
 }
 
@@ -318,9 +350,9 @@ nextThen.channel <- function(x,
                              onNext,
                              onError = function(err)
                                stop("Unhandled channel error: ", err),
-                             onClose = function() NULL,
+                             onFinish = function() NULL,
                              ...) {
-  attr(x, "methods")$nextThen(onNext, onError, onClose, ...)
+  attr(x, "methods")$nextThen(onNext, onError, onFinish, ...)
 }
 
 #' @export
@@ -346,119 +378,16 @@ is.channel.default <- function(x) {
 subscribe <- function(x, ...) UseMethod("subscribe")
 
 #' @exportS3Method
-subscribe.channel <- function(x, onNext, onError, onClose, ...) {
-  list(onNext, onError, onClose)
+subscribe.channel <- function(x, onNext, onError, onFinish, ...) {
+  list(onNext, onError, onFinish)
   myNext <- function(value) {
     onNext(value)
-    nextThen(x, myNext, onError, onClose)
+    nextThen(x, myNext, onError, onFinish)
   }
-  nextThen(x, myNext, onError, onClose)
+  nextThen(x, myNext, onError, onFinish)
 }
 
-#' Combine several channels into one.
-#'
-#' `combine(...)` takes any number of [promise] or [channel]
-#' objects. It awaits each one, and returns a [channel] object
-#' which re-emits every value from its targets, in whatever
-#' order they are received.
-#' @param ... Each argument should be a [promise] or a [channel].
-#' @return a [channel] object.
-#' @author Peter Meilstrup
-#' @export
-combine <- function(...) {
-  args <- list(...)
-  channel(\(emit, reject, close) {
-    remaining <- 0
-    running <- FALSE
-    decrement <- function(){
-      remaining <<- remaining-1
-      if (running && remaining == 0){
-        running <<- FALSE; close()
-      }
-    }
-    for (arg in args) {
-      if (is.channel(arg)) {
-        remaining <- remaining + 1
-        subscribe(arg,
-                  emit,
-                  reject,
-                  decrement)
-      } else if (is.promise(arg)) {
-        remaining <- remaining + 1
-        then(arg,
-             \(val) {emit(val); decrement()},
-             reject)
-      } else {
-        stop("Arguments to combine() should be promises or channels")
-      }
-    }
-    if (remaining == 0) close()
-    else running <- TRUE
-  })
-}
-
-# (not ready for prime time...)
-# The channel method for connections wraps a connection object
-# (which should be opened in non-blocking mode).
-channel_connection <- function(obj, ...,
-                               read = {
-                                 if (summary(obj)$text == "text")
-                                   c("lines", "char")
-                                   else c("bin", "lines", "char")
-                               },
-                               read_params = {
-                                 switch(read,
-                                        lines = list(n = 1),
-                                        char = list(nchar = 1),
-                                        bin = list(what = "raw", n = 1))
-                               },
-                               loop = current_loop()) {
-  if (!isOpen(obj, "read"))
-    stop("Need to open the connection for reading before making a channel")
-
-  read <- match.arg(read)
-  readMethod <- switch(read,
-                       lines=readLines,
-                       char=readChar,
-                       bin=readBin)
-
-  emit <- identity
-  reject <- identity
-  close <- function() NULL
-
-  arguments <- read_params |> names() |> lapply(as.name) |> structure(names=names(read_params))
-  readCall <- function_(
-    c(list(...), read_params),
-    bquote(splice=TRUE, {
-      readMethod(obj, ..(arguments), ...)
-    },
-    environment()
-    ))
-
-  doRead <- function(...) {
-    fn <- function() {
-      tryCatch({
-        result <- readCall(...)
-        if (length(result) == 0) {
-          cat("no results...\n")
-          later(fn, 1)
-        } else {
-          if (isIncomplete(obj)) {
-            cat("incomplete results...\n")
-            later(fn, 1)
-          } else {
-            emit(result)
-          }
-        }}, error=function(x) {
-          close(obj);
-          stop(x)
-        })
-    }
-    fn()
-  }
-
-  channel(\(emit, reject, close) {
-    emit <<- emit; reject <<- reject; close <<- close
-  }, wakeup = doRead)
-
+#' @exportS3Method
+close.channel <- function(con, ...) {
+  attr(con, "methods")$close()
 }

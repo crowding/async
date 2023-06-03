@@ -3,7 +3,7 @@
 \name{nextThen}
 \alias{nextThen}
 \alias{subscribe}
-\title{Receive values from channels by callback.}
+\title{Receive a vaue from a channel by callback.}
 \usage{
 nextThen(x, onNext, onError, onClose, ...)
 
@@ -21,9 +21,11 @@ error. Note that if you call nextThen multiple times to register
 multile callbacks, only the first will receive onError; the rest
 will be called with onClose.}
 
-\item{onClose}{Function to be called if the channel finishes normally.}
+\item{onClose}{Function to be called if the channel finishes
+normally.}
 
-\item{...}{Undocumented.}
+\item{...}{Depending on the channel, extra arguments may apply; for
+example see \link{channel.sockconn}.}
 }
 \description{
 \code{nextThen} is the callback-oriented interface to work with

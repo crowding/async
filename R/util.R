@@ -4,10 +4,33 @@
 
 mock_channel <- function(...) {
   e <- NULL
-  ch <- channel(function(emit, reject, close) {
+  ch <- channel(function(emit, reject, finish) {
     e <<- environment()
   }, ...)
-  list(emit=e$emit, reject=e$reject, close=e$close, ch=ch)
+  list(emit=e$emit, reject=e$reject, finish=e$finish, ch=ch)
+}
+
+mock_lazy_channel <- function(...) {
+  dummy <- \(val) stop("no active request")
+  doEmit <- dummy
+  doReject <- dummy
+  doFinish <- dummy
+  args <- list()
+
+  reset <- function() {
+    args <<- list()
+    doEmit <<- dummy; doReject <<- dummy; doFinish <<- dummy;
+  }
+
+  ch <- lazy_channel(function(emit, reject, finish, ...) {
+    args <<- list(...)
+    doEmit <<- \(val) {reset(); emit(val)}
+    doReject <<- \(err, ...) {reset(); reject(err, ...)}
+    doFinish <<- \() {reset(); finish()}
+  }, ...)
+
+  list(emit=\(val)doEmit(val), reject=\(e)doReject(e),
+       finish=\()doFinish(), currentArgs=\()args, ch=ch)
 }
 
 mock_promise <- function() {
@@ -183,8 +206,8 @@ channel_result <- function(channel, trigger) {
              response <<- "next"; value <<- value},
            onError = function(value) {
              response <<- "error"; value <<- value},
-           onClose = function()
-             response <<- "close")
+           onFinish = function()
+             response <<- "finish")
   force(trigger)
   wait_for_it()
   list(response, value)
@@ -206,9 +229,9 @@ expect_channel_rejects <-
 }
 
 #' @import testthat
-expect_channel_closes <- function(channel, trigger=NULL) {
+expect_channel_finishes <- function(channel, trigger=NULL) {
   result <- channel_result(channel, trigger)
-  expect_equal(result[[1]], "close")
+  expect_equal(result[[1]], "finish")
 }
 
 traceBinding <- function(name, value,

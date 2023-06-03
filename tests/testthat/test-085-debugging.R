@@ -47,7 +47,7 @@ test_that("tracing execution", {
     res <- gather(st)
     wait_for_it()
     mch$emit(3)
-    mch$close()
+    mch$finish()
     wait_for_it()
   })
 

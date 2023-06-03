@@ -13,6 +13,7 @@ channel(obj, ...)
   ...,
   max_queue = 500L,
   max_awaiting = 500L,
+  onClose = function(...) NULL,
   wakeup = function(...) NULL
 )
 

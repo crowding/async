@@ -1,0 +1,160 @@
+# How to Create a Networked Server Application with Async/await
+
+The `async` package recently introduced "channels" and "streams" which represent asynchronous streams of data.
+
+## Listening for connections
+
+```{R}
+
+port <- 23236
+# This creates a simple "line echo" server:
+
+echoServer <- async(function(port) {
+  socket <- serverSocket(port)
+  on.exit(if (isOpen(socket)) close(socket))
+  for (con in channel(socket)) {
+    cat("opened connection\n")
+    on.exit(if (isOpen(con)) close(con))
+    async({
+      ch <- channel(con, read="lines")
+      for (lineIn in ch) {
+        writeLines(lineIn, con)
+      }
+    })
+  }
+})
+es <- echoServer(45678)
+
+
+backEnd <- async(function(port) {
+  incomingSocket <- serverSocket(port)
+  openConnections <- c(socket)
+  on.exit(if (isOpen(incomingSocket)) close(incomingSocket))
+  for (con in channel(incomingSocket)) {
+    closer <- frontEnd(con)
+  }
+
+  function() close(incomingSocket) # return a function that closes...
+})
+
+frontEnd <- function(con) {
+  as <- async( {
+    ch <- channel(con, read="lines")
+  on.exit({
+    if (isOpen(con)) close(con)
+  })
+  name <- NULL
+  while(is.null(name)) {
+    writeLines("Welcome! Please enter your name: ")
+    response <- awaitNext(con, or = return())
+    if (!grepl(response, "[_a-zA-Z0-9_](1,33)")) {
+      writeLines("Name should be alphanumeric and between 1 and 33 characters")
+    } else {
+      name <- response
+    }
+  }
+  for (line in ch) { # echo every line back
+    writeLines(line, con)
+  }
+  })
+  close(con)
+}
+
+
+echoServerClosable <- function(port) {
+  incomingSocket <- serverSocket(port)
+  connections <- list()
+  counter <- 0
+
+  handleConnection <- async(function(conn, name) {
+    on.exit({
+      if (isOpen(con)) close(conn)
+      connections[[name]] <- NULL
+    })
+    ch <- channel(conn, read="lines")
+    repeat {
+      lineIn <- awaitNext(ch, or=break, error=break)
+      writeLines(lineIn, conn)
+    }
+  }, trace=TRUE)
+
+  serverPromise <- async({
+    on.exit({
+      if (isOpen(incomingSocket)) close(incomingSocket)
+      for (con in connections) if (isOpen(con)) close(con)
+    })
+    for (conn in channel(incomingSocket)) {
+      name <- as.character(counter)
+      counter <<- counter + 1
+      connections[[name]] <<- list(pr=handleConnection(conn, name), conn=conn)
+    }
+  }, trace=TRUE)
+
+  list(prom=serverPromise, socket=incomingSocket)
+}
+
+es <- echoServerClosable(45678)
+```
+
+
+HOLD ON. Does readLines() work for non-blocking connections AT ALL????
+
+
+## readLines() on non-blocking connections broken in Debian package
+
+1. Does readLines work with non-blocking connections?
+
+i have been trying to understand how R does  "non-blocking" connections in R and was getting frustrated. It seems that R packaged for Debian/Ubuntu has a bug; readLines() does not work properly with non-blocking connections.
+
+My understanding is that:
+
+ 1. if reading from a "non-blocking" connection, readLines() should
+    return character(0) if there is not a complete line available on
+    the connection.
+ 2. if there is a _partial_ line on the connection that hasn't been read, readLines(conn, 1)
+    should return 0, and isIncomplete(conn) should return TRUE. and socetSelect(
+ 3. If later a complete line comes in on the connection,
+    readLines(conn, 1) should return that line.
+
+Instead, what happens is: if `readLines(conn, 1)` returns character(0) once, _it never returns any data from that point _forward_, and isIncomplete(conn) returns false.
+
+At the same time, 
+
+```{R}
+sock <- serverSocket(45678)
+outgoing <- socketConnection("localhost", 45678, blocking=F)
+incoming <- socketAccept(sock, blocking=FALSE)
+writeLines("hello", outgoing)
+readLines(incoming, 1) # i get "hello" (correctly)
+readLines(incoming, 1) # i get character(0) (correctly)
+writeLines("again", outgoing)
+socketSelect(list(incoming)) #TRUE
+readLines(incoming, 1) # i get character(0) (incorrectly)
+socketSelect(list(incoming), timeout=0) #FALSE (incorrect because there is unread data?)
+writeLines("again", outgoing)
+writeLines("again", outgoing)
+readLines(incoming, 1) # character(0) (incorrect)
+isIncomplete(incoming) # FALSE, which also seems wrong bc there is unread data
+readChar(incoming, 100) # "again\nagain\nagain\n", so readChar saw what readLines() did not
+close(incoming)
+close(outgoing)
+close(sock)
+```
+
+(Note that I have also tried with the outgoing and incoming connections being in different processes.)
+
+As well as with fifos:
+
+```{R}
+
+```
+
+This is with R 4.3.1 on Mint Linux. 
+
+This works in  4.1 as installed by Docker...
+
+2. How is one supposed to tell, with a non-blocking connection, whether the connection has been closed by the remote host?
+
+With a socketSelect() returns TRUE but read returns something of length 0 and isIncomplete is false
+
+The problem is that is exactly the behavior exhibited by readLines...

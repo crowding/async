@@ -114,25 +114,42 @@ test_that("channel", {
   expect_emits(mc$ch, "c", mc$emit("c"))
   wait_for_it()
   #wakeups %is% 1
-  expect_channel_closes(mc$ch, mc$close())
+  expect_channel_finishes(mc$ch, mc$finish())
   wait_for_it()
   #wakeups %is% 2
 
 })
 
-test_that("combining channels", {
 
-  pr1 <- mock_promise()
+test_that("summarize / format channel", {
+
   ch1 <- mock_channel()
-  pr2 <- mock_promise()
+  pr <- then(ch1$ch(), toupper)
+  wait_for_it()
+  format(ch1$ch) %is%
+    "<Channel (running): 0 outgoing, 1 awaiting, 0 sent>"
+  ch1$emit('baz')
+  wait_for_it()
+  summary(ch1$ch) %is% list(state="running", outgoing=0, awaiting=0, sent=1)
 
-  out <- combine(pr1,ch1$ch,pr2)
+})
 
-  expect_emits(out, "foo", pr1$resolve("foo"))
-  expect_emits(out, "bar", ch1$emit("bar"))
-  expect_emits(out, "baz", ch1$emit("baz"))
-  expect_emits(out, "qux", pr2$resolve("qux"))
-  expect_channel_closes(out, ch1$close())
+test_that("channel of channel is idempotent", {
+  ch1 <- mock_channel()$ch
+  ch2 <- channel(ch1)
+  expect_identical(ch2, ch1)
+
+  ch3 <- mock_lazy_channel()$ch
+  ch4 <- channel(ch3)
+  expect_identical(ch4, ch3)
+})
+
+test_that("channel function checks", {
+
+  expect_error(channel(function(x, y) NULL), "three")
+  expect_error(lazy_channel(function(x, y) NULL), "three")
+  expect_error(channel(function(x, ..., y, z) NULL), "three")
+  expect_error(lazy_channel(function(x, y, ..., z) NULL), "three")
 
 })
 

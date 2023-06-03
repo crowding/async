@@ -1,3 +1,9 @@
+# async 0.3.3
+
+* Added `ch_apply` which is `lapply` over a channel.
+* `combine` has been renamed `ch_combine` similarly.
+* `lazy_channel` constructor for an alternate way to create channels.
+
 # async 0.3.2
 
 * The `iteror` class has been extracted to a new package [`iterors`](https://github.com/crowding/iterors), which also includes ports of all functionality from `iterators`, `itertools`, and `itertools2`.

@@ -115,7 +115,7 @@ make_stream <- function(expr, orig=substitute(expr), ...,
   err <- nonce
   emit_ <- NULL
   reject_ <- NULL
-  close_ <- NULL
+  finish_ <- NULL
 
   bounce <- NULL
   pause_val <- NULL
@@ -126,7 +126,7 @@ make_stream <- function(expr, orig=substitute(expr), ...,
   node(return_ <- function(val) {
     state <<- "resolved"
     value <<- val
-    close_() # avoid gathering this as a tailcall
+    finish_() # avoid gathering this as a tailcall
     val
   })
 
@@ -173,10 +173,10 @@ make_stream <- function(expr, orig=substitute(expr), ...,
            )
   })
 
-  node(replace <- function(emit, reject, close) {
+  node(replace <- function(emit, reject, finish) {
     emit_ <<- emit
     reject_ <<- reject
-    close_ <<- close
+    finish_ <<- finish
   })
 
   ch <- add_class(channel(replace, wakeup=wakeup), c("stream", "coroutine"))
@@ -228,7 +228,7 @@ getStartSet.stream <- function(x,...) {
 #'   "rejected", "running", "woken", "yielding", or "yielded".
 #' @exportS3Method
 summary.stream <- function(object, ...) {
-  c(list(code=attr(object, "extra")$orig),
+  c(list(code = attr(object, "extra")$orig),
     attr(object, "extra")$state$getState(),
     NextMethod("summary"))
 }
@@ -241,7 +241,7 @@ summary.stream <- function(object, ...) {
 #'
 #' @param strm A [channel] or [stream] object.
 #' @param or This argument will be evaluated and returned in the case
-#'   the channel closes. If not specified, awaiting on a closed stream
+#'   the channel finishs. If not specified, awaiting on a finished stream
 #'   will raise an error with message "StopIteration".
 #' @param err A function to be called if the channel throws an error
 #'   condition.
@@ -295,7 +295,7 @@ awaitNext_cps <- function(.contextName,
       switch(state,
              "success" = {state <<- "xxx"; cont(value)},
              "error" = {state <<- "xxx"; error()},
-             "closed" = {state <<- "xxx"; or()},
+             "finished" = {state <<- "xxx"; or()},
              stp(paste0("awaitNext: unexpected state ", state))) # nocov
     })
 
@@ -309,7 +309,7 @@ awaitNext_cps <- function(.contextName,
                 function(val) {
                   state <<- "error"; value <<- val; awaiting <<- FALSE},
                 function() {
-                  state <<- "closed"; value <<- NULL; awaiting <<- FALSE})
+                  state <<- "finished"; value <<- NULL; awaiting <<- FALSE})
     })
     strm <- strm(await_, ..., await=await,
                  awaitNext=awaitNext, stp=stp)

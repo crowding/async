@@ -44,7 +44,7 @@ test_that("while/break loop over channel", {
   ch$emit(9)
   # If closed happen in the event loop, make sure that
   # listeners can get the rest...
-  expect_resolves_with(as, 18, ch$close())
+  expect_resolves_with(as, 18, ch$finish())
 
 })
 
@@ -60,7 +60,7 @@ test_that("async with for loop over channel", {
   ch$emit(100)
   ch$emit(10)
   ch$emit(1)
-  expect_resolves_with(as, 111, ch$close())
+  expect_resolves_with(as, 111, ch$finish())
 
 })
 
@@ -116,18 +116,18 @@ test_that("async awaitNext with handler", {
 
   as2 <- as((mch <- mock_channel())$ch)
   mch$emit(10)
-  expect_resolves_with(as2, 10, mch$close())
+  expect_resolves_with(as2, 10, mch$finish())
 
 })
 
-test_that("await a closed channel just calls close()", {
+test_that("await a finished channel just calls finish()", {
 
   mch <- mock_channel()
   as <- async({
     for (i in 1:10) (awaitNext(mch$ch, next))
     i
   })
-  expect_resolves_with(as, 10, mch$close())
+  expect_resolves_with(as, 10, mch$finish())
 
 })
 
@@ -148,7 +148,7 @@ test_that("stream: can await and yield", {
   p1$resolve(10)
   expect_resolves_with(p3, 10, NULL)
   expect_resolves_with(p4, 25, p2$resolve(15))
-  expect_channel_closes(st, NULL)
+  expect_channel_finishes(st, NULL)
 
 })
 
@@ -181,9 +181,9 @@ test_that("lazy vs eager streams", {
   ct2 %is% 1
   expect_emits(lazy, 10, ch2$emit(5))
   ct2 %is% 2
-  ch2$close()
+  ch2$finish()
   running %is% TRUE
-  expect_channel_closes(lazy)
+  expect_channel_finishes(lazy)
   running %is% FALSE
 
   ch1 <- mock_channel()
@@ -213,10 +213,10 @@ test_that("lazy vs eager streams", {
   ct1 %is% 2
   expect_emits(eager, 10, ch1$emit(5))
   ct1 %is% 3
-  ch1$close()
+  ch1$finish()
   wait_for_it()
   running %is% FALSE
-  expect_channel_closes(eager)
+  expect_channel_finishes(eager)
 
 })
 
@@ -244,8 +244,8 @@ test_that("stream function", {
   b$emit(2)
   a$emit(5)
   b$emit(10)
-  expect_resolves_with(ga, c(6, 10), a$close())
-  expect_resolves_with(gb, c(8, 16), b$close())
+  expect_resolves_with(ga, c(6, 10), a$finish())
+  expect_resolves_with(gb, c(8, 16), b$finish())
 
 })
 

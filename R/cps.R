@@ -310,8 +310,10 @@ switch_cps <- function(.contextName, EXPR, ...) {
 
       switchcall <- bquote(
         splice=TRUE,
-        {{switch(branch, ..(lapply(seq_along(alts),
-                                 function(i)call(paste0("alt", i)))))}})
+        {{ # make covr ignore
+          switch(branch, ..(lapply(seq_along(alts),
+                                   function(i) call(paste0("alt", i)))))
+        }})
       node(switch_ <- eval(bquote(function(val) {
         if (!is.character(val))
           stp(simpleError(paste0("switch: expected character, got ", mode(val))))
@@ -337,11 +339,11 @@ switch_cps <- function(.contextName, EXPR, ...) {
 #'
 #' The `switch` function implemented for coroutines in the `async`
 #' package is more strict than the one in base R. In a coroutine,
-#' `switch` will always either take one of the given branches or throw
-#' an error, whereas base R `switch` will silently return NULL if no
-#' branch matches switch argument. Otherwise, the same conventions
-#' apply as [base::switch()] (e.g. empty switch branches fall through;
-#' a character switch may have one unnamed argument as a default.)
+#' `switch` will throw an error if there is no matching branch,
+#' whereas base R `switch` silently returns NULL in that
+#' situation. Otherwise, the same conventions apply as
+#' [base::switch()]: empty switch branches fall through, and a
+#' character switch may have one unnamed argument as a default.
 #'
 #' Coroutine `switch` also supports a delimited form of `goto`. Within
 #' a branch, `goto("other_branch")` will stop executing the present
@@ -351,12 +353,20 @@ switch_cps <- function(.contextName, EXPR, ...) {
 #' If a `goto` appears in a try-finally call, as in:
 #'
 #'     switch("branch",
-#'        branch=tryCatch({...; goto("otherBranch")},
-#'                        finally={cleanup()}),
-#'        otherBranch={...}
+#'        branch = {
+#'          tryCatch({
+#'            doStuff()
+#'            goto("other_branch")
+#'          }, finally = {
+#'            cleanup()
+#'          })
+#'        },
+#'        other_branch = {
+#'          doOtherStuff()
+#'        }
 #'     )
 #'
-#' the `finally` clause will be executed _before_ switching to the new branch.
+#' the `finally` clause will be executed _before_ jumping to the new branch.
 #' @export
 #' @rdname switch
 #' @param branch A character string naming the new branch. If missing or NULL,
@@ -530,6 +540,7 @@ while_cps <- function(.contextName, cond, expr) {
 }
 
 #' @importFrom iterors iteror
+#' @importFrom nseval is_missing
 for_cps <- function(.contextName, var, seq, expr) {
   list(.contextName, var, seq, expr)
   function(cont, ..., bounce, bounce_val, nxt, brk, awaitNext, sto, stp) {
@@ -557,7 +568,7 @@ for_cps <- function(.contextName, var, seq, expr) {
       node(nxt_ <- function(val) { #hmm, may be called with 0 or 1 args, just ignores
         val <- NULL
         if (is_async) {
-          await_()
+          await_() # FIXME: hey these are forward refs
         } else {
           bounce(do_)
         }
